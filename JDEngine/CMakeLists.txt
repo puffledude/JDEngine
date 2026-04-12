@@ -10,7 +10,11 @@ project ("JDEngine")
 file (GLOB headers *.h)
 file (GLOB sourceFiles *.cpp)
 set(ALL_FILES ${headers} ${sourceFiles})
-add_library(${PROJECT_NAME} ${ALL_FILES})
+add_library(${PROJECT_NAME} STATIC ${ALL_FILES})
+
+target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET JDEngine PROPERTY CXX_STANDARD 20)
