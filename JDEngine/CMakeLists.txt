@@ -38,18 +38,43 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(tinyobjloader)
 
+FetchContent_Declare(
+    tinygltfloader
+    GIT_REPOSITORY https://github.com/syoyo/tinygltf
+    GIT_TAG v3.0.0
+)
+FetchContent_MakeAvailable(tinygltfloader)
+
+FetchContent_Declare(
+    VKBootstrap
+    GIT_REPOSITORY https://github.com/charles-lunarg/vk-bootstrap
+    GIT_TAG v1.4.341
+)
+FetchContent_MakeAvailable(VKBootstrap)
+
+include(../CMake/Jolt.cmake)
+
+
 find_package(Vulkan REQUIRED)
 find_program(SLANGC_EXECUTABLE slangc HINTS $ENV{VULKAN_SDK}/bin REQUIRED)
 
+
+target_compile_definitions(vk-bootstrap INTERFACE
+    VK_BOOTSTRAP_VULKAN_HEADER_DIR="${Vulkan_INCLUDE_DIRS}"
+)
+
 target_compile_definitions(Vulkan::Vulkan INTERFACE
-        VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
+        #VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
         VULKAN_HPP_NO_STRUCT_CONSTRUCTORS=1
 )
 
 target_link_libraries(${PROJECT_NAME}
   Vulkan::Vulkan
+  vk-bootstrap::vk-bootstrap
   glfw
   tinyobjloader
+  tinygltf
+  Jolt
 )
 
 file(GLOB SHADER_SLANG_SOURCES "${SHADERDIR}/*.slang")
