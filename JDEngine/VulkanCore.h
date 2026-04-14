@@ -24,24 +24,24 @@ namespace JD
 		vk::SurfaceKHR surface = nullptr;
 		VmaAllocator allocator = nullptr;
 		std::array<PerFrame, MAX_FRAMES_IN_FLIGHT> perFrame;
+		std::vector<vk::Image> swapChainImages;
 		~VulkanCore() {
 			for (PerFrame var : perFrame)
 			{
-				vkDestroyFence(device, var.renderFence, nullptr);
-				vkDestroySemaphore(device, var.presentSemaphore, nullptr);
-				vkDestroySemaphore(device, var.renderSemaphore, nullptr);
+				// Use the underlying VkDevice for the C API, and cast the C++ wrapper handles
+				if (var.renderFence) vkDestroyFence(device.device, static_cast<VkFence>(var.renderFence), nullptr);
+				if (var.presentSemaphore) vkDestroySemaphore(device.device, static_cast<VkSemaphore>(var.presentSemaphore), nullptr);
+				if (var.renderSemaphore) vkDestroySemaphore(device.device, static_cast<VkSemaphore>(var.renderSemaphore), nullptr);
 			}
-			delete (perFrame.data());
 
-			vmaDestroyAllocator(allocator);
+			if (allocator != nullptr) {
+				vmaDestroyAllocator(allocator);
+			}
+
 			vkb::destroy_swapchain(swapChain);
 			vkb::destroy_device(device);
 			vkb::destroy_surface(instance, surface);
 			vkb::destroy_instance(instance);
-			
-			//instance.destroy();
 		}
 	};
-
-	
 }

@@ -7,9 +7,27 @@
 
 namespace JD
 {
-	VulkanRenderer::VulkanRenderer(Gameworld& world):Renderer(world){
+	VulkanRenderer::VulkanRenderer(Gameworld& world) :Renderer(world) {
 	}
-	
+
+	VulkanRenderer::~VulkanRenderer() {
+		cleanupVulkan();
+	}
+
+	void VulkanRenderer::cleanupVulkan() {
+		// 1. Wait for everything on the GPU to finish before destroying anything
+		if (vulkanCore.device.device != VK_NULL_HANDLE) {
+			vkDeviceWaitIdle(vulkanCore.device.device);
+		}
+
+		// 2. Clear out the swap chain and other abstractions
+		cleanupSwapChain();
+	};
+
+	void VulkanRenderer::cleanupSwapChain() {
+		vulkanCore.swapChainImages.clear();
+	}
+
 	void VulkanRenderer::AssignWindow(GLFWwindow* window) {
 		this->window = window;
 		glfwSetWindowUserPointer(window, this);
@@ -77,6 +95,8 @@ namespace JD
 		}
 		vkb::destroy_swapchain(vulkanCore.swapChain);
 		vulkanCore.swapChain = swap_ret.value();
+		auto images = vulkanCore.swapChain.get_images().value();
+		vulkanCore.swapChainImages = std::vector<vk::Image>(images.begin(), images.end());
 	}
 
 	void VulkanRenderer::initVMA() {
@@ -109,10 +129,6 @@ namespace JD
 
 
 	}
-
-
-
-
 
 
 

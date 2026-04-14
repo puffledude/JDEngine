@@ -38,8 +38,8 @@ int main() {
 	}
 	glfwDestroyWindow(window);
 	glfwTerminate();
-	/*delete renderer;
-	delete world;*/
+	delete renderer;
+	//delete world;*/
 
 	return 0;
 }

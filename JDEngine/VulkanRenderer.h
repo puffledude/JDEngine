@@ -61,7 +61,9 @@ namespace JD
 		void updatePushConstants();
 
 		void drawFrame();
+
 		void cleanupVulkan();
+		void cleanupSwapChain();
 	/*	void createInstance();
 		void setupDebugMessenger();
 		void createSurface();
