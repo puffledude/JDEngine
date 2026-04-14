@@ -37,7 +37,10 @@ int main() {
 		lastTime = currentTime;
 		//renderer->Update(dt);
 	}
-
+	glfwDestroyWindow(window);
+	glfwTerminate();
+	delete renderer;
+	delete world;
 
 	return 0;
 }

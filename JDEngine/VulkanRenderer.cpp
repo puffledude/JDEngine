@@ -79,6 +79,17 @@ namespace JD
 		vulkanCore.swapChain = swap_ret.value();
 	}
 
+	void VulkanRenderer::initVMA() {
+		VmaAllocatorCreateInfo allocatorInfo = {};
+		allocatorInfo.physicalDevice = vulkanCore.device.physical_device;
+		allocatorInfo.device = vulkanCore.device.device;
+		allocatorInfo.instance = vulkanCore.instance.instance;
+		if (vmaCreateAllocator(&allocatorInfo, &vulkanCore.allocator) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create VMA allocator");
+		}
+	}
+
+
 	void VulkanRenderer::createImageViews() {
 	}
 

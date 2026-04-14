@@ -4,17 +4,17 @@
 
 struct VulkanCore {
 	vkb::Instance instance;
-	//vkb::PhysicalDevice physicalDevice;
 	vkb::Device device;
 	vkb::Swapchain swapChain;
 	vk::SurfaceKHR surface = nullptr;
 	VmaAllocator allocator =nullptr;
 	~VulkanCore() {
 		vmaDestroyAllocator(allocator);
-		delete surface;
-		delete swapChain;
-		delete device;
-		delete instance;
+		vkb::destroy_swapchain(swapChain);
+		vkb::destroy_device(device);
+		vkb::destroy_surface(instance, surface);
+		vkb::destroy_instance(instance);
+
 		//instance.destroy();
 	}
 };

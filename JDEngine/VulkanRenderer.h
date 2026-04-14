@@ -12,6 +12,8 @@
 
 namespace JD
 {
+	const int MAX_FRAMES_IN_FLIGHT = 2;
+
 	class VulkanRenderer : Renderer {
 	public:
 		VulkanRenderer(Gameworld& gameworld);
@@ -48,6 +50,7 @@ namespace JD
 		void initVulkan();
 		void createDevices();
 		void createSwapChain();
+		void initVMA();
 		void createImageViews();
 		void createGraphicsPipelines();
 		void createAlbedoPipeline();
