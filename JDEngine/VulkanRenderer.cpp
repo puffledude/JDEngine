@@ -104,6 +104,8 @@ namespace JD
 		}
 		vkb::destroy_swapchain(vulkanCore.swapChain);
 		vulkanCore.swapChain = swap_ret.value();
+		
+		//std::cout << "Swapchain image format: " << vk::to_string(static_cast<vk::Format>(vulkanCore.swapChain.image_format)) << "\n";
 		auto images = vulkanCore.swapChain.get_images().value();
 		vulkanCore.swapChainImages = std::vector<vk::Image>(images.begin(), images.end());
 	}
