@@ -12,7 +12,6 @@
 
 namespace JD
 {
-	const int MAX_FRAMES_IN_FLIGHT = 2;
 
 	class VulkanRenderer : Renderer {
 	public:
@@ -61,6 +60,7 @@ namespace JD
 		void updateUniformBuffers();
 		void updatePushConstants();
 
+		void drawFrame();
 		void cleanupVulkan();
 	/*	void createInstance();
 		void setupDebugMessenger();

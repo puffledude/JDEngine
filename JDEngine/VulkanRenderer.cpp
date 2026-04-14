@@ -100,6 +100,14 @@ namespace JD
 
 
 	void VulkanRenderer::Update(float dt) {
+		drawFrame();
+	}
+
+	void VulkanRenderer::drawFrame() {
+		//Get fences and semaphores for the current frame
+		//Then bring in the render objects to the command buffer and submit the command buffer to the graphics queue
+
+
 	}
 
 

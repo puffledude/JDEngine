@@ -35,12 +35,11 @@ int main() {
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float dt = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
 		lastTime = currentTime;
-		//renderer->Update(dt);
 	}
 	glfwDestroyWindow(window);
 	glfwTerminate();
-	delete renderer;
-	delete world;
+	/*delete renderer;
+	delete world;*/
 
 	return 0;
 }
