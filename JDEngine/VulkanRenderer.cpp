@@ -91,7 +91,13 @@ namespace JD
 	void VulkanRenderer::createSwapChain() {
 
 		vkb::SwapchainBuilder swapchainBuilder(vulkanCore.device);
-		auto swap_ret = swapchainBuilder.set_old_swapchain(vulkanCore.swapChain).build();
+		VkSurfaceFormatKHR desiredFormat = { VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
+
+		auto swap_ret = swapchainBuilder.set_old_swapchain(vulkanCore.swapChain). set_desired_format(desiredFormat)
+			.add_fallback_format({ VK_FORMAT_R8G8B8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
+			 .use_default_present_mode_selection()
+			 .set_image_usage_flags(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+			.build();
 		if (!swap_ret) {
 			std::cout << swap_ret.error().message() << " " << swap_ret.vk_result() << "\n";
 			return;
