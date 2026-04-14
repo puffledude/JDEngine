@@ -46,6 +46,9 @@ namespace JD
 
 			vulkanCore.surface = create_surface_glfw(vulkanCore.instance.instance, window);
 			createDevices();
+			createSwapChain();
+			initVMA();
+
 
 		}
 		catch (const std::exception& e) {
