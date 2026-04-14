@@ -25,25 +25,54 @@ namespace JD
 			auto* app = reinterpret_cast<VulkanRenderer*>(glfwGetWindowUserPointer(window));
 			app->framebufferResized = true;
 		}
+#
+		// Helper function to create a Vulkan surface using GLFW
+		// Taken from vk bootstrap example code: https://github.com/charles-lunarg/vk-bootstrap/blob/main/example/triangle.cpp
+		VkSurfaceKHR create_surface_glfw(VkInstance instance, GLFWwindow* window, VkAllocationCallbacks* allocator = nullptr) {
+			VkSurfaceKHR surface = VK_NULL_HANDLE;
+			VkResult err = glfwCreateWindowSurface(instance, window, allocator, &surface);
+			if (err) {
+				const char* error_msg;
+				int ret = glfwGetError(&error_msg);
+				if (ret != 0) {
+					std::cout << ret << " ";
+					if (error_msg != nullptr) std::cout << error_msg;
+					std::cout << "\n";
+				}
+				surface = VK_NULL_HANDLE;
+			}
+			return surface;
+		}
+
 
 		void initVulkan();
-		void createInstance();
+		void createDevices();
+		void createSwapChain();
+		void createImageViews();
+		void createGraphicsPipelines();
+		void createAlbedoPipeline();
+		void createLightingPipeline();
+		void createFinalImagePipeline();
+		void createCommandPool();
+		void createSyncObjects();
+		void updateUniformBuffers();
+		void updatePushConstants();
+
+		void cleanupVulkan();
+	/*	void createInstance();
 		void setupDebugMessenger();
 		void createSurface();
 		void pickPhysicalDevice();
 		void createLogicalDevice();
-		void createSwapChain();
-		void createImageViews();
+		
 		void createDescriptorSetLayout();
 		void createDescriptorPool();
 		void createDepthResources();
-		void createGraphicsPipeline();
-		void createCommandPool();
 		void createTextureSampler();
-		//void createUniformBuffers();
-		//void createDescriptorSets();
+		void createUniformBuffers();
+		void createDescriptorSets();
 		void createCommandBuffers();
-		void createSyncObjects();
+		void createSyncObjects();*/
 		
 		
 		bool framebufferResized = false;
