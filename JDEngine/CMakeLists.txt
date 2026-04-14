@@ -64,7 +64,7 @@ target_compile_definitions(vk-bootstrap INTERFACE
 )
 
 target_compile_definitions(Vulkan::Vulkan INTERFACE
-        #VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
+        VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
         VULKAN_HPP_NO_STRUCT_CONSTRUCTORS=1
 )
 
