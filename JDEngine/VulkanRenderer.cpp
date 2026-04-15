@@ -198,6 +198,8 @@ namespace JD
 		vulkanCore.commandPool = static_cast<vk::Device>(vulkanCore.device.device).createCommandPool(poolInfo);
 	}
 
+
+
 	void VulkanRenderer::createGraphicsPipelines() {
 
 
@@ -211,6 +213,68 @@ namespace JD
 	void VulkanRenderer::drawFrame() {
 		//Get fences and semaphores for the current frame
 		//Then bring in the render objects to the command buffer and submit the command buffer to the graphics queue
+
+
+		//auto fenceResult = vkWaitForFences(vulkanCore.device, 1, inFlightFences[frameIndex], VK_TRUE, UINT64_MAX);
+		//if (fenceResult != VK_SUCCESS)
+		//{
+		//	throw std::runtime_error("failed to wait for fence!");
+		//}
+
+		//auto [result, imageIndex] = swapChain.acquireNextImage(UINT64_MAX, *presentCompleteSemaphores[frameIndex], nullptr);
+
+		//if (result == vk::Result::eErrorOutOfDateKHR)
+		//{
+		//	std::cout << "Swap chain is out of date, recreating swap chain..." << std::endl;
+		//	recreateSwapChain();
+		//	return;
+		//}
+		//if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR)
+		//{
+		//	assert(result == vk::Result::eTimeout || result == vk::Result::eNotReady);
+		//	throw std::runtime_error("failed to acquire swap chain image!");
+		//}
+
+		//// Only reset the fence if we are submitting work
+		//device.resetFences(*inFlightFences[frameIndex]);
+
+		////updateUniformBuffer(frameIndex);
+		//recordCommandBuffer(imageIndex);
+		//vk::PipelineStageFlags waitDestinationStageMask = (vk::PipelineStageFlagBits::eColorAttachmentOutput);
+		//const vk::SubmitInfo   submitInfo{ .waitSemaphoreCount = 1,
+		//						  .pWaitSemaphores = &*presentCompleteSemaphores[frameIndex],
+		//						  .pWaitDstStageMask = &waitDestinationStageMask,
+		//						  .commandBufferCount = 1,
+		//						  .pCommandBuffers = &*commandBuffers[frameIndex],
+		//						  .signalSemaphoreCount = 1,
+		//						  .pSignalSemaphores = &*renderFinishedSemaphores[imageIndex] };
+
+		//graphicsQueue.submit(submitInfo, *inFlightFences[frameIndex]);
+
+		//const vk::PresentInfoKHR presentInfo{
+		//	.waitSemaphoreCount = 1,
+		//	.pWaitSemaphores = &*renderFinishedSemaphores[imageIndex],
+		//	.swapchainCount = 1,
+		//	.pSwapchains = &*swapChain,
+		//	.pImageIndices = &imageIndex,
+		//	.pResults = nullptr
+		//};
+		////result = graphicsQueue.presentKHR(presentInfo);
+		////This is dumb. The c++ bindings throw an exception if the result isn't esuccess or suboptimal.
+		//result = static_cast<vk::Result>(
+		//	graphicsQueue.getDispatcher()->vkQueuePresentKHR(static_cast<VkQueue>(*graphicsQueue), reinterpret_cast<const VkPresentInfoKHR*>(&presentInfo)));
+
+
+		//if ((result == vk::Result::eErrorOutOfDateKHR) || (result == vk::Result::eSuboptimalKHR) || framebufferResized) {
+		//	std::cout << "Swap chain is out of date or suboptimal, recreating swap chain..." << std::endl;
+		//	framebufferResized = false;
+		//	recreateSwapChain();
+		//}
+		//else {
+		//	assert(result == vk::Result::eSuccess);
+		//}
+		//frameIndex = (frameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+
 
 
 	}
