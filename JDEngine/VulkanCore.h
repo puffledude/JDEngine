@@ -23,8 +23,11 @@ namespace JD
 		vkb::Swapchain swapChain;
 		vk::SurfaceKHR surface = nullptr;
 		VmaAllocator allocator = nullptr;
+		vk::CommandPool commandPool;
 		std::array<PerFrame, MAX_FRAMES_IN_FLIGHT> perFrame;
 		std::vector<vk::Image> swapChainImages;
+		std::vector<vk::ImageView> swapChainImageViews;
+		Queues queues;
 		~VulkanCore() {
 			for (PerFrame var : perFrame)
 			{

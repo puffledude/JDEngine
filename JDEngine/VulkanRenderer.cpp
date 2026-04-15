@@ -120,8 +120,82 @@ namespace JD
 		}
 	}
 
+	vk::ImageView VulkanRenderer::createImageView(const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels) {
+		vk::ImageViewCreateInfo viewInfo{ .image = image, .viewType = vk::ImageViewType::e2D,
+			.format = format, .subresourceRange = { aspectFlags, 0, 1, 0, 1 } };
+		viewInfo.subresourceRange.levelCount = mipLevels;
+		return static_cast<vk::Device>(vulkanCore.device.device).createImageView(viewInfo);		//return vk::ImageView(static_cast<vk::Device>(vulkanCore.device.device), viewInfo);
+	}
+
 
 	void VulkanRenderer::createImageViews() {
+		assert(vulkanCore.swapChainImageViews.empty());
+		vulkanCore.swapChainImageViews.reserve(vulkanCore.swapChainImages.size());
+
+		for (uint32_t i = 0; i < vulkanCore.swapChainImages.size(); i++) {
+			vulkanCore.swapChainImageViews.push_back(createImageView(vulkanCore.swapChainImages[i], static_cast<vk::Format>(vulkanCore.swapChain.image_format), vk::ImageAspectFlagBits::eColor, 1));
+		}
+
+	}
+
+	void VulkanRenderer::transitionImageLayout(const vk::Image& image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, uint32_t mipLevels) {
+		auto commandBuffer = beginSingleTimeCommands();
+		vk::ImageMemoryBarrier barrier{ .oldLayout = oldLayout, .newLayout = newLayout, .image = image, .subresourceRange = { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 } };
+		barrier.subresourceRange.levelCount = mipLevels;
+
+		vk::PipelineStageFlags sourceStage;
+		vk::PipelineStageFlags destinationStage;
+
+		if (oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eTransferDstOptimal) {
+			barrier.srcAccessMask = {};
+			barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+
+			sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
+			destinationStage = vk::PipelineStageFlagBits::eTransfer;
+		}
+		else if (oldLayout == vk::ImageLayout::eTransferDstOptimal && newLayout == vk::ImageLayout::eShaderReadOnlyOptimal) {
+			barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+			barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+
+			sourceStage = vk::PipelineStageFlagBits::eTransfer;
+			destinationStage = vk::PipelineStageFlagBits::eFragmentShader;
+		}
+		else {
+			throw std::invalid_argument("unsupported layout transition!");
+		}
+
+		commandBuffer.pipelineBarrier(sourceStage, destinationStage, {}, {}, nullptr, barrier);
+		endSingleTimeCommands(commandBuffer);
+	}
+	vk::CommandBuffer VulkanRenderer::beginSingleTimeCommands() {
+		vk::CommandBufferAllocateInfo allocInfo{ .commandPool = vulkanCore.commandPool, .level = vk::CommandBufferLevel::ePrimary, .commandBufferCount = 1 };
+		vk::CommandBuffer commandBuffer = static_cast<vk::Device>(vulkanCore.device.device).allocateCommandBuffers(allocInfo).front()	;
+		//vk::CommandBuffer commandBuffer = std::move(vulkanCore.device.allocateCommandBuffers(allocInfo).front());
+
+		vk::CommandBufferBeginInfo beginInfo{ .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit };
+		commandBuffer.begin(beginInfo);
+
+		return commandBuffer;
+	}
+	void VulkanRenderer::endSingleTimeCommands(vk::CommandBuffer& commandBuffer) {
+		commandBuffer.end();
+		vulkanCore.queues.graphicsQueue.submit(vk::SubmitInfo{ .commandBufferCount = 1, .pCommandBuffers = &commandBuffer }, nullptr);
+		vulkanCore.queues.graphicsQueue.waitIdle();
+	}
+
+
+
+
+	void VulkanRenderer::createQueues() {
+		vulkanCore.queues.graphicsQueue = vulkanCore.device.get_queue(vkb::QueueType::graphics).value();
+		vulkanCore.queues.presentQueue = vulkanCore.device.get_queue(vkb::QueueType::present).value();
+	}
+
+	void VulkanRenderer::createCommandPool() {
+		vk::CommandPoolCreateInfo poolInfo{
+				.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+				.queueFamilyIndex = vulkanCore.device.get_queue_index(vkb::QueueType::graphics).value()};
+		vulkanCore.commandPool = static_cast<vk::Device>(vulkanCore.device.device).createCommandPool(poolInfo);
 	}
 
 	void VulkanRenderer::createGraphicsPipelines() {
