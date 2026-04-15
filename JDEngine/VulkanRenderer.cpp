@@ -3,7 +3,7 @@
 //#define STB_IMAGE_WRITE_IMPLEMENTATION
 #define VMA_IMPLEMENTATION
 // Now include the headers so they catch the defines above!
-#include "tiny_gltf.h"
+#include "tiny_gltf_v3.h"
 #include "vma/vk_mem_alloc.h"
 
 // Then your project headers
