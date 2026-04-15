@@ -44,6 +44,11 @@ namespace JD
 				throw std::runtime_error("Failed to create Vulkan instance: " + inst_ret.error().message());
 			}
 			vulkanCore.instance = inst_ret.value();
+			
+			// Initialize dispatcher with vkGetInstanceProcAddr globally
+			VULKAN_HPP_DEFAULT_DISPATCHER.init(vulkanCore.instance.fp_vkGetInstanceProcAddr);
+			// Initialize dispatcher with instance level functions
+			VULKAN_HPP_DEFAULT_DISPATCHER.init(vulkanCore.instance.instance, vulkanCore.instance.fp_vkGetInstanceProcAddr);
 
 			vulkanCore.surface = create_surface_glfw(vulkanCore.instance, window);
 			createDevices();
@@ -88,6 +93,13 @@ namespace JD
 		vulkanCore.vkbInstances.device = device_ret.value();
 		vulkanCore.device = vulkanCore.vkbInstances.device;
 
+		// 3. Load device-level extension functions into vulkan.hpp
+		VULKAN_HPP_DEFAULT_DISPATCHER.init(
+			vulkanCore.instance.instance,
+			vulkanCore.instance.fp_vkGetInstanceProcAddr,
+			vulkanCore.vkbInstances.device.device,
+			vulkanCore.vkbInstances.device.fp_vkGetDeviceProcAddr
+		);
 	}
 
 	void VulkanRenderer::createSwapChain() {
@@ -183,7 +195,6 @@ namespace JD
 		vulkanCore.queues.graphicsQueue.submit(vk::SubmitInfo{ .commandBufferCount = 1, .pCommandBuffers = &commandBuffer }, nullptr);
 		vulkanCore.queues.graphicsQueue.waitIdle();
 	}
-
 
 
 
