@@ -11,6 +11,9 @@ namespace JD {
 		void AddRenderObject(std::string path) {
 			renderObj = new RenderObject(path);
 		}
+		RenderObject* GetRenderObject() {
+			return renderObj;
+		}
 		virtual void Update(float dt) = 0;
 	
 	protected:
