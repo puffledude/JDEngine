@@ -50,8 +50,14 @@ namespace JD
 		void createDevices();
 		void createSwapChain();
 		void initVMA();
+		vk::ImageView createImageView(const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels);
 		void createImageViews();
+		void transitionImageLayout(const vk::Image& image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, uint32_t mipLevels);
+		vk::CommandBuffer beginSingleTimeCommands();
+		void endSingleTimeCommands(vk::CommandBuffer& commandBuffer);
+
 		void createGraphicsPipelines();
+		void createQueues();
 		void createAlbedoPipeline();
 		void createLightingPipeline();
 		void createFinalImagePipeline();
@@ -94,7 +100,7 @@ namespace JD
 			"VK_LAYER_KHRONOS_validation"
 		};
 
-
+		int frameIndex = 0;
 
 	};
 };

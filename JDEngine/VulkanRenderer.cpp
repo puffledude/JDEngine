@@ -16,9 +16,10 @@ namespace JD
 
 	void VulkanRenderer::cleanupVulkan() {
 		// 1. Wait for everything on the GPU to finish before destroying anything
-		if (vulkanCore.device.device != VK_NULL_HANDLE) {
+		/*if (vulkanCore.device.device != VK_NULL_HANDLE) {
 			vkDeviceWaitIdle(vulkanCore.device.device);
-		}
+		}*/
+		vulkanCore.device.waitIdle();
 
 		// 2. Clear out the swap chain and other abstractions
 		cleanupSwapChain();
@@ -44,7 +45,7 @@ namespace JD
 			}
 			vulkanCore.instance = inst_ret.value();
 
-			vulkanCore.surface = create_surface_glfw(vulkanCore.instance.instance, window);
+			vulkanCore.surface = create_surface_glfw(vulkanCore.instance, window);
 			createDevices();
 			createSwapChain();
 			initVMA();
@@ -84,13 +85,15 @@ namespace JD
 			std::cout << device_ret.error().message() << "\n";
 			return;
 		}
-		vulkanCore.device = device_ret.value();
+		vulkanCore.vkbInstances.device = device_ret.value();
+		vulkanCore.device = vulkanCore.vkbInstances.device;
 
 	}
 
 	void VulkanRenderer::createSwapChain() {
 
-		vkb::SwapchainBuilder swapchainBuilder(vulkanCore.device);
+		vkb::SwapchainBuilder swapchainBuilder(vulkanCore.vkbInstances.device);
+
 		VkSurfaceFormatKHR desiredFormat = { VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
 
 		auto swap_ret = swapchainBuilder.set_old_swapchain(vulkanCore.swapChain). set_desired_format(desiredFormat)
@@ -102,18 +105,16 @@ namespace JD
 			std::cout << swap_ret.error().message() << " " << swap_ret.vk_result() << "\n";
 			return;
 		}
-		vkb::destroy_swapchain(vulkanCore.swapChain);
-		vulkanCore.swapChain = swap_ret.value();
-		
-		//std::cout << "Swapchain image format: " << vk::to_string(static_cast<vk::Format>(vulkanCore.swapChain.image_format)) << "\n";
-		auto images = vulkanCore.swapChain.get_images().value();
-		vulkanCore.swapChainImages = std::vector<vk::Image>(images.begin(), images.end());
+		vkb::destroy_swapchain(vulkanCore.vkbInstances.swapChain);
+		vulkanCore.vkbInstances.swapChain = swap_ret.value();
+		vulkanCore.swapChain = vulkanCore.vkbInstances.swapChain;
+		vulkanCore.swapChainImages = vulkanCore.device.getSwapchainImagesKHR(vulkanCore.swapChain);
 	}
 
 	void VulkanRenderer::initVMA() {
 		VmaAllocatorCreateInfo allocatorInfo = {};
-		allocatorInfo.physicalDevice = vulkanCore.device.physical_device;
-		allocatorInfo.device = vulkanCore.device.device;
+		allocatorInfo.physicalDevice = vulkanCore.vkbInstances.device.physical_device;
+		allocatorInfo.device = vulkanCore.device;
 		allocatorInfo.instance = vulkanCore.instance.instance;
 		if (vmaCreateAllocator(&allocatorInfo, &vulkanCore.allocator) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create VMA allocator");
@@ -124,7 +125,7 @@ namespace JD
 		vk::ImageViewCreateInfo viewInfo{ .image = image, .viewType = vk::ImageViewType::e2D,
 			.format = format, .subresourceRange = { aspectFlags, 0, 1, 0, 1 } };
 		viewInfo.subresourceRange.levelCount = mipLevels;
-		return static_cast<vk::Device>(vulkanCore.device.device).createImageView(viewInfo);		//return vk::ImageView(static_cast<vk::Device>(vulkanCore.device.device), viewInfo);
+		return vulkanCore.device.createImageView(viewInfo);		//return vk::ImageView(static_cast<vk::Device>(vulkanCore.device.device), viewInfo);
 	}
 
 
@@ -133,7 +134,7 @@ namespace JD
 		vulkanCore.swapChainImageViews.reserve(vulkanCore.swapChainImages.size());
 
 		for (uint32_t i = 0; i < vulkanCore.swapChainImages.size(); i++) {
-			vulkanCore.swapChainImageViews.push_back(createImageView(vulkanCore.swapChainImages[i], static_cast<vk::Format>(vulkanCore.swapChain.image_format), vk::ImageAspectFlagBits::eColor, 1));
+			vulkanCore.swapChainImageViews.push_back(createImageView(vulkanCore.swapChainImages[i], static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format), vk::ImageAspectFlagBits::eColor, 1));
 		}
 
 	}
@@ -169,7 +170,7 @@ namespace JD
 	}
 	vk::CommandBuffer VulkanRenderer::beginSingleTimeCommands() {
 		vk::CommandBufferAllocateInfo allocInfo{ .commandPool = vulkanCore.commandPool, .level = vk::CommandBufferLevel::ePrimary, .commandBufferCount = 1 };
-		vk::CommandBuffer commandBuffer = static_cast<vk::Device>(vulkanCore.device.device).allocateCommandBuffers(allocInfo).front()	;
+		vk::CommandBuffer commandBuffer = vulkanCore.device.allocateCommandBuffers(allocInfo).front();
 		//vk::CommandBuffer commandBuffer = std::move(vulkanCore.device.allocateCommandBuffers(allocInfo).front());
 
 		vk::CommandBufferBeginInfo beginInfo{ .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit };
@@ -187,15 +188,15 @@ namespace JD
 
 
 	void VulkanRenderer::createQueues() {
-		vulkanCore.queues.graphicsQueue = vulkanCore.device.get_queue(vkb::QueueType::graphics).value();
-		vulkanCore.queues.presentQueue = vulkanCore.device.get_queue(vkb::QueueType::present).value();
+		vulkanCore.queues.graphicsQueue = vulkanCore.vkbInstances.device.get_queue(vkb::QueueType::graphics).value();
+		vulkanCore.queues.presentQueue = vulkanCore.vkbInstances.device.get_queue(vkb::QueueType::present).value();
 	}
 
 	void VulkanRenderer::createCommandPool() {
 		vk::CommandPoolCreateInfo poolInfo{
 				.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-				.queueFamilyIndex = vulkanCore.device.get_queue_index(vkb::QueueType::graphics).value()};
-		vulkanCore.commandPool = static_cast<vk::Device>(vulkanCore.device.device).createCommandPool(poolInfo);
+				.queueFamilyIndex = vulkanCore.vkbInstances.device.get_queue_index(vkb::QueueType::graphics).value()};
+		vulkanCore.commandPool = vulkanCore.device.createCommandPool(poolInfo);
 	}
 
 

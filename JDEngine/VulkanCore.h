@@ -17,32 +17,45 @@ namespace JD
 		vk::Queue presentQueue;
 	};
 
-	struct VulkanCore {
-		vkb::Instance instance;
+	struct VkbStuff{
+		//vkb::Instance instance;
 		vkb::Device device;
 		vkb::Swapchain swapChain;
+		vk::SurfaceKHR surface = nullptr;
+	};
+
+	struct VulkanCore {
+		vkb::Instance instance;
+		vk::Device device;
+		vk::SwapchainKHR swapChain;
 		vk::SurfaceKHR surface = nullptr;
 		VmaAllocator allocator = nullptr;
 		vk::CommandPool commandPool;
 		std::array<PerFrame, MAX_FRAMES_IN_FLIGHT> perFrame;
 		std::vector<vk::Image> swapChainImages;
 		std::vector<vk::ImageView> swapChainImageViews;
+		VkbStuff vkbInstances;
 		Queues queues;
 		~VulkanCore() {
-			for (PerFrame var : perFrame)
+			for (const PerFrame& var : perFrame)
 			{
-				// Use the underlying VkDevice for the C API, and cast the C++ wrapper handles
-				if (var.renderFence) vkDestroyFence(device.device, static_cast<VkFence>(var.renderFence), nullptr);
-				if (var.presentSemaphore) vkDestroySemaphore(device.device, static_cast<VkSemaphore>(var.presentSemaphore), nullptr);
-				if (var.renderSemaphore) vkDestroySemaphore(device.device, static_cast<VkSemaphore>(var.renderSemaphore), nullptr);
+				// Use the neatly wrapped vulkan.hpp C++ device methods
+				if (var.renderFence) device.destroy(var.renderFence);
+				if (var.presentSemaphore) device.destroy(var.presentSemaphore);
+				if (var.renderSemaphore) device.destroy(var.renderSemaphore);
+			}
+
+			if (commandPool) {
+				device.destroy(commandPool);
 			}
 
 			if (allocator != nullptr) {
 				vmaDestroyAllocator(allocator);
 			}
 
-			vkb::destroy_swapchain(swapChain);
-			vkb::destroy_device(device);
+			// Ensure we are passing the vkb:: struct variants back to vkb::destroy
+			vkb::destroy_swapchain(vkbInstances.swapChain);
+			vkb::destroy_device(vkbInstances.device);
 			vkb::destroy_surface(instance, surface);
 			vkb::destroy_instance(instance);
 		}
