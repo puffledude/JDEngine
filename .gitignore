@@ -2,3 +2,4 @@ out
 *.spv
 build
 .vs
+/Assets/Models/Environment
