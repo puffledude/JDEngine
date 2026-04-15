@@ -11,3 +11,4 @@ Libaries used:
 - VKBootstrap
 - TinyGLTF
 - Jolt
+- STB Image
