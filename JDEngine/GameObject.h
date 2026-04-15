@@ -1,4 +1,7 @@
 #include "RenderObject.h"
+#include <glm/vec3.hpp>
+#include <glm/gtc/quaternion.hpp>
+
 
 namespace JD {
 	class GameObject
@@ -18,6 +21,9 @@ namespace JD {
 	
 	protected:
 		RenderObject* renderObj = nullptr;
-	
+		
+		glm::vec3 position = glm::vec3(0.0f);
+		glm::quat rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+
 	};
 };

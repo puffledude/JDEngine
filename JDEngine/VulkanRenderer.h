@@ -8,12 +8,13 @@
 #include <GLFW/glfw3.h>
 #include "VkBootstrap.h"
 #include <iostream>
+#include "stb_image.h"
 #include <stdexcept>
 
 namespace JD
 {
 
-	class VulkanRenderer : Renderer {
+	class VulkanRenderer : public Renderer {
 	public:
 		VulkanRenderer(Gameworld& gameworld);
 		void AssignWindow(GLFWwindow* window);
@@ -68,8 +69,10 @@ namespace JD
 
 		void drawFrame();
 
+		
 		void cleanupVulkan();
 		void cleanupSwapChain();
+		tinygltf::Scene* makeGLTFScene(GLTFData data) override;
 	/*	void createInstance();
 		void setupDebugMessenger();
 		void createSurface();

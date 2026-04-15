@@ -52,6 +52,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(VKBootstrap)
 
+FetchContent_Declare(
+    EnTT
+    GIT_REPOSITORY https://github.com/skypjack/entt
+     GIT_TAG v3.16.0
+)
+FetchContent_MakeAvailable(EnTT)
+
 include(../CMake/Jolt.cmake)
 
 
@@ -75,6 +82,7 @@ target_link_libraries(${PROJECT_NAME}
   tinyobjloader
   tinygltf
   Jolt
+  EnTT::EnTT
 )
 
 file(GLOB SHADER_SLANG_SOURCES "${SHADERDIR}/*.slang")

@@ -1,6 +1,7 @@
 #include <iostream>
 #include <chrono>
 #include "VulkanRenderer.h"
+#include "GameScene.h"
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
@@ -30,16 +31,19 @@ int main() {
 	GLFWwindow* window = initWindow();
 	renderer->AssignWindow(window);
 	auto lastTime = std::chrono::high_resolution_clock::now();
+	GameScene* scene = new GameScene(world, renderer);
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float dt = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
 		lastTime = currentTime;
+		scene->Update(dt);
 	}
+	delete scene;
+	delete renderer;
+	delete world;
 	glfwDestroyWindow(window);
 	glfwTerminate();
-	delete renderer;
-	//delete world;*/
 
 	return 0;
 }

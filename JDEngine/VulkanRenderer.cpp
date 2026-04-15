@@ -1,9 +1,14 @@
 #include "VulkanRenderer.h"
+//#define TINYGLTF_IMPLEMENTATION
+//#define STB_IMAGE_WRITE_IMPLEMENTATION
 #define VMA_IMPLEMENTATION
+// Now include the headers so they catch the defines above!
+#include "tiny_gltf.h"
 #include "vma/vk_mem_alloc.h"
+
+// Then your project headers
+
 #include "RequiredFeatures.h"
-
-
 
 namespace JD
 {
@@ -207,14 +212,13 @@ namespace JD
 		vk::CommandPoolCreateInfo poolInfo{
 				.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
 				.queueFamilyIndex = vulkanCore.vkbInstances.device.get_queue_index(vkb::QueueType::graphics).value()};
+
 		vulkanCore.commandPool = vulkanCore.device.createCommandPool(poolInfo);
 	}
 
 
 
 	void VulkanRenderer::createGraphicsPipelines() {
-
-
 	}
 
 
@@ -284,7 +288,7 @@ namespace JD
 		//}
 		//else {
 		//	assert(result == vk::Result::eSuccess);
-		//}
+		// }
 		//frameIndex = (frameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
 
 
@@ -292,6 +296,8 @@ namespace JD
 	}
 
 
-
+	tinygltf::Scene* VulkanRenderer::makeGLTFScene(GLTFData data) {
+		return nullptr;
+	}
 
 }
