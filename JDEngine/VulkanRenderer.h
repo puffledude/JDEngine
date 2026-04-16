@@ -72,6 +72,8 @@ namespace JD
 		
 		void cleanupVulkan();
 		void cleanupSwapChain();
+		MeshComponent createMeshComponent() override;
+
 		//tinygltf::Scene* makeGLTFScene(GLTFData data) override;
 	/*	void createInstance();
 		void setupDebugMessenger();
