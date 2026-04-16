@@ -8,6 +8,8 @@ namespace JD {
 		std::vector<std::vector<uint32_t>> indices; // Vector of indices for each mesh
 		std::vector<tinygltf::Material> materials; // Vector of materials for each mesh
 	};
+	//posibly need a material component/ textures component
+
 
 	struct TransformComponent {
 		glm::vec3 position;
