@@ -296,8 +296,8 @@ namespace JD
 	}
 
 
-	tinygltf::Scene* VulkanRenderer::makeGLTFScene(GLTFData data) {
-		return nullptr;
-	}
+	//tinygltf::Scene* VulkanRenderer::makeGLTFScene(GLTFData data) {
+	//	return nullptr;
+	//}
 
 }
