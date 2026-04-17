@@ -155,19 +155,19 @@ namespace JD
 		}
 
 	}
-
-	VmaAllocation* VulkanRenderer::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory) {
+	void VulkanRenderer::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, VmaAllocation& allocation){
 		vk::BufferCreateInfo bufferInfo{ .size = size, .usage = usage, .sharingMode = vk::SharingMode::eExclusive };
 		const VkBufferCreateInfo vkBufferInfo = static_cast<VkBufferCreateInfo>(bufferInfo);
 
 		VmaAllocationCreateInfo allocInfo = {};
 		allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-
-		VmaAllocation allocation;
+		VmaAllocationInfo vmaAllocInfo = {};
+		VmaAllocation createdAllocation;
 		VkBuffer cBuffer = VK_NULL_HANDLE;
-		vmaCreateBuffer(vulkanCore.allocator, &vkBufferInfo, &allocInfo, &cBuffer, &allocation, nullptr);
+		vmaCreateBuffer(vulkanCore.allocator, &vkBufferInfo, &allocInfo, &cBuffer, &createdAllocation, nullptr);
 		buffer = vk::Buffer(cBuffer);
-		return &allocation;
+		allocation = createdAllocation;
+		vulkanCore.device.bindBufferMemory(buffer, allocation->GetMemory(), 0);
 	}
 
 	void VulkanRenderer::transitionImageLayout(const vk::Image& image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, uint32_t mipLevels) {
@@ -235,6 +235,45 @@ namespace JD
 	void VulkanRenderer::createGraphicsPipelines() {
 	}
 
+	void VulkanRenderer::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation) {
+		vk::ImageCreateInfo imageInfo{ .imageType = vk::ImageType::e2D, .format = format,
+			.extent = {width, height, 1}, .mipLevels = mipLevels, .arrayLayers = 1,
+			.samples = vk::SampleCountFlagBits::e1, .tiling = tiling,
+			.usage = usage, .sharingMode = vk::SharingMode::eExclusive
+		};
+		imageInfo.mipLevels = mipLevels;
+
+		VmaAllocationCreateInfo allocInfo = {};
+		allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+
+
+		VkImage rawImage = VK_NULL_HANDLE;
+		vmaCreateImage(vulkanCore.allocator, reinterpret_cast<const VkImageCreateInfo*>(&imageInfo), &allocInfo, &rawImage, &allocation, nullptr);
+
+		image = vk::Image(rawImage);
+		vulkanCore.device.bindImageMemory(image, allocation->GetMemory(), 0);
+		/*image = vulkanCore.device.createImage(imageInfo);*/
+
+		
+
+		/*vk::MemoryRequirements memRequirements = image.getMemoryRequirements();
+		vk::MemoryAllocateInfo allocInfo{ .allocationSize = memRequirements.size,
+											.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties) };
+		imageMemory = vk::raii::DeviceMemory(device, allocInfo);
+		image.bindMemory(imageMemory, 0);*/
+	}
+
+
+
+
+	void VulkanRenderer::copyBufferToImage(const vk::Buffer& buffer, vk::Image& image, uint32_t width, uint32_t height) {
+		vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
+		vk::BufferImageCopy region{ .bufferOffset = 0, .bufferRowLength = 0, .bufferImageHeight = 0,
+		.imageSubresource = { vk::ImageAspectFlagBits::eColor, 0, 0, 1 }, .imageOffset = {0, 0, 0}, .imageExtent = {width, height, 1} };
+		commandBuffer.copyBufferToImage(buffer, image, vk::ImageLayout::eTransferDstOptimal, region);
+		endSingleTimeCommands(commandBuffer);
+
+	}
 
 	void VulkanRenderer::loadGLTF(std::vector<MeshComponent>& meshComponents, std::string filePath) {
 		//Code here based on code from: https://docs.vulkan.org/tutorial/latest/15_GLTF_KTX2_Migration.html (Accessed 17.04.2026)
@@ -255,6 +294,44 @@ namespace JD
 		}
 		//Suggstion from tutorial. Load materials and textures first so they can be referenced when loading meshes.
 		//Reference from here https://docs.vulkan.org/tutorial/latest/Building_a_Simple_Engine/Loading_Models/04_loading_gltf.html
+
+		std::vector<vk::Image> textures;
+		for (size_t i = 0; i < model.textures.size(); i++) {
+			const auto& texture = model.textures[i];
+			const auto& image = model.images[texture.source];
+			tinygltf::Texture tex;
+			tex.name = image.name.empty() ? "texture_" + std::to_string(i) : image.name;
+			if (image.mimeType == "image/png" || image.mimeType == "image/jpeg") {
+				//tex.image = image;
+				//textures.push_back(tex);
+				const auto& bufferView = model.bufferViews[image.bufferView];
+				const auto& buffer = model.buffers[bufferView.buffer];
+
+				auto dataPtr = buffer.data.data() + bufferView.byteOffset;
+				int width = image.width;
+				int height = image.height;
+				const vk::DeviceSize imageSize = static_cast<vk::DeviceSize>(bufferView.byteLength);
+				vk::Buffer stagingBuffer;
+				VmaAllocation stagingAllocation;
+				createBuffer(imageSize, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingAllocation);
+				void* mapped = nullptr;
+				vmaMapMemory(vulkanCore.allocator, stagingAllocation, &mapped);
+				std::memcpy(mapped, dataPtr, static_cast<size_t>(imageSize));
+				vmaUnmapMemory(vulkanCore.allocator, stagingAllocation);
+				vk::Image textureImage;
+				VmaAllocation textureAllocation;
+				createImage(width, height, 1, vk::Format::eR8G8B8A8Srgb, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, textureImage, textureAllocation);
+				transitionImageLayout(textureImage, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, 1);
+				copyBufferToImage(stagingBuffer, textureImage, width, height);
+				transitionImageLayout(textureImage, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, 1);
+				textures.push_back(textureImage);
+			}
+			 else {
+				std::cerr << "Unsupported texture format: " << image.mimeType << std::endl;
+			}
+
+		}
+
 
 		for (const auto& mesh : model.meshes) {
 			std::vector<Vertex> vertices;

@@ -9,8 +9,8 @@
 #include "VkBootstrap.h"
 #include <iostream>
 #include "stb_image.h"
-#include "glm/glm.hpp"
-#include "glm/gtc/quaternion.hpp"
+#include <glm/vec3.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <stdexcept>
 
 namespace JD
@@ -21,6 +21,7 @@ namespace JD
 		VulkanRenderer(Gameworld& gameworld);
 		void AssignWindow(GLFWwindow* window);
 		void Update(float dt) override;
+		void loadGLTF(std::vector<MeshComponent>& meshComponents, std::string filePath) override;
 
 		~VulkanRenderer();
 
@@ -58,7 +59,10 @@ namespace JD
 		void transitionImageLayout(const vk::Image& image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, uint32_t mipLevels);
 		vk::CommandBuffer beginSingleTimeCommands();
 		void endSingleTimeCommands(vk::CommandBuffer& commandBuffer);
-		VmaAllocation* createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory);
+		void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, VmaAllocation& allocation);
+		void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation);
+
+		void copyBufferToImage(const vk::Buffer& buffer, vk::Image& image, uint32_t width, uint32_t height);
 		void createGraphicsPipelines();
 		void createQueues();
 		void createAlbedoPipeline();
@@ -74,7 +78,6 @@ namespace JD
 		
 		void cleanupVulkan();
 		void cleanupSwapChain();
-		void loadGLTF(std::vector<MeshComponent>& meshComponents, std::string filePath) override;
 
 		//tinygltf::Scene* makeGLTFScene(GLTFData data) override;
 	/*	void createInstance();
