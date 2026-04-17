@@ -1,6 +1,8 @@
 #pragma once
 #include <vector>
 #include "VulkanRenderer.h"
+#include "tiny_gltf_v3.h"
+
 
 namespace JD {
 	struct GLTFData {
@@ -33,16 +35,19 @@ namespace JD {
 	using VertexBuffer = vk::Buffer;
 	using IndexBuffer = vk::Buffer;
 	//Use the using keyword here to store the vertex and index buffer data with the defined vertex and index buffer types.
+	//One mesh component per submesh of the gltf model. Store the submeshes materials, textures and other relevant data in the mesh component as well.
 	struct MeshComponent {
 		VertexBuffer vertexBuffer;
 		IndexBuffer indexBuffer;
+		//std::vector<tinygltf::Material> materials; // Vector of materials for each submesh
+		std::vector<tinygltf::Texture> textures; // Vector of textures for each submesh. Might change this to be image samplers instead or something.
 	};
 
 
 	struct RenderableComponent {
 		MeshComponent mesh;
 		TransformComponent transform;
-		RenderableType type;
+		//RenderableType type;
 	};
 }
 

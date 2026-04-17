@@ -9,6 +9,8 @@
 #include "VkBootstrap.h"
 #include <iostream>
 #include "stb_image.h"
+#include "glm/glm.hpp"
+#include "glm/gtc/quaternion.hpp"
 #include <stdexcept>
 
 namespace JD
@@ -72,7 +74,7 @@ namespace JD
 		
 		void cleanupVulkan();
 		void cleanupSwapChain();
-		MeshComponent createMeshComponent() override;
+		void loadGLTF(std::vector<MeshComponent>& meshComponents, std::string filePath) override;
 
 		//tinygltf::Scene* makeGLTFScene(GLTFData data) override;
 	/*	void createInstance();
