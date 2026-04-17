@@ -222,6 +222,79 @@ namespace JD
 	}
 
 
+	void VulkanRenderer::loadGLTF(std::vector<MeshComponent>& meshComponents, std::string filePath) {
+		//Code here based on code from: https://docs.vulkan.org/tutorial/latest/15_GLTF_KTX2_Migration.html (Accessed 17.04.2026)
+
+		tinygltf::TinyGLTF loader;
+		tinygltf::Model model;
+		std::string err;
+		std::string warn;
+		bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, filePath);
+		if (!warn.empty()) {
+			std::cout << "GLTF Warning: " << warn << std::endl;
+		}
+		if (!err.empty()) {
+			std::cerr << "GLTF Error: " << err << std::endl;
+		}
+		if (!ret) {
+			throw std::runtime_error("Failed to load GLTF file: " + filePath);
+		}
+		//Suggstion from tutorial. Load materials and textures first so they can be referenced when loading meshes.
+		//Reference from here https://docs.vulkan.org/tutorial/latest/Building_a_Simple_Engine/Loading_Models/04_loading_gltf.html
+
+		for (const auto& mesh : model.meshes) {
+			std::vector<Vertex> vertices;
+			std::vector<uint32_t> indices;
+			for (const auto& primitive : mesh.primitives) {
+				const tinygltf::Accessor& indexAccessor = model.accessors[primitive.indices];
+				const tinygltf::BufferView& indexBufferView = model.bufferViews[indexAccessor.bufferView];
+				const tinygltf::Buffer& indexBuffer = model.buffers[indexBufferView.buffer];
+
+				// Get vertex positions
+				const tinygltf::Accessor& posAccessor = model.accessors[primitive.attributes.at("POSITION")];
+				const tinygltf::BufferView& posBufferView = model.bufferViews[posAccessor.bufferView];
+				const tinygltf::Buffer& posBuffer = model.buffers[posBufferView.buffer];
+
+
+				bool                        hasTexCoords = primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end();
+				const tinygltf::Accessor* texCoordAccessor = nullptr;
+				const tinygltf::BufferView* texCoordBufferView = nullptr;
+				const tinygltf::Buffer* texCoordBuffer = nullptr;
+				if (hasTexCoords)
+				{
+					texCoordAccessor = &model.accessors[primitive.attributes.at("TEXCOORD_0")];
+					texCoordBufferView = &model.bufferViews[texCoordAccessor->bufferView];
+					texCoordBuffer = &model.buffers[texCoordBufferView->buffer];
+				}
+				const unsigned char* indexData = &indexBuffer.data[indexBufferView.byteOffset + indexAccessor.byteOffset];
+				size_t               indexCount = indexAccessor.count;
+				size_t               indexStride = 0;
+
+
+				if (indexAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
+				{
+					indexStride = sizeof(uint16_t);
+				}
+				else if (indexAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT)
+				{
+					indexStride = sizeof(uint32_t);
+				}
+				else if (indexAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
+				{
+					indexStride = sizeof(uint8_t);
+				}
+				else
+				{
+					throw std::runtime_error("Unsupported index component type");
+				}
+				
+			}
+		}
+		
+	}
+
+
+
 	void VulkanRenderer::Update(float dt) {
 		drawFrame();
 	}
@@ -294,10 +367,5 @@ namespace JD
 
 
 	}
-
-
-	//tinygltf::Scene* VulkanRenderer::makeGLTFScene(GLTFData data) {
-	//	return nullptr;
-	//}
 
 }
