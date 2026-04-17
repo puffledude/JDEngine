@@ -58,7 +58,7 @@ namespace JD
 		void transitionImageLayout(const vk::Image& image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, uint32_t mipLevels);
 		vk::CommandBuffer beginSingleTimeCommands();
 		void endSingleTimeCommands(vk::CommandBuffer& commandBuffer);
-
+		VmaAllocation* createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory);
 		void createGraphicsPipelines();
 		void createQueues();
 		void createAlbedoPipeline();
