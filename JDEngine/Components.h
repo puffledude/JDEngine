@@ -1,6 +1,9 @@
 #pragma once
 #include <vector>
-#include "VulkanRenderer.h"
+#include "Vertex.h"
+#include <glm/vec3.hpp>
+#include <glm/gtc/quaternion.hpp>
+
 #include "tiny_gltf_v3.h"
 
 
