@@ -156,6 +156,20 @@ namespace JD
 
 	}
 
+	VmaAllocation* VulkanRenderer::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory) {
+		vk::BufferCreateInfo bufferInfo{ .size = size, .usage = usage, .sharingMode = vk::SharingMode::eExclusive };
+		const VkBufferCreateInfo vkBufferInfo = static_cast<VkBufferCreateInfo>(bufferInfo);
+
+		VmaAllocationCreateInfo allocInfo = {};
+		allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+
+		VmaAllocation allocation;
+		VkBuffer cBuffer = VK_NULL_HANDLE;
+		vmaCreateBuffer(vulkanCore.allocator, &vkBufferInfo, &allocInfo, &cBuffer, &allocation, nullptr);
+		buffer = vk::Buffer(cBuffer);
+		return &allocation;
+	}
+
 	void VulkanRenderer::transitionImageLayout(const vk::Image& image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, uint32_t mipLevels) {
 		auto commandBuffer = beginSingleTimeCommands();
 		vk::ImageMemoryBarrier barrier{ .oldLayout = oldLayout, .newLayout = newLayout, .image = image, .subresourceRange = { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 } };
