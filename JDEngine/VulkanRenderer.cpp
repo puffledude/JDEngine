@@ -374,16 +374,13 @@ namespace JD
 			const auto& image = model.images[texture.source];
 			tinygltf::Texture tex;
 			tex.name = image.name.empty() ? "texture_" + std::to_string(i) : image.name;
-			if (image.mimeType == "image/png" || image.mimeType == "image/jpeg") {
-				//tex.image = image;
-				//textures.push_back(tex);
-				const auto& bufferView = model.bufferViews[image.bufferView];
-				const auto& buffer = model.buffers[bufferView.buffer];
-
-				auto dataPtr = buffer.data.data() + bufferView.byteOffset;
+			vk::Image textureImage{};
+			if (!image.image.empty()) {
+				// TinyGLTF has already decoded the PNG/JPG into raw pixel data!
+				const unsigned char* dataPtr = image.image.data();
 				int width = image.width;
 				int height = image.height;
-				const vk::DeviceSize imageSize = static_cast<vk::DeviceSize>(bufferView.byteLength);
+				const vk::DeviceSize imageSize = width * height * 4;
 				vk::Buffer stagingBuffer = vk::Buffer{};
 				VmaAllocation stagingAllocation = VmaAllocation{};
 				createBuffer(imageSize, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingAllocation);
