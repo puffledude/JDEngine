@@ -155,13 +155,67 @@ namespace JD
 		}
 
 	}
+
+	void VulkanRenderer::copyBuffer(const vk::Buffer& srcBuffer, vk::Buffer& dstBuffer, vk::DeviceSize size) {
+		vk::CommandBuffer commandCopyBuffer = beginSingleTimeCommands();
+		commandCopyBuffer.copyBuffer(srcBuffer, dstBuffer, vk::BufferCopy(0, 0, size));
+		endSingleTimeCommands(commandCopyBuffer);
+	}
+
+	uint32_t VulkanRenderer::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) {
+		//vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties();
+		vk::PhysicalDevice physDevice = vulkanCore.vkbInstances.device.physical_device.physical_device;
+		vk::PhysicalDeviceMemoryProperties memProperties = physDevice.getMemoryProperties();
+		for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+			if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+				return i;
+			}
+		}
+		throw std::runtime_error("Failed to find suitable memory type!");
+	}
+
+	void VulkanRenderer::createVertexBuffer(std::vector<Vertex>& verticies, vk::Buffer& buffer) {
+		vk::DeviceSize bufferSize = sizeof(verticies[0]) * verticies.size();
+		vk::Buffer stagingBuffer = vk::Buffer{};
+		VmaAllocation stagingBufferMemory = VmaAllocation{};
+		createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingBufferMemory);
+		void* mapped = nullptr;
+		vmaMapMemory(vulkanCore.allocator, stagingBufferMemory, &mapped);
+		std::memcpy(mapped, verticies.data(), (size_t)bufferSize);
+		vmaUnmapMemory(vulkanCore.allocator, stagingBufferMemory);
+		VmaAllocation vertexBufferMemory = VmaAllocation{};
+		createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer, vk::MemoryPropertyFlagBits::eDeviceLocal, buffer, vertexBufferMemory);
+		copyBuffer(stagingBuffer, buffer, bufferSize);
+
+
+	}
+
+	void VulkanRenderer::createIndexBuffer(std::vector<uint32_t>& indicies, vk::Buffer& buffer) {
+		vk::DeviceSize bufferSize = sizeof(indicies[0]) * indicies.size();
+		vk::Buffer stagingBuffer = vk::Buffer{};
+		VmaAllocation stagingBufferMemory = VmaAllocation{};
+		VmaAllocation indexBufferMemory = VmaAllocation{};
+		createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingBufferMemory);
+		void* mapped = nullptr;
+		vmaMapMemory(vulkanCore.allocator, stagingBufferMemory, &mapped);
+		std::memcpy(mapped, indicies.data(), (size_t)bufferSize);
+		vmaUnmapMemory(vulkanCore.allocator, stagingBufferMemory);
+		createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer, vk::MemoryPropertyFlagBits::eDeviceLocal, buffer, indexBufferMemory);
+		copyBuffer(stagingBuffer, buffer, bufferSize);
+		
+	}
+
 	void VulkanRenderer::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, VmaAllocation& allocation){
 		vk::BufferCreateInfo bufferInfo{ .size = size, .usage = usage, .sharingMode = vk::SharingMode::eExclusive };
 		const VkBufferCreateInfo vkBufferInfo = static_cast<VkBufferCreateInfo>(bufferInfo);
-
+		vk::MemoryRequirements memRequirements = vulkanCore.device.getBufferMemoryRequirements(buffer);
+			//buffer.getMemoryRequirements();
 		VmaAllocationCreateInfo allocInfo = {};
 		allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-		VmaAllocationInfo vmaAllocInfo = {};
+		allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+		allocInfo.memoryTypeBits = findMemoryType(memRequirements.memoryTypeBits, properties);
+
+		//VmaAllocationInfo vmaAllocInfo = vu{};
 		VmaAllocation createdAllocation;
 		VkBuffer cBuffer = VK_NULL_HANDLE;
 		vmaCreateBuffer(vulkanCore.allocator, &vkBufferInfo, &allocInfo, &cBuffer, &createdAllocation, nullptr);
@@ -275,6 +329,11 @@ namespace JD
 
 	}
 
+	/// <summary>
+	/// Loads a gltf. Input a vector of mesh components to be filled with the loaded meshes, and the file path to the gltf file.
+	/// </summary>
+	/// <param name="meshComponents"></param>
+	/// <param name="filePath"></param>
 	void VulkanRenderer::loadGLTF(std::vector<MeshComponent>& meshComponents, std::string filePath) {
 		//Code here based on code from: https://docs.vulkan.org/tutorial/latest/15_GLTF_KTX2_Migration.html (Accessed 17.04.2026)
 
@@ -294,8 +353,9 @@ namespace JD
 		}
 		//Suggstion from tutorial. Load materials and textures first so they can be referenced when loading meshes.
 		//Reference from here https://docs.vulkan.org/tutorial/latest/Building_a_Simple_Engine/Loading_Models/04_loading_gltf.html
-
+		meshComponents.clear();
 		std::vector<vk::Image> textures;
+		std::vector<Material> materials;
 		for (size_t i = 0; i < model.textures.size(); i++) {
 			const auto& texture = model.textures[i];
 			const auto& image = model.images[texture.source];
@@ -311,8 +371,8 @@ namespace JD
 				int width = image.width;
 				int height = image.height;
 				const vk::DeviceSize imageSize = static_cast<vk::DeviceSize>(bufferView.byteLength);
-				vk::Buffer stagingBuffer;
-				VmaAllocation stagingAllocation;
+				vk::Buffer stagingBuffer = vk::Buffer{};
+				VmaAllocation stagingAllocation = VmaAllocation{};
 				createBuffer(imageSize, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingAllocation);
 				void* mapped = nullptr;
 				vmaMapMemory(vulkanCore.allocator, stagingAllocation, &mapped);
@@ -331,12 +391,35 @@ namespace JD
 			}
 
 		}
+		for (const auto& material : model.materials) {
+			Material mat;
+			if (material.pbrMetallicRoughness.baseColorFactor.size() == 4) {
+				mat.baseColorFactor.r = material.pbrMetallicRoughness.baseColorFactor[0];
+				mat.baseColorFactor.g = material.pbrMetallicRoughness.baseColorFactor[1];
+				mat.baseColorFactor.b = material.pbrMetallicRoughness.baseColorFactor[2];
+				mat.baseColorFactor.a = material.pbrMetallicRoughness.baseColorFactor[3];
+			}
+
+			mat.metallicFactor = material.pbrMetallicRoughness.metallicFactor;
+			mat.roughnessFactor = material.pbrMetallicRoughness.roughnessFactor;
+
+			if (material.pbrMetallicRoughness.baseColorTexture.index >= 0) {
+				const auto& texture = model.textures[material.pbrMetallicRoughness.baseColorTexture.index];
+				mat.baseColorTexture = textures[texture.source];
+			}
+			if (material.normalTexture.index >= 0) {
+				const auto& texture = model.textures[material.normalTexture.index];
+				mat.normalTexture = textures[texture.source];
+			}
+			materials.push_back(mat);
+		}
 
 
 		for (const auto& mesh : model.meshes) {
 			std::vector<Vertex> vertices;
 			std::vector<uint32_t> indices;
 			for (const auto& primitive : mesh.primitives) {
+				MeshComponent meshComponent = {};
 				const tinygltf::Accessor& indexAccessor = model.accessors[primitive.indices];
 				const tinygltf::BufferView& indexBufferView = model.bufferViews[indexAccessor.bufferView];
 				const tinygltf::Buffer& indexBuffer = model.buffers[indexBufferView.buffer];
@@ -357,6 +440,26 @@ namespace JD
 					texCoordBufferView = &model.bufferViews[texCoordAccessor->bufferView];
 					texCoordBuffer = &model.buffers[texCoordBufferView->buffer];
 				}
+				vertices.clear();
+				indices.clear();
+				uint32_t baseVertex = static_cast<uint32_t>(vertices.size());
+				for (size_t i = 0; i < posAccessor.count; i++) {
+					Vertex vertex{};
+					const float* posData = reinterpret_cast<const float*>(&posBuffer.data[posBufferView.byteOffset + posAccessor.byteOffset + i * posAccessor.ByteStride(posBufferView)]);
+					vertex.pos = glm::vec3(posData[0], posData[1], posData[2]);
+					if (hasTexCoords) {
+						const float* texCoordData = reinterpret_cast<const float*>(&texCoordBuffer->data[texCoordBufferView->byteOffset + texCoordAccessor->byteOffset + i * texCoordAccessor->ByteStride(*texCoordBufferView)]);
+						vertex.texCoord = glm::vec2(texCoordData[0], texCoordData[1]);
+					}
+					else {
+						vertex.texCoord = glm::vec2(0.0f, 0.0f);
+					}
+					vertex.color = glm::vec3(1.0f, 1.0f, 1.0f); // Default colour
+					vertices.push_back(vertex);
+				}
+				vk::Buffer vertexBuffer;
+				createVertexBuffer(vertices, vertexBuffer);
+				meshComponent.vertexBuffer = vertexBuffer;
 				const unsigned char* indexData = &indexBuffer.data[indexBufferView.byteOffset + indexAccessor.byteOffset];
 				size_t               indexCount = indexAccessor.count;
 				size_t               indexStride = 0;
@@ -378,7 +481,34 @@ namespace JD
 				{
 					throw std::runtime_error("Unsupported index component type");
 				}
-				
+				indices.reserve(indices.size() + indexCount);
+				for (size_t i = 0; i < indexCount; i++)
+				{
+					uint32_t index = 0;
+
+					if (indexAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
+					{
+						index = *reinterpret_cast<const uint16_t*>(indexData + i * indexStride);
+					}
+					else if (indexAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT)
+					{
+						index = *reinterpret_cast<const uint32_t*>(indexData + i * indexStride);
+					}
+					else if (indexAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
+					{
+						index = *reinterpret_cast<const uint8_t*>(indexData + i * indexStride);
+					}
+
+					indices.push_back(baseVertex + index);
+				}
+				vk::Buffer indBuffer;
+				createIndexBuffer(indices, indBuffer);
+				meshComponent.indexBuffer = indBuffer;
+
+				if (primitive.material >= 0) {
+					meshComponent.material = materials[primitive.material];
+				}
+				meshComponents.push_back(meshComponent);
 			}
 		}
 		

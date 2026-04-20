@@ -59,6 +59,10 @@ namespace JD
 		void transitionImageLayout(const vk::Image& image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, uint32_t mipLevels);
 		vk::CommandBuffer beginSingleTimeCommands();
 		void endSingleTimeCommands(vk::CommandBuffer& commandBuffer);
+		void copyBuffer(const vk::Buffer& srcBuffer, vk::Buffer& dstBuffer, vk::DeviceSize size);
+		uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
+		void createVertexBuffer(std::vector<Vertex>& verticies, vk::Buffer& buffer);
+		void createIndexBuffer(std::vector<uint32_t>& indicies, vk::Buffer& buffer);
 		void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, VmaAllocation& allocation);
 		void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation);
 

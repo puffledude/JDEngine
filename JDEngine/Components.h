@@ -2,6 +2,7 @@
 #include <vector>
 #include "Vertex.h"
 #include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 #include <glm/gtc/quaternion.hpp>
 
 #include "tiny_gltf_v3.h"
@@ -37,13 +38,27 @@ namespace JD {
 
 	using VertexBuffer = vk::Buffer;
 	using IndexBuffer = vk::Buffer;
+	using Texture = vk::Image;
+
+	struct Material {
+		float metallicFactor =0;
+		float roughnessFactor =0;
+		glm::vec4 baseColorFactor = glm::vec4(1.0f);
+		Texture baseColorTexture;
+		Texture normalTexture;
+	};
+
 	//Use the using keyword here to store the vertex and index buffer data with the defined vertex and index buffer types.
 	//One mesh component per submesh of the gltf model. Store the submeshes materials, textures and other relevant data in the mesh component as well.
 	struct MeshComponent {
 		VertexBuffer vertexBuffer;
 		IndexBuffer indexBuffer;
+		Material material;
+		//Texture texture;
+
+
 		//std::vector<tinygltf::Material> materials; // Vector of materials for each submesh
-		std::vector<tinygltf::Texture> textures; // Vector of textures for each submesh. Might change this to be image samplers instead or something.
+		//std::vector<tinygltf::Texture> textures; // Vector of textures for each submesh. Might change this to be image samplers instead or something.
 	};
 
 
