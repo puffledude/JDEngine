@@ -59,6 +59,8 @@ namespace JD
 			createDevices();
 			createSwapChain();
 			initVMA();
+			createCommandPool();
+			createQueues();
 
 
 		}
