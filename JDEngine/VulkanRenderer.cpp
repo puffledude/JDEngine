@@ -62,7 +62,6 @@ namespace JD
 			createCommandPool();
 			createQueues();
 
-
 		}
 		catch (const std::exception& e) {
 			std::cerr << "Failed to initialize Vulkan: " << e.what() << std::endl;
@@ -210,12 +209,8 @@ namespace JD
 	void VulkanRenderer::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, VmaAllocation& allocation){
 		vk::BufferCreateInfo bufferInfo{ .size = size, .usage = usage, .sharingMode = vk::SharingMode::eExclusive };
 		const VkBufferCreateInfo vkBufferInfo = static_cast<VkBufferCreateInfo>(bufferInfo);
-		vk::MemoryRequirements memRequirements = vulkanCore.device.getBufferMemoryRequirements(buffer);
-			//buffer.getMemoryRequirements();
 		VmaAllocationCreateInfo allocInfo = {};
 		allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-		allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
-		allocInfo.memoryTypeBits = findMemoryType(memRequirements.memoryTypeBits, properties);
 
 		// Map the vulkan.hpp memory properties to VMA's required flags
 		allocInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(properties);
@@ -234,7 +229,6 @@ namespace JD
 
 		buffer = vk::Buffer(cBuffer);
 		allocation = createdAllocation;
-		vulkanCore.device.bindBufferMemory(buffer, allocation->GetMemory(), 0);
 	}
 
 	void VulkanRenderer::transitionImageLayout(const vk::Image& image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, uint32_t mipLevels) {
@@ -518,6 +512,7 @@ namespace JD
 				if (primitive.material >= 0) {
 					meshComponent.material = materials[primitive.material];
 				}
+				meshComponent.id = latestMeshID++;
 				meshComponents.push_back(meshComponent);
 			}
 		}

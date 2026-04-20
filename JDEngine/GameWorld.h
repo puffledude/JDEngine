@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include "Components.h"
 #include <entt/entt.hpp>
 
 
@@ -16,7 +17,7 @@ namespace JD {
 		entt::registry* GetRegistry() {
 			return registry;
 		}
-
+		std::vector<RenderableComponent>* GetRenderobjects();
 	protected:
 		entt::registry* registry;
 	};

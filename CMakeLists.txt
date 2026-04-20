@@ -18,12 +18,14 @@ project ("JDEngine")
 set(ASSETDIR ${CMAKE_SOURCE_DIR}/Assets)
 set(IMAGEDIR ${ASSETDIR}/Images)
 set(MODELDIR ${ASSETDIR}/Models)
+set(GLTFDIR ${MODELDIR}/GLTF)
 set(SHADERDIR ${ASSETDIR}/Shaders)
 
 add_compile_definitions(
         ASSETDIR="${ASSETDIR}"
         IMAGEDIR="${IMAGEDIR}"
         MODELDIR="${MODELDIR}"
+        GLTFDIR="${GLTFDIR}"
         SHADERDIR="${SHADERDIR}"
 )
 
