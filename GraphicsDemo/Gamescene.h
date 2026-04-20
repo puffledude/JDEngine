@@ -15,4 +15,7 @@ public:
 private:
     JD::Gameworld* gameWorld;
     JD::Renderer* renderer;
+
+
+	std::vector<JD::MeshComponent> tree;
 };

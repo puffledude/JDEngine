@@ -1,6 +1,14 @@
 #include "GameScene.h"
+#include "Components.h"
 
+using namespace JD;
 GameScene::GameScene(JD::Gameworld* gameWorld, JD::Renderer* renderer) : gameWorld(gameWorld), renderer(renderer) {
+
+    std::vector<MeshComponent> treeMeshComponents{};
+	renderer->loadGLTF(treeMeshComponents, GLTFDIR "/Environment/CourseWorkProject.gltf");
+
+
+
 }
 
 GameScene::~GameScene() {
