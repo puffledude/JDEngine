@@ -217,10 +217,21 @@ namespace JD
 		allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
 		allocInfo.memoryTypeBits = findMemoryType(memRequirements.memoryTypeBits, properties);
 
-		//VmaAllocationInfo vmaAllocInfo = vu{};
-		VmaAllocation createdAllocation;
+		// Map the vulkan.hpp memory properties to VMA's required flags
+		allocInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(properties);
+
+		// If we are requesting host visible memory (for staging buffers), tell VMA we need sequential write access
+		if (properties & vk::MemoryPropertyFlagBits::eHostVisible) {
+			allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+		}
+
 		VkBuffer cBuffer = VK_NULL_HANDLE;
-		vmaCreateBuffer(vulkanCore.allocator, &vkBufferInfo, &allocInfo, &cBuffer, &createdAllocation, nullptr);
+		VmaAllocation createdAllocation = VK_NULL_HANDLE;
+
+		if (vmaCreateBuffer(vulkanCore.allocator, &vkBufferInfo, &allocInfo, &cBuffer, &createdAllocation, nullptr) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create VMA buffer!");
+		}
+
 		buffer = vk::Buffer(cBuffer);
 		allocation = createdAllocation;
 		vulkanCore.device.bindBufferMemory(buffer, allocation->GetMemory(), 0);
@@ -307,7 +318,7 @@ namespace JD
 		vmaCreateImage(vulkanCore.allocator, reinterpret_cast<const VkImageCreateInfo*>(&imageInfo), &allocInfo, &rawImage, &allocation, nullptr);
 
 		image = vk::Image(rawImage);
-		vulkanCore.device.bindImageMemory(image, allocation->GetMemory(), 0);
+		//vulkanCore.device.bindImageMemory(image, allocation->GetMemory(), 0);
 		/*image = vulkanCore.device.createImage(imageInfo);*/
 
 		
