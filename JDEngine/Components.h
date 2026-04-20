@@ -51,6 +51,8 @@ namespace JD {
 	//Use the using keyword here to store the vertex and index buffer data with the defined vertex and index buffer types.
 	//One mesh component per submesh of the gltf model. Store the submeshes materials, textures and other relevant data in the mesh component as well.
 	struct MeshComponent {
+		uint32_t id = 0;  //Used for sorting Mesh components pased to the renderer.
+		//Render all objects of the same id at the same time.
 		VertexBuffer vertexBuffer;
 		IndexBuffer indexBuffer;
 		Material material;
