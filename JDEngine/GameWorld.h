@@ -10,9 +10,12 @@ namespace JD {
 		~Gameworld();
 		void Update(float dt);
 		entt::entity* CreateEntity() {
-			return new entt::entity(registry->create());
+			return  new entt::entity(registry->create());
 		}
 
+		entt::registry* GetRegistry() {
+			return registry;
+		}
 
 	protected:
 		entt::registry* registry;
