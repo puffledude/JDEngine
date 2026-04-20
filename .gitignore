@@ -4,3 +4,4 @@ build
 .vs
 /Assets/Models/Environment
 .github
+/Assets/Models/GLTF/Environment
