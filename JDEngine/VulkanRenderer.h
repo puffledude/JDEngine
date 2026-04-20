@@ -61,6 +61,7 @@ namespace JD
 		void endSingleTimeCommands(vk::CommandBuffer& commandBuffer);
 		void copyBuffer(const vk::Buffer& srcBuffer, vk::Buffer& dstBuffer, vk::DeviceSize size);
 		uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
+		void createTextureImage(vk::Image image, std::string filePath);
 		void createVertexBuffer(std::vector<Vertex>& verticies, vk::Buffer& buffer);
 		void createIndexBuffer(std::vector<uint32_t>& indicies, vk::Buffer& buffer);
 		void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, VmaAllocation& allocation);
@@ -103,7 +104,7 @@ namespace JD
 		bool framebufferResized = false;
 		VulkanCore vulkanCore;
 		GLFWwindow* window;
-
+		uint32_t latestMeshID = 0;
 
 #ifdef NDEBUG
 		const bool enableValidationLayers = false;
