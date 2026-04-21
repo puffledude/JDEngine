@@ -8,11 +8,21 @@ namespace JD
 	Gameworld::~Gameworld() {
 		delete registry;
 	}
-	void Gameworld::Update(float dt) {
-		// Update all game objects in the world
-		// for (GameObject* gameObject : gameObjects) {
-		// 	gameObject->Update(dt);
-		// }
+	
+	std::vector<RenderTransmition>*Gameworld::CreateRenderTransmition() 
+	{
+		std::vector<RenderTransmition>* renderTransmition = new std::vector<RenderTransmition>();
+		auto view = registry->view<RenderableComponent, JoltComponent>();
+		for (auto entity : view) {
+			auto [renderable, jolt] = view.get<RenderableComponent, JoltComponent>(entity);
+			for (auto& mesh : *renderable.mesh) {
+
+			/*RenderTransmition transmition;
+			transmition.mesh = renderable.mesh[0];
+			transmition.uboIndex = jolt.bodyID.GetIndex();
+			renderTrans*/
+		}
+		return renderTransmition;
 	}
 
 }

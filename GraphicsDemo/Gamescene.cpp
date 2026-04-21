@@ -18,8 +18,6 @@ GameScene::GameScene(JD::Gameworld* gameWorld, JD::Renderer* renderer, JPH::Phys
 	JPH::Body* body = physics->GetBodyInterface().CreateBody(bodySettings);
 	physics->GetBodyInterface().AddBody(body->GetID(), JPH::EActivation::Activate);
 	gameWorld->GetRegistry()->emplace<JD::JoltComponent>(*environmentEntity, body->GetID());
-    //gameWorld->GetRegistry()->emplace<JD::UniformBufferObject>(*environmentEntity, UniformBufferObject{});
-
 }
 
 GameScene::~GameScene() {
@@ -38,7 +36,6 @@ void GameScene::Update(float dt) {
     The meshcomponents will be supplied with only the index as the update has already happend.
     */
 
-    gameWorld->Update(dt);
 
     // Render the scene
     //renderer->Render(gameWorld);

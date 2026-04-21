@@ -17,7 +17,17 @@ namespace JD {
 		entt::registry* GetRegistry() {
 			return registry;
 		}
-		std::vector<RenderableComponent>* GetRenderobjects();
+		std::vector<RenderableComponent>* GetRenderobjects() {
+			std::vector<RenderableComponent>* renderObjects = new std::vector<RenderableComponent>();
+			auto view = registry->view<RenderableComponent>();
+			for (auto entity : view) {
+				renderObjects->push_back(view.get<RenderableComponent>(entity));
+			}
+			return renderObjects;
+		}
+		std::vector<RenderTransmition>* CreateRenderTransmition();
+
+
 	protected:
 		entt::registry* registry;
 	};

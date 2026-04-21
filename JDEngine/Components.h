@@ -77,6 +77,8 @@ namespace JD {
 		glm::mat4 view = glm::mat4(1.0f);
 		glm::mat4 projection = glm::mat4(1.0f);
 	};
+
+
 	struct UniformBufferIndex {
 		uint32_t index;
 	};
@@ -90,7 +92,7 @@ namespace JD {
 
 	struct RenderTransmition {
 		MeshComponent mesh;
-		uint32_t uboIndex;
+		glm::mat4 modelMatrix;
 	};
 
 }
