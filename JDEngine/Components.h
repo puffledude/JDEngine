@@ -39,13 +39,16 @@ namespace JD {
 	using VertexBuffer = vk::Buffer;
 	using IndexBuffer = vk::Buffer;
 	using Texture = vk::Image;
+	using TextureView = vk::ImageView;
 
 	struct Material {
 		float metallicFactor =0;
 		float roughnessFactor =0;
 		glm::vec4 baseColorFactor = glm::vec4(1.0f);
 		Texture baseColorTexture;
+		TextureView baseColorTextureView;
 		Texture normalTexture;
+		TextureView normalTextureView;
 	};
 
 	//Use the using keyword here to store the vertex and index buffer data with the defined vertex and index buffer types.

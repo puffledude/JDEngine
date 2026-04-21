@@ -428,6 +428,7 @@ namespace JD
 		//Reference from here https://docs.vulkan.org/tutorial/latest/Building_a_Simple_Engine/Loading_Models/04_loading_gltf.html
 		meshComponents.clear();
 		std::vector<vk::Image> textures;
+		std::vector<vk::ImageView> textureImageViews;
 		std::vector<Material> materials;
 		for (size_t i = 0; i < model.textures.size(); i++) {
 			const auto& texture = model.textures[i];
@@ -456,7 +457,9 @@ namespace JD
 				uint32_t mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
 				generateMipmaps(textureImage, vk::Format::eR8G8B8A8Srgb, width, height, mipLevels);
 				//transitionImageLayout(textureImage, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, 1);
+				vk::ImageView textureview = createImageView(textures[texture.source], vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor, mipLevels);
 				textures.push_back(textureImage);
+				textureImageViews.push_back(textureview);
 			}
 			 else {
 				std::cerr << "Unsupported texture format: " << image.mimeType << std::endl;
@@ -478,12 +481,13 @@ namespace JD
 			if (material.pbrMetallicRoughness.baseColorTexture.index >= 0) {
 				const auto& texture = model.textures[material.pbrMetallicRoughness.baseColorTexture.index];
 				mat.baseColorTexture = textures[texture.source];
-
+				mat.baseColorTextureView = textureImageViews[texture.source];
 
 			}
 			if (material.normalTexture.index >= 0) {
 				const auto& texture = model.textures[material.normalTexture.index];
 				mat.normalTexture = textures[texture.source];
+				mat.normalTextureView = textureImageViews[texture.source];
 			}
 			materials.push_back(mat);
 		}
