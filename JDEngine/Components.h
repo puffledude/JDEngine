@@ -73,22 +73,24 @@ namespace JD {
 	};
 
 	struct UniformBufferObject{
-		glm::mat4 model;
-		glm::mat4 view;
-		glm::mat4 projection;
+		glm::mat4 model = glm::mat4(1.0f);
+		glm::mat4 view = glm::mat4(1.0f);
+		glm::mat4 projection = glm::mat4(1.0f);
+	};
+	struct UniformBufferIndex {
+		uint32_t index;
 	};
 
 	struct RenderableComponent {
-		std::vector<MeshComponent>* meshes;
-		JoltComponent joltID;
-		UniformBufferObject ubo;
+		std::vector<MeshComponent>* mesh;
+		//UniformBufferObject ubo;
+		
 		//RenderableType type;
 	};
 
 	struct RenderTransmition {
 		MeshComponent mesh;
-		TransformComponent transform;
-		UniformBufferObject ubo;
+		uint32_t uboIndex;
 	};
 
 }
