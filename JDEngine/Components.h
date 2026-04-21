@@ -4,16 +4,17 @@
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 #include <glm/gtc/quaternion.hpp>
-
-#include "tiny_gltf_v3.h"
+#include <Jolt/Jolt.h>
+#include <Jolt/Physics/Body/Body.h>
+#include <tiny_gltf_v3.h>
 
 
 namespace JD {
-	struct GLTFData {
-		std::vector<std::vector<Vertex>> vertices;  // Vector of verticies for each mesh
-		std::vector<std::vector<uint32_t>> indices; // Vector of indices for each mesh
-		std::vector<tinygltf::Material> materials; // Vector of materials for each mesh
-	};
+	//struct GLTFData {
+	//	std::vector<std::vector<Vertex>> vertices;  // Vector of verticies for each mesh
+	//	std::vector<std::vector<uint32_t>> indices; // Vector of indices for each mesh
+	//	std::vector<Material> materials; // Vector of materials for each mesh
+	//};
 	//posibly need a material component/ textures component
 
 
@@ -38,6 +39,7 @@ namespace JD {
 
 	using VertexBuffer = vk::Buffer;
 	using IndexBuffer = vk::Buffer;
+	using UniformBuffer = vk::Buffer;
 	using Texture = vk::Image;
 	using TextureView = vk::ImageView;
 
@@ -66,11 +68,28 @@ namespace JD {
 		//std::vector<tinygltf::Texture> textures; // Vector of textures for each submesh. Might change this to be image samplers instead or something.
 	};
 
+	struct JoltComponent {
+		JPH::BodyID bodyID;
+	};
+
+	struct UniformBufferObject{
+		glm::mat4 model;
+		glm::mat4 view;
+		glm::mat4 projection;
+	};
 
 	struct RenderableComponent {
-		MeshComponent mesh;
-		TransformComponent transform;
+		std::vector<MeshComponent>* meshes;
+		JoltComponent joltID;
+		UniformBufferObject ubo;
 		//RenderableType type;
 	};
+
+	struct RenderTransmition {
+		MeshComponent mesh;
+		TransformComponent transform;
+		UniformBufferObject ubo;
+	};
+
 }
 
