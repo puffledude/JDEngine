@@ -107,6 +107,10 @@ namespace JD
 		GLFWwindow* window;
 		uint32_t latestMeshID = 0;
 
+		std::vector<vk::Buffer> storageBuffers;
+		uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+		uint32_t currentFrame = 0;
+
 #ifdef NDEBUG
 		const bool enableValidationLayers = false;
 #else
