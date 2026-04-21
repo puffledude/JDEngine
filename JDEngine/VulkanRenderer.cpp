@@ -335,6 +335,72 @@ namespace JD
 		endSingleTimeCommands(commandBuffer);
 
 	}
+	void VulkanRenderer::generateMipmaps(vk::Image& image, vk::Format imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels) {
+		//vk::FormatProperties formatProperties = physicalDevice.getFormatProperties(imageFormat);
+		vk::PhysicalDevice physDevice = vulkanCore.vkbInstances.device.physical_device.physical_device;
+		vk::FormatProperties formatProperties =   physDevice.getFormatProperties(imageFormat);
+		if (!(formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear)) {
+			throw std::runtime_error("texture image format does not support linear blitting!");
+		}
+
+		vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
+		vk::ImageMemoryBarrier barrier{
+		.srcAccessMask = vk::AccessFlagBits::eTransferWrite,
+		.dstAccessMask = vk::AccessFlagBits::eTransferRead,
+		.oldLayout = vk::ImageLayout::eTransferDstOptimal,
+		.newLayout = vk::ImageLayout::eTransferSrcOptimal,
+		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.image = image };
+		barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+		barrier.subresourceRange.baseArrayLayer = 0;
+		barrier.subresourceRange.layerCount = 1;
+		barrier.subresourceRange.levelCount = 1;
+
+		int32_t mipWidth = texWidth;
+		int32_t mipHeight = texHeight;
+		for (uint32_t i = 1; i < mipLevels; i++) {
+			barrier.subresourceRange.baseMipLevel = i - 1;
+			barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+			barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;
+			barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+			barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
+			commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, {}, {}, barrier);
+
+			vk::ArrayWrapper1D<vk::Offset3D, 2> offsets, dstOffsets;
+			offsets[0] = vk::Offset3D(0, 0, 0);
+			offsets[1] = vk::Offset3D(mipWidth, mipHeight, 1);
+			dstOffsets[0] = vk::Offset3D(0, 0, 0);
+			dstOffsets[1] = vk::Offset3D(mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1);
+			vk::ImageBlit blit = { .srcSubresource = {}, .srcOffsets = offsets,
+								.dstSubresource = {}, .dstOffsets = dstOffsets };
+			blit.srcSubresource = vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, i - 1, 0, 1);
+			blit.dstSubresource = vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, i, 0, 1);
+
+			commandBuffer.blitImage(image, vk::ImageLayout::eTransferSrcOptimal, image, vk::ImageLayout::eTransferDstOptimal, blit, vk::Filter::eLinear);
+
+			barrier.oldLayout = vk::ImageLayout::eTransferSrcOptimal;
+			barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+			barrier.srcAccessMask = vk::AccessFlagBits::eTransferRead;
+			barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+
+			commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader, {}, {}, {}, barrier);
+
+			if (mipWidth > 1) mipWidth /= 2;
+			if (mipHeight > 1) mipHeight /= 2;
+		}
+		barrier.subresourceRange.baseMipLevel = mipLevels - 1;
+		barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+		barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+		barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+		barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+
+		commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader, {}, {}, {}, barrier);
+
+		endSingleTimeCommands(commandBuffer);
+	}
+
+
 
 	/// <summary>
 	/// Loads a gltf. Input a vector of mesh components to be filled with the loaded meshes, and the file path to the gltf file.
@@ -387,7 +453,9 @@ namespace JD
 				createImage(width, height, 1, vk::Format::eR8G8B8A8Srgb, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, textureImage, textureAllocation);
 				transitionImageLayout(textureImage, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, 1);
 				copyBufferToImage(stagingBuffer, textureImage, width, height);
-				transitionImageLayout(textureImage, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, 1);
+				uint32_t mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
+				generateMipmaps(textureImage, vk::Format::eR8G8B8A8Srgb, width, height, mipLevels);
+				//transitionImageLayout(textureImage, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, 1);
 				textures.push_back(textureImage);
 			}
 			 else {
@@ -410,6 +478,8 @@ namespace JD
 			if (material.pbrMetallicRoughness.baseColorTexture.index >= 0) {
 				const auto& texture = model.textures[material.pbrMetallicRoughness.baseColorTexture.index];
 				mat.baseColorTexture = textures[texture.source];
+
+
 			}
 			if (material.normalTexture.index >= 0) {
 				const auto& texture = model.textures[material.normalTexture.index];

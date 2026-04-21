@@ -68,6 +68,7 @@ namespace JD
 		void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation);
 
 		void copyBufferToImage(const vk::Buffer& buffer, vk::Image& image, uint32_t width, uint32_t height);
+		void generateMipmaps(vk::Image& image, vk::Format imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
 		void createGraphicsPipelines();
 		void createQueues();
 		void createAlbedoPipeline();
