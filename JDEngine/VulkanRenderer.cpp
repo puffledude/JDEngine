@@ -478,16 +478,6 @@ namespace JD
 		vmaCreateImage(vulkanCore.allocator, reinterpret_cast<const VkImageCreateInfo*>(&imageInfo), &allocInfo, &rawImage, &allocation, nullptr);
 
 		image = vk::Image(rawImage);
-		//vulkanCore.device.bindImageMemory(image, allocation->GetMemory(), 0);
-		/*image = vulkanCore.device.createImage(imageInfo);*/
-
-		
-
-		/*vk::MemoryRequirements memRequirements = image.getMemoryRequirements();
-		vk::MemoryAllocateInfo allocInfo{ .allocationSize = memRequirements.size,
-											.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties) };
-		imageMemory = vk::raii::DeviceMemory(device, allocInfo);
-		image.bindMemory(imageMemory, 0);*/
 	}
 
 
