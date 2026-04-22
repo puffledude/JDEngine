@@ -31,20 +31,32 @@ add_compile_definitions(
 
 function (add_slang_shader_target TARGET)
     cmake_parse_arguments("SHADER" "" "" "SOURCES" ${ARGN})
-    set (ENTRY_POINTS -entry vertMain -entry fragMain)
-    add_custom_command(
-           OUTPUT ${SHADERDIR}
-           COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADERS_DIR}
-    )
-    add_custom_command (
-          OUTPUT  ${SHADERS_DIR}/slang.spv
-          COMMAND ${SLANGC_EXECUTABLE} ${SHADER_SOURCES} -target spirv -profile spirv_1_4 -emit-spirv-directly -fvk-use-entrypoint-name ${ENTRY_POINTS} -o slang.spv
-          WORKING_DIRECTORY ${SHADERS_DIR}
-          DEPENDS ${SHADERS_DIR} ${SHADER_SOURCES}
-          COMMENT "Compiling Slang Shaders"
-          VERBATIM
-  )
-    add_custom_target (${TARGET} DEPENDS ${SHADERS_DIR}/slang.spv)
+    set(ENTRY_POINTS -entry vertMain -entry fragMain)
+    set(SPV_OUTPUTS "")
+
+    foreach(SHADER_SOURCE IN LISTS SHADER_SOURCES)
+        # Extract the source file name (e.g. "gbuffer.slang")
+        get_filename_component(SHADER_NAME "${SHADER_SOURCE}" NAME)
+        
+        # Define the output file path (e.g. "gbuffer.slang.spv")
+        set(OUTPUT_SPV "${SHADERDIR}/${SHADER_NAME}.spv")
+
+        # Create a build command specifically for this single shader
+        add_custom_command(
+            OUTPUT ${OUTPUT_SPV}
+            COMMAND ${SLANGC_EXECUTABLE} ${SHADER_SOURCE} -o ${OUTPUT_SPV} -target spirv -profile spirv_1_4 -emit-spirv-directly -fvk-use-entrypoint-name ${ENTRY_POINTS}
+            WORKING_DIRECTORY ${SHADERDIR}
+            DEPENDS ${SHADER_SOURCE}
+            COMMENT "Compiling Slang Shader: ${SHADER_NAME}"
+            VERBATIM
+        )
+        
+        # Keep track of outputs
+        list(APPEND SPV_OUTPUTS ${OUTPUT_SPV})
+    endforeach()
+
+    # The target now depends on all individually generated .spv files
+    add_custom_target(${TARGET} DEPENDS ${SPV_OUTPUTS})
 
     message(STATUS "Shader sources: ${SHADER_SOURCES}")
 endfunction()
