@@ -7,6 +7,8 @@
 #include <Jolt/Jolt.h>
 #include <Jolt/Physics/Body/Body.h>
 #include <tiny_gltf_v3.h>
+#include "vma/vk_mem_alloc.h"
+
 
 
 namespace JD {
@@ -49,8 +51,10 @@ namespace JD {
 		glm::vec4 baseColorFactor = glm::vec4(1.0f);
 		Texture baseColorTexture;
 		TextureView baseColorTextureView;
+		VmaAllocation baseColorTextureAllocation;
 		Texture normalTexture;
 		TextureView normalTextureView;
+		VmaAllocation normalTextureAllocation;
 	};
 
 	//Use the using keyword here to store the vertex and index buffer data with the defined vertex and index buffer types.
@@ -72,22 +76,17 @@ namespace JD {
 		JPH::BodyID bodyID;
 	};
 
-	struct UniformBufferObject{
-		glm::mat4 model = glm::mat4(1.0f);
+	struct GPUObjectData {
+		glm::mat4 model;
+	};
+
+	struct CameraInfo{
 		glm::mat4 view = glm::mat4(1.0f);
 		glm::mat4 projection = glm::mat4(1.0f);
 	};
 
-
-	struct UniformBufferIndex {
-		uint32_t index;
-	};
-
 	struct RenderableComponent {
 		std::vector<MeshComponent>* mesh;
-		//UniformBufferObject ubo;
-		
-		//RenderableType type;
 	};
 
 	struct RenderTransmition {
