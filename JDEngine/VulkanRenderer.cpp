@@ -61,6 +61,20 @@ namespace JD
 			initVMA();
 			createCommandPool();
 			createQueues();
+			createImageViews();
+			createDescriptorSetLayouts();
+			createDescriptorPool();
+			createDepthResources();
+
+			createGraphicsPipelines();
+
+			createCommandPool();
+
+			createDescriptorSets();
+			createCommandBuffers();
+			createSyncObjects();
+			
+			std::cout << "Vulkan initialized successfully!" << std::endl;
 
 		}
 		catch (const std::exception& e) {
