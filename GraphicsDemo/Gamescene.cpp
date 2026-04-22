@@ -7,7 +7,7 @@
 #include <Jolt/Physics/PhysicsSystem.h>
 
 using namespace JD;
-GameScene::GameScene(JD::Gameworld* gameWorld, JD::Renderer* renderer, JPH::PhysicsSystem* physics) : gameWorld(gameWorld), renderer(renderer), physicsSystem(physics){
+GameScene::GameScene(JD::Gameworld* gameWorld, JD::Renderer* renderer) : gameWorld(gameWorld), renderer(renderer){
     environmentEntity = gameWorld->CreateEntity();
 	renderer->loadGLTF(Environment, GLTFDIR "/Environment/CourseWorkProject.gltf");
 	gameWorld->GetRegistry()->emplace<JD::MeshComponent>(*environmentEntity, Environment[0]);
@@ -15,8 +15,8 @@ GameScene::GameScene(JD::Gameworld* gameWorld, JD::Renderer* renderer, JPH::Phys
     JPH::ShapeSettings::ShapeResult Result = test.Create();
     JPH::ShapeRefC boxShape = Result.Get();
 	JPH::BodyCreationSettings bodySettings(boxShape, JPH::RVec3(0.0f, 0.0f, 0.0f), JPH::Quat::sIdentity(), JPH::EMotionType::Static, 0);
-	JPH::Body* body = physics->GetBodyInterface().CreateBody(bodySettings);
-	physics->GetBodyInterface().AddBody(body->GetID(), JPH::EActivation::Activate);
+	JPH::Body* body = gameWorld->GetPhysicsSystem()->GetBodyInterface().CreateBody(bodySettings);
+	gameWorld->GetPhysicsSystem()->GetBodyInterface().AddBody(body->GetID(), JPH::EActivation::Activate);
 	gameWorld->GetRegistry()->emplace<JD::JoltComponent>(*environmentEntity, body->GetID());
 }
 

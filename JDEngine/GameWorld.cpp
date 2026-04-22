@@ -1,7 +1,7 @@
 #include "GameWorld.h"
 namespace JD
 {
-	Gameworld::Gameworld() {
+	Gameworld::Gameworld(JPH::PhysicsSystem* physicsSystem) : physicsSystem(physicsSystem) {
 		registry = new entt::registry();
 	}
 
@@ -18,14 +18,12 @@ namespace JD
 		for (auto [entity, renderable, jolt] : view.each()) {
 
 			for (auto& mesh : *renderable.mesh) {
-				/*RenderTransmition transmition;
-				transmition.mesh = renderable.mesh[0];
-				transmition.uboIndex = jolt.bodyID.GetIndex();
-				renderTrans*/
+				RenderTransmition transmition;
+				transmition.mesh = renderable.mesh;
+				
 			}
 		}
 
-		// Move the return statement OUTSIDE of the for-loop!
 		return renderTransmition;
 	}
 }

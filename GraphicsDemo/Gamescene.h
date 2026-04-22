@@ -9,14 +9,13 @@
 
 class GameScene {
 public:
-    GameScene(JD::Gameworld* gameWorld, JD::Renderer* renderer, JPH::PhysicsSystem* physics);
+    GameScene(JD::Gameworld* gameWorld, JD::Renderer* renderer);
     ~GameScene();
 
 	void Update(float dt);
 private:
     JD::Gameworld* gameWorld;
     JD::Renderer* renderer;
-	JPH::PhysicsSystem* physicsSystem;
 
 	std::vector<JD::MeshComponent> Environment;
 	entt::entity* environmentEntity;

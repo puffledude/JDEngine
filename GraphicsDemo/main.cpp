@@ -142,7 +142,6 @@ GLFWwindow* initWindow() {
 
 int main() {
 	std::cout << "Hello, Graphics!" << std::endl;
-	JD::Gameworld* world = new JD::Gameworld();
 
 	JPH::RegisterDefaultAllocator();
 	JPH::Factory::sInstance = new JPH::Factory();
@@ -157,6 +156,8 @@ int main() {
 	ObjectLayerPairFilterImpl object_vs_object_layer_filter;
 
 	physics->Init(1000, 16, 10000, 10000, broad_phase_layer_interface, object_vs_broadphase_layer_filter, object_vs_object_layer_filter);
+	JD::Gameworld* world = new JD::Gameworld(physics);
+
 	physics->SetContactListener(new JD::WorldContactListener(*world, *physics));
 	physics->SetBodyActivationListener(new MyBodyActivationListener());
 	physics->OptimizeBroadPhase();
@@ -166,7 +167,7 @@ int main() {
 	GLFWwindow* window = initWindow();
 	renderer->AssignWindow(window);
 	auto lastTime = std::chrono::high_resolution_clock::now();
-	GameScene* scene = new GameScene(world, renderer, physics);
+	GameScene* scene = new GameScene(world, renderer);
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
 		auto currentTime = std::chrono::high_resolution_clock::now();

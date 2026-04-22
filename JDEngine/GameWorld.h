@@ -2,12 +2,13 @@
 #include <vector>
 #include "Components.h"
 #include <entt/entt.hpp>
-
+#include <Jolt/Jolt.h>
+#include <Jolt/Physics/PhysicsSystem.h>
 
 namespace JD {
 	class Gameworld {
 	public:
-		Gameworld();
+		Gameworld(JPH::PhysicsSystem* physicsSystem);
 		~Gameworld();
 		void Update(float dt);
 		entt::entity* CreateEntity() {
@@ -27,9 +28,13 @@ namespace JD {
 		}
 		std::vector<RenderTransmition>* CreateRenderTransmition();
 
+		JPH::PhysicsSystem* GetPhysicsSystem() {
+			return physicsSystem;
+		}
 
 	protected:
 		entt::registry* registry;
+		JPH::PhysicsSystem* physicsSystem;
 	};
 };
 
