@@ -43,7 +43,7 @@ namespace JD
 	void VulkanRenderer::initVulkan() {
 		try {
 			vkb::InstanceBuilder builder;
-			auto inst_ret = builder.set_app_name("JDEngine").request_validation_layers()
+			auto inst_ret = builder.set_app_name("JDEngine").request_validation_layers().require_api_version(1,3)
 				.use_default_debug_messenger().build();
 			if (!inst_ret) {
 				throw std::runtime_error("Failed to create Vulkan instance: " + inst_ret.error().message());
