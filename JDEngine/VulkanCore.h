@@ -31,6 +31,7 @@ namespace JD
 		vk::SurfaceKHR surface = nullptr;
 		VmaAllocator allocator = nullptr;
 		vk::CommandPool commandPool;
+		std::vector<vk::CommandBuffer> commandBuffers;
 		std::array<PerFrame, MAX_FRAMES_IN_FLIGHT> perFrame;
 		std::vector<vk::Image> swapChainImages;
 		std::vector<vk::ImageView> swapChainImageViews;

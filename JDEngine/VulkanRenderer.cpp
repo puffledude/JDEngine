@@ -754,6 +754,25 @@ namespace JD
 		
 	}
 
+	void VulkanRenderer::createCommandBuffers() {
+		vk::CommandBufferAllocateInfo allocInfo{
+			.commandPool = vulkanCore.commandPool,
+			.level = vk::CommandBufferLevel::ePrimary,
+			.commandBufferCount = MAX_FRAMES_IN_FLIGHT
+		};
+		vulkanCore.commandBuffers = vulkanCore.device.allocateCommandBuffers(allocInfo);
+	}
+
+	void VulkanRenderer::createSyncObjects() {
+		for (auto &frame : vulkanCore.perFrame) {
+			vk::FenceCreateInfo fenceInfo{ .flags = vk::FenceCreateFlagBits::eSignaled };
+			frame.renderFence = vulkanCore.device.createFence(fenceInfo);
+
+			vk::SemaphoreCreateInfo semaphoreInfo{};
+			frame.presentSemaphore = vulkanCore.device.createSemaphore(semaphoreInfo);
+			frame.renderSemaphore = vulkanCore.device.createSemaphore(semaphoreInfo);
+		}
+	}
 
 
 	void VulkanRenderer::Update(float dt) {
