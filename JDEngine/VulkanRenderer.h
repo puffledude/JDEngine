@@ -77,17 +77,27 @@ namespace JD
 		void createTextureImage(vk::Image image, std::string filePath);
 		void createVertexBuffer(std::vector<Vertex>& verticies, vk::Buffer& buffer);
 		void createIndexBuffer(std::vector<uint32_t>& indicies, vk::Buffer& buffer);
+		void createDescriptorSetLayouts();
+		void createDescriptorPool();
+		void createDepthResources();
+		void createGbufferDescriptorSetLayout();
+		void createDescriptorSets();
+		void createGbufferDescriptorSets();
 		void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, VmaAllocation& allocation);
 		void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation);
 
 		void copyBufferToImage(const vk::Buffer& buffer, vk::Image& image, uint32_t width, uint32_t height);
 		void generateMipmaps(vk::Image& image, vk::Format imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
 		void createGraphicsPipelines();
+		void createGBufferPipeline();
+		void createShadowPipeline();
+		void createOutputPipeline();
 		void createQueues();
 		void createAlbedoPipeline();
 		void createLightingPipeline();
 		void createFinalImagePipeline();
 		void createCommandPool();
+		void createCommandBuffers();
 		void createSyncObjects();
 		void updateUniformBuffers();
 		void updatePushConstants();
@@ -121,8 +131,20 @@ namespace JD
 		uint32_t latestMeshID = 0;
 
 		std::vector<vk::Buffer> storageBuffers;
+		std::vector<VmaAllocation> storageBufferAllocations;
 		uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 		uint32_t currentFrame = 0;
+		uint32_t MAX_OBJECTS = 1000;
+		vk::DescriptorSetLayout gbufferDescriptorSetLayout;
+		std::vector<vk::DescriptorSet> gbufferDescriptorSets;
+		vk::PipelineLayout gbufferPipelineLayout;
+		vk::Pipeline gBufferPipeline;
+		vk::Image depthImage;
+		vk::Format depthImageFormat;
+		vk::ImageView depthImageView;
+		VmaAllocation depthImageAllocation;
+
+		vk::DescriptorPool descriptorPool;
 
 #ifdef NDEBUG
 		const bool enableValidationLayers = false;
