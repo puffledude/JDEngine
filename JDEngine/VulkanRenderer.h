@@ -111,6 +111,11 @@ namespace JD
 		void updateUniformBuffers();
 		void updatePushConstants();
 
+
+		void recreateSwapChain();
+		void sendRenderTransmition(std::vector<RenderTransmition>* renderTransmition) {
+			currentRenderTransmition = renderTransmition;
+		}
 		void drawFrame();
 
 		
@@ -154,6 +159,8 @@ namespace JD
 		VmaAllocation depthImageAllocation;
 
 		vk::DescriptorPool descriptorPool;
+
+		std::vector<RenderTransmition>* currentRenderTransmition = nullptr;
 
 #ifdef NDEBUG
 		const bool enableValidationLayers = false;
