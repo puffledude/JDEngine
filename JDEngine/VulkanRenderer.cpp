@@ -19,6 +19,22 @@ namespace JD
 		cleanupVulkan();
 	}
 
+	void VulkanRenderer::recreateSwapChain() {
+		vulkanCore.device.waitIdle();
+		int width = 0, height = 0;
+		glfwGetFramebufferSize(window, &width, &height);
+		while (width == 0 || height == 0) {
+			glfwGetFramebufferSize(window, &width, &height);
+			glfwWaitEvents();
+		}
+		cleanupSwapChain();
+		createSwapChain();
+		createImageViews();
+		createDepthResources();
+
+	}
+
+
 	void VulkanRenderer::cleanupVulkan() {
 		// 1. Wait for everything on the GPU to finish before destroying anything
 		/*if (vulkanCore.device.device != VK_NULL_HANDLE) {
