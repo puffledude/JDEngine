@@ -84,8 +84,8 @@ namespace JD
 		void copyBuffer(const vk::Buffer& srcBuffer, vk::Buffer& dstBuffer, vk::DeviceSize size);
 		uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
 		void createTextureImage(vk::Image image, std::string filePath);
-		void createVertexBuffer(std::vector<Vertex>& verticies, vk::Buffer& buffer);
-		void createIndexBuffer(std::vector<uint32_t>& indicies, vk::Buffer& buffer);
+		void createVertexBuffer(std::vector<Vertex>& verticies, vk::Buffer& buffer, VmaAllocation& allocation);
+		void createIndexBuffer(std::vector<uint32_t>& indicies, vk::Buffer& buffer, VmaAllocation& allocation);
 		void createDescriptorSetLayouts();
 		void createDescriptorPool();
 		void createDepthResources();

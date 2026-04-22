@@ -205,7 +205,7 @@ namespace JD
 		throw std::runtime_error("Failed to find suitable memory type!");
 	}
 
-	void VulkanRenderer::createVertexBuffer(std::vector<Vertex>& verticies, vk::Buffer& buffer) {
+	void VulkanRenderer::createVertexBuffer(std::vector<Vertex>& verticies, vk::Buffer& buffer, VmaAllocation& allocation) {
 		vk::DeviceSize bufferSize = sizeof(verticies[0]) * verticies.size();
 		vk::Buffer stagingBuffer = vk::Buffer{};
 		VmaAllocation stagingBufferMemory = VmaAllocation{};
@@ -214,24 +214,23 @@ namespace JD
 		vmaMapMemory(vulkanCore.allocator, stagingBufferMemory, &mapped);
 		std::memcpy(mapped, verticies.data(), (size_t)bufferSize);
 		vmaUnmapMemory(vulkanCore.allocator, stagingBufferMemory);
-		VmaAllocation vertexBufferMemory = VmaAllocation{};
-		createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer, vk::MemoryPropertyFlagBits::eDeviceLocal, buffer, vertexBufferMemory);
+		//VmaAllocation vertexBufferMemory = VmaAllocation{};
+		createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer, vk::MemoryPropertyFlagBits::eDeviceLocal, buffer, allocation);
 		copyBuffer(stagingBuffer, buffer, bufferSize);
 
 
 	}
 
-	void VulkanRenderer::createIndexBuffer(std::vector<uint32_t>& indicies, vk::Buffer& buffer) {
+	void VulkanRenderer::createIndexBuffer(std::vector<uint32_t>& indicies, vk::Buffer& buffer, VmaAllocation& allocation) {
 		vk::DeviceSize bufferSize = sizeof(indicies[0]) * indicies.size();
 		vk::Buffer stagingBuffer = vk::Buffer{};
 		VmaAllocation stagingBufferMemory = VmaAllocation{};
-		VmaAllocation indexBufferMemory = VmaAllocation{};
 		createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingBufferMemory);
 		void* mapped = nullptr;
 		vmaMapMemory(vulkanCore.allocator, stagingBufferMemory, &mapped);
 		std::memcpy(mapped, indicies.data(), (size_t)bufferSize);
 		vmaUnmapMemory(vulkanCore.allocator, stagingBufferMemory);
-		createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer, vk::MemoryPropertyFlagBits::eDeviceLocal, buffer, indexBufferMemory);
+		createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer, vk::MemoryPropertyFlagBits::eDeviceLocal, buffer, allocation);
 		copyBuffer(stagingBuffer, buffer, bufferSize);
 		
 	}
@@ -713,8 +712,10 @@ namespace JD
 					vertices.push_back(vertex);
 				}
 				vk::Buffer vertexBuffer;
-				createVertexBuffer(vertices, vertexBuffer);
+				VmaAllocation vertexBufferAllocation;
+				createVertexBuffer(vertices, vertexBuffer, vertexBufferAllocation);
 				meshComponent.vertexBuffer = vertexBuffer;
+				meshComponent.vertexBufferAllocation = vertexBufferAllocation;
 				const unsigned char* indexData = &indexBuffer.data[indexBufferView.byteOffset + indexAccessor.byteOffset];
 				size_t               indexCount = indexAccessor.count;
 				size_t               indexStride = 0;
@@ -757,8 +758,10 @@ namespace JD
 					indices.push_back(baseVertex + index);
 				}
 				vk::Buffer indBuffer;
-				createIndexBuffer(indices, indBuffer);
+				VmaAllocation indBufferAllocation;
+				createIndexBuffer(indices, indBuffer, indBufferAllocation);
 				meshComponent.indexBuffer = indBuffer;
+				meshComponent.indexBufferAllocation = indBufferAllocation;
 
 				if (primitive.material >= 0) {
 					meshComponent.material = materials[primitive.material];
