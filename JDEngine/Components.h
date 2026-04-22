@@ -9,16 +9,7 @@
 #include <tiny_gltf_v3.h>
 #include "vma/vk_mem_alloc.h"
 
-
-
 namespace JD {
-	//struct GLTFData {
-	//	std::vector<std::vector<Vertex>> vertices;  // Vector of verticies for each mesh
-	//	std::vector<std::vector<uint32_t>> indices; // Vector of indices for each mesh
-	//	std::vector<Material> materials; // Vector of materials for each mesh
-	//};
-	//posibly need a material component/ textures component
-
 
 	struct TransformComponent {
 		glm::vec3 position;
@@ -26,12 +17,13 @@ namespace JD {
 		glm::vec3 scale;
 		TransformComponent() : position(0.0f), rotation(1.0f, 0.0f, 0.0f, 0.0f), scale(1.0f) {}
 		TransformComponent* parent = nullptr;
+		// Trivially destructible
 	};
 
-	struct BasicShapeComponent
-	{
+	struct BasicShapeComponent {
 		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
+		// std::vector cleans up its own memory automatically.
 	};
 
 	enum class RenderableType {
@@ -46,47 +38,91 @@ namespace JD {
 	using TextureView = vk::ImageView;
 
 	struct Material {
-		float metallicFactor =0;
-		float roughnessFactor =0;
+		float metallicFactor = 0;
+		float roughnessFactor = 0;
 		glm::vec4 baseColorFactor = glm::vec4(1.0f);
+		
 		Texture baseColorTexture;
 		TextureView baseColorTextureView;
-		VmaAllocation baseColorTextureAllocation;
+		VmaAllocation baseColorTextureAllocation = VK_NULL_HANDLE;
+
 		Texture normalTexture;
 		TextureView normalTextureView;
-		VmaAllocation normalTextureAllocation;
+		VmaAllocation normalTextureAllocation = VK_NULL_HANDLE;
+
+		// Appropriate manual "destructor" requiring necessary Vulkan context
+		void Destroy(vk::Device device, VmaAllocator allocator) {
+			if (baseColorTextureView) {
+				device.destroyImageView(baseColorTextureView);
+				baseColorTextureView = nullptr;
+			}
+			if (baseColorTexture && baseColorTextureAllocation) {
+				vmaDestroyImage(allocator, baseColorTexture, baseColorTextureAllocation);
+				baseColorTexture = nullptr;
+				baseColorTextureAllocation = VK_NULL_HANDLE;
+			}
+
+			if (normalTextureView) {
+				device.destroyImageView(normalTextureView);
+				normalTextureView = nullptr;
+			}
+			if (normalTexture && normalTextureAllocation) {
+				vmaDestroyImage(allocator, normalTexture, normalTextureAllocation);
+				normalTexture = nullptr;
+				normalTextureAllocation = VK_NULL_HANDLE;
+			}
+		}
 	};
 
-	//Use the using keyword here to store the vertex and index buffer data with the defined vertex and index buffer types.
-	//One mesh component per submesh of the gltf model. Store the submeshes materials, textures and other relevant data in the mesh component as well.
 	struct MeshComponent {
-		uint32_t id = 0;  //Used for sorting Mesh components pased to the renderer.
-		//Render all objects of the same id at the same time.
+		uint32_t id = 0; 
 		VertexBuffer vertexBuffer;
 		IndexBuffer indexBuffer;
+		
+		// Note: VmaAllocations for vertexBuffer and indexBuffer are missing here 
+		// but would be needed to fully clean up the buffers!
+		VmaAllocation vertexBufferAllocation = VK_NULL_HANDLE;
+		VmaAllocation indexBufferAllocation = VK_NULL_HANDLE;
+
 		Material material;
-		//Texture texture;
 
+		// Appropriate manual "destructor" requiring necessary Vulkan context
+		void Destroy(vk::Device device, VmaAllocator allocator) {
+			material.Destroy(device, allocator);
 
-		//std::vector<tinygltf::Material> materials; // Vector of materials for each submesh
-		//std::vector<tinygltf::Texture> textures; // Vector of textures for each submesh. Might change this to be image samplers instead or something.
+			if (vertexBuffer && vertexBufferAllocation) {
+				vmaDestroyBuffer(allocator, vertexBuffer, vertexBufferAllocation);
+				vertexBuffer = nullptr;
+				vertexBufferAllocation = VK_NULL_HANDLE;
+			}
+
+			if (indexBuffer && indexBufferAllocation) {
+				vmaDestroyBuffer(allocator, indexBuffer, indexBufferAllocation);
+				indexBuffer = nullptr;
+				indexBufferAllocation = VK_NULL_HANDLE;
+			}
+		}
 	};
 
 	struct JoltComponent {
 		JPH::BodyID bodyID;
+		// Destroying physics bodies is usually handled by the PhysicsSystem
+		// removing the BodyID from the JPH::PhysicsSystem interface.
 	};
 
 	struct GPUObjectData {
 		glm::mat4 model;
 	};
 
-	struct CameraInfo{
+	struct CameraInfo {
 		glm::mat4 view = glm::mat4(1.0f);
 		glm::mat4 projection = glm::mat4(1.0f);
 	};
 
 	struct RenderableComponent {
-		std::vector<MeshComponent>* mesh;
+		std::vector<MeshComponent>* mesh = nullptr;
+		// Pointer destructors do not delete. If this struct owns the mesh vector, 
+		// consider dynamically allocating it using std::unique_ptr instead of raw pointers.
 	};
 
 	struct RenderTransmition {
