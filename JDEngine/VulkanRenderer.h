@@ -63,6 +63,15 @@ namespace JD
 			return buffer;
 		}
 
+
+		[[nodiscard]] vk::ShaderModule createShaderModule(const std::vector<char>& code) const
+		{
+			vk::ShaderModuleCreateInfo createInfo{ .codeSize = code.size() * sizeof(char), .pCode = reinterpret_cast<const uint32_t*>(code.data()) };
+			vk::ShaderModule shaderModule;
+			vulkanCore.device.createShaderModule(&createInfo, nullptr, &shaderModule);
+			return shaderModule;
+		}
+
 		void initVulkan();
 		void createDevices();
 		void createSwapChain();
