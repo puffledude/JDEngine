@@ -595,6 +595,7 @@ namespace JD
 		meshComponents.clear();
 		std::vector<vk::Image> textures;
 		std::vector<vk::ImageView> textureImageViews;
+		std::vector<VmaAllocation> textureAllocations;
 		std::vector<Material> materials;
 		for (size_t i = 0; i < model.textures.size(); i++) {
 			const auto& texture = model.textures[i];
@@ -627,6 +628,7 @@ namespace JD
 				vk::ImageView textureview = createImageView(textureImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor, mipLevels);
 				textures.push_back(textureImage);
 				textureImageViews.push_back(textureview);
+				textureAllocations.push_back(textureAllocation);
 			}
 			 else {
 				std::cerr << "Unsupported texture format: " << image.mimeType << std::endl;
@@ -649,12 +651,14 @@ namespace JD
 				const auto& texture = model.textures[material.pbrMetallicRoughness.baseColorTexture.index];
 				mat.baseColorTexture = textures[texture.source];
 				mat.baseColorTextureView = textureImageViews[texture.source];
+				mat.baseColorTextureAllocation = textureAllocations[texture.source];
 
 			}
 			if (material.normalTexture.index >= 0) {
 				const auto& texture = model.textures[material.normalTexture.index];
 				mat.normalTexture = textures[texture.source];
 				mat.normalTextureView = textureImageViews[texture.source];
+				mat.normalTextureAllocation = textureAllocations[texture.source];
 			}
 			materials.push_back(mat);
 		}
