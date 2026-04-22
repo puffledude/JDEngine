@@ -305,7 +305,83 @@ namespace JD
 		vulkanCore.commandPool = vulkanCore.device.createCommandPool(poolInfo);
 	}
 
+	void VulkanRenderer::createDescriptorSetLayouts() {
+		storageBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+		for (auto buffer : storageBuffers) {
+			VmaAllocation bufferAllocation{};
+			createBuffer(sizeof(GPUObjectData) * MAX_OBJECTS, vk::BufferUsageFlagBits::eStorageBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer, bufferAllocation);
+			storageBufferAllocations.push_back(bufferAllocation);
+		}
+		createGbufferDescriptorSetLayout();
+	}
 
+	void VulkanRenderer::createGbufferDescriptorSetLayout() 
+	{
+		std::array bindings = {
+			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  //Model matrix buffer
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  // view projection buffer
+			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Color texture
+			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr)  // Normal texture
+		};
+		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
+		gbufferDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
+	}
+
+	void VulkanRenderer::createDescriptorPool() {
+			std::array poolSizes = {
+			vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, static_cast<uint32_t>(storageBuffers.size())),
+			vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 100),  // Arbitrary large number for now
+			vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 100)  // Arbitrary large number for now
+		};
+		vk::DescriptorPoolCreateInfo poolInfo{ .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,  .maxSets = 100,
+		.poolSizeCount = static_cast<uint32_t>(poolSizes.size()),.pPoolSizes = poolSizes.data(),  };  // Arbitrary large number for now
+		descriptorPool = vulkanCore.device.createDescriptorPool(poolInfo);
+	}
+	
+	void VulkanRenderer::createDescriptorSets() {
+		createGbufferDescriptorSets();
+
+	}
+
+	void VulkanRenderer::createGbufferDescriptorSets() {
+		std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, gbufferDescriptorSetLayout);
+		vk::DescriptorSetAllocateInfo allocInfo{
+			.descriptorPool = descriptorPool,
+			.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
+			.pSetLayouts = layouts.data()
+		};
+
+		gbufferDescriptorSets.clear();
+		gbufferDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
+		
+	}
+
+	void VulkanRenderer::createDepthResources() {
+		std::vector<vk::Format> candidates = {
+			vk::Format::eD32Sfloat,
+			vk::Format::eD32SfloatS8Uint,
+			vk::Format::eD24UnormS8Uint
+		};
+
+		vk::PhysicalDevice physDevice = vulkanCore.vkbInstances.device.physical_device.physical_device;
+		depthImageFormat = vk::Format::eUndefined;
+
+		for (vk::Format format : candidates) {
+			vk::FormatProperties props = physDevice.getFormatProperties(format);
+			if ((props.optimalTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment) == vk::FormatFeatureFlagBits::eDepthStencilAttachment) {
+				depthImageFormat = format;
+				break;
+			}
+		}
+
+		if (depthImageFormat == vk::Format::eUndefined) {
+			throw std::runtime_error("failed to find supported depth format!");
+		}
+
+		std::cout << "Chosen depth format: " << vk::to_string(depthImageFormat) << std::endl;
+		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, depthImageFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal, depthImage, depthImageAllocation);
+		depthImageView = createImageView(depthImage, depthImageFormat, vk::ImageAspectFlagBits::eDepth, 1);
+	}
 
 	void VulkanRenderer::createGraphicsPipelines() {
 	}
