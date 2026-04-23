@@ -24,7 +24,6 @@ namespace JD
 		// Use .each() to smoothly unpack components by reference
 		for (auto [entity, renderable, jolt] : view.each()) {
 
-			for (auto& mesh : *renderable.mesh) {
 				RenderTransmition transmition;
 				transmition.mesh = renderable.mesh;
 			JPH::BodyLockRead lock(lock_interface, jolt.bodyID);
