@@ -28,6 +28,13 @@ namespace JD {
 		}
 		std::vector<RenderTransmition>* getRenderTransmitions();
 
+		CameraInfo* getCameraInfo() {
+			CameraInfo* cameraInfo = new CameraInfo();
+			cameraInfo->view = glm::mat4(1.0f);
+			cameraInfo->projection = glm::mat4(1.0f);
+			return cameraInfo;
+		}
+
 		JPH::PhysicsSystem* GetPhysicsSystem() {
 			return physicsSystem;
 		}

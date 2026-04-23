@@ -101,6 +101,8 @@ namespace JD
 		void generateMipmaps(vk::Image& image, vk::Format imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
 		void createGraphicsPipelines();
 		void createGBufferPipeline();
+		void createCameraBuffers();
+
 		void createShadowPipeline();
 		void createOutputPipeline();
 		void createQueues();
@@ -118,6 +120,7 @@ namespace JD
 		void sendRenderTransmition(std::vector<RenderTransmition>* renderTransmition) {
 			currentRenderTransmition = renderTransmition;
 		}
+		void updateCameraBuffer(uint32_t frameIndex);
 		void drawFrame();
 		void BuildInstanceBatches(
 			const std::vector<RenderTransmition>& renderables,
@@ -156,6 +159,10 @@ namespace JD
 		uint32_t MAX_OBJECTS = 1000;
 		vk::DescriptorSetLayout objectDescriptorSetLayout;
 		//std::vector<vk::DescriptorSet> gbufferDescriptorSets;
+
+		std::vector<vk::Buffer> cameraBuffers;
+		std::vector<VmaAllocation> cameraBufferAllocations;
+
 		vk::PipelineLayout gbufferPipelineLayout;
 		vk::Pipeline gBufferPipeline;
 		vk::Image depthImage;

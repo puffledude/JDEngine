@@ -83,9 +83,8 @@ namespace JD
 			createDepthResources();
 			createTextureSampler();
 			createGraphicsPipelines();
-
+			createCameraBuffers();
 			createCommandPool();
-
 			//createDescriptorSets();
 			createCommandBuffers();
 			createSyncObjects();
@@ -278,6 +277,18 @@ namespace JD
 
 		buffer = vk::Buffer(cBuffer);
 		allocation = createdAllocation;
+	}
+
+	void VulkanRenderer::createCameraBuffers() {
+		cameraBuffers.clear();
+		cameraBufferAllocations.clear();
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			vk::Buffer buffer;
+			VmaAllocation allocation;
+			createBuffer(sizeof(CameraInfo), vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer, allocation);
+			cameraBuffers.push_back(buffer);
+			cameraBufferAllocations.push_back(allocation);
+		}
 	}
 
 	void VulkanRenderer::transitionImageLayout(const vk::Image& image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, uint32_t mipLevels) {
@@ -695,9 +706,10 @@ namespace JD
 			mat.descriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
 			for (size_t i=0; i<MAX_FRAMES_IN_FLIGHT; i++) {
 				vk::DescriptorBufferInfo bufferInfo{ .buffer = storageBuffers[i], .offset = 0, .range = sizeof(GPUObjectData) * MAX_OBJECTS };
+				vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
 				vk::DescriptorImageInfo baseColorImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = mat.baseColorTextureView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 				vk::DescriptorImageInfo normalImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = mat.normalTextureView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
-				std::array<vk::WriteDescriptorSet, 3> descriptorWrites = {
+				std::array<vk::WriteDescriptorSet, 4> descriptorWrites = {
 						vk::WriteDescriptorSet {
 							.dstSet = mat.descriptorSets[i],
 							.dstBinding = 0,
@@ -705,6 +717,14 @@ namespace JD
 							.descriptorCount = 1,
 							.descriptorType = vk::DescriptorType::eStorageBuffer,
 							.pBufferInfo = &bufferInfo
+						},
+						vk::WriteDescriptorSet {
+							.dstSet = mat.descriptorSets[i],
+							.dstBinding = 1,
+							.dstArrayElement = 0,
+							.descriptorCount = 1,
+							.descriptorType = vk::DescriptorType::eUniformBuffer,
+							.pBufferInfo = &cameraBufferInfo
 						},
 						vk::WriteDescriptorSet {
 							.dstSet = mat.descriptorSets[i],
@@ -861,6 +881,15 @@ namespace JD
 		drawFrame();
 	}
 
+	void VulkanRenderer::updateCameraBuffer(uint32_t frameIndex) {
+		CameraInfo* cameraInfo = gameworld.getCameraInfo();
+		void* data;
+		vmaMapMemory(vulkanCore.allocator, cameraBufferAllocations[frameIndex], &data);
+		std::memcpy(data, cameraInfo, sizeof(CameraInfo));
+		vmaUnmapMemory(vulkanCore.allocator, cameraBufferAllocations[frameIndex]);
+	}
+
+
 	void VulkanRenderer::drawFrame() {
 
 		auto fenceResult = vulkanCore.device.waitForFences(vulkanCore.perFrame[currentFrame].renderFence, vk::True, UINT64_MAX);
@@ -879,7 +908,25 @@ namespace JD
 		vmaMapMemory(vulkanCore.allocator, storageBufferAllocations[currentFrame], &mappedData);
 		BuildInstanceBatches(*renderTransmissions, meshInstanceBatches, mappedData);
 		vmaUnmapMemory(vulkanCore.allocator, storageBufferAllocations[currentFrame]);
+		updateCameraBuffer(currentFrame);
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 		//Possible draw loop structure.
 
 		//for (auto& batch : batches) {
