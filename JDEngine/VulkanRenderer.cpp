@@ -863,6 +863,16 @@ namespace JD
 
 	void VulkanRenderer::drawFrame() {
 
+		auto fenceResult = vulkanCore.device.waitForFences(vulkanCore.perFrame[currentFrame].renderFence, vk::True, UINT64_MAX);
+		if (fenceResult != vk::Result::eSuccess)
+		{
+			throw std::runtime_error("failed to wait for fence!");
+		}
+		auto acquireResult = vulkanCore.device.acquireNextImageKHR(
+			vulkanCore.swapChain, UINT64_MAX, vulkanCore.perFrame[currentFrame].presentSemaphore, nullptr);
+		vulkanCore.device.resetFences(vulkanCore.perFrame[currentFrame].renderFence);
+
+
 		std::vector<RenderTransmition>* renderTransmissions = gameworld.getRenderTransmitions();
 		std::vector<MeshInstanceBatch> meshInstanceBatches;
 		BuildInstanceBatches(*renderTransmissions, meshInstanceBatches, storageBuffers[currentFrame]);
