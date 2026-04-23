@@ -81,7 +81,7 @@ namespace JD
 			createDescriptorSetLayouts();
 			createDescriptorPool();
 			createDepthResources();
-
+			createTextureSampler();
 			createGraphicsPipelines();
 
 			createCommandPool();

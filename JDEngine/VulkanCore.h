@@ -62,4 +62,14 @@ namespace JD
 			vkb::destroy_instance(instance);
 		}
 	};
+
+
+	//Core for rendering meshes with instanceing
+	struct MeshInstanceBatch {
+		uint32_t ssboBaseOffset;        // where this mesh's matrices start in the SSBO
+		uint32_t instanceCount;			//How many instances of this mesh are being rendered
+		std::vector<glm::mat4> modelMatrices; // model matrices for each instance of this mesh
+		std::vector<MeshComponent*> pieces; // all pieces that belong to this mesh
+	};
+
 }
