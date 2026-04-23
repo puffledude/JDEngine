@@ -875,8 +875,10 @@ namespace JD
 
 		std::vector<RenderTransmition>* renderTransmissions = gameworld.getRenderTransmitions();
 		std::vector<MeshInstanceBatch> meshInstanceBatches;
-		BuildInstanceBatches(*renderTransmissions, meshInstanceBatches, storageBuffers[currentFrame]);
-
+		void* mappedData;
+		vmaMapMemory(vulkanCore.allocator, storageBufferAllocations[currentFrame], &mappedData);
+		BuildInstanceBatches(*renderTransmissions, meshInstanceBatches, mappedData);
+		vmaUnmapMemory(vulkanCore.allocator, storageBufferAllocations[currentFrame]);
 
 		//Possible draw loop structure.
 
