@@ -86,6 +86,8 @@ namespace JD
 		void createTextureImage(vk::Image image, std::string filePath);
 		void createVertexBuffer(std::vector<Vertex>& verticies, vk::Buffer& buffer, VmaAllocation& allocation);
 		void createIndexBuffer(std::vector<uint32_t>& indicies, vk::Buffer& buffer, VmaAllocation& allocation);
+		void createTextureSampler();
+
 		void createDescriptorSetLayouts();
 		void createDescriptorPool();
 		void createDepthResources();
