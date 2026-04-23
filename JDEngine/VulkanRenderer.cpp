@@ -86,7 +86,7 @@ namespace JD
 
 			createCommandPool();
 
-			createDescriptorSets();
+			//createDescriptorSets();
 			createCommandBuffers();
 			createSyncObjects();
 			
@@ -373,12 +373,12 @@ namespace JD
 		descriptorPool = vulkanCore.device.createDescriptorPool(poolInfo);
 	}
 	
-	void VulkanRenderer::createDescriptorSets() {
+	/*void VulkanRenderer::createDescriptorSets() {
 		createGbufferDescriptorSets();
 
-	}
+	}*/
 
-	void VulkanRenderer::createGbufferDescriptorSets() {
+	/*void VulkanRenderer::createGbufferDescriptorSets() {
 		std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, gbufferDescriptorSetLayout);
 		vk::DescriptorSetAllocateInfo allocInfo{
 			.descriptorPool = descriptorPool,
@@ -389,7 +389,7 @@ namespace JD
 		gbufferDescriptorSets.clear();
 		gbufferDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
 		
-	}
+	}*/
 
 	void VulkanRenderer::createDepthResources() {
 		std::vector<vk::Format> candidates = {
@@ -862,6 +862,36 @@ namespace JD
 	}
 
 	void VulkanRenderer::drawFrame() {
+
+		std::vector<RenderTransmition>* renderTransmissions = gameworld.getRenderTransmitions();
+		std::vector<MeshInstanceBatch> meshInstanceBatches;
+		BuildInstanceBatches(*renderTransmissions, meshInstanceBatches, storageBuffers[currentFrame]);
+
+
+		//Possible draw loop structure.
+
+		//for (auto& batch : batches) {
+		//	// Push the base offset once per mesh type
+		//	PushConstants pc{ .instanceBaseOffset = batch.ssboBaseOffset };
+		//	vkCmdPushConstants(..., &pc);
+
+		//	for (MeshComponent* piece : batch.pieces) {
+		//		vkCmdBindVertexBuffers(..., piece->vertexBuffer, ...);
+		//		vkCmdBindIndexBuffer(..., piece->indexBuffer, ...);
+		//		// Bind piece material descriptors here
+		//		vkCmdDrawIndexed(..., batch.instanceCount, 0, 0, 0);
+		//	}
+		//}
+
+
+
+
+
+
+
+
+
+
 		//Get fences and semaphores for the current frame
 		//Then bring in the render objects to the command buffer and submit the command buffer to the graphics queue
 
@@ -928,6 +958,49 @@ namespace JD
 
 
 
+	}
+
+
+	void VulkanRenderer::BuildInstanceBatches(
+		const std::vector<RenderTransmition>& renderables,
+		std::vector<MeshInstanceBatch>& outBatches,
+		void* ssboMapped)
+	{
+		// --- Group phase ---
+		std::unordered_map<uint32_t, MeshInstanceBatch> batchMap;
+
+		for (const RenderTransmition& renderable : renderables) {
+			if (!renderable.mesh || renderable.mesh->empty()) continue;
+
+			uint32_t meshKey = renderable.mesh->front().id;
+			auto& batch = batchMap[meshKey];
+
+			if (batch.pieces.empty()) {
+				for (MeshComponent& piece : *renderable.mesh)
+					batch.pieces.push_back(&piece);
+			}
+
+			batch.modelMatrices.push_back(renderable.modelMatrix);
+		}
+
+		// --- SSBO upload + offset assignment phase ---
+		outBatches.clear();
+		outBatches.reserve(batchMap.size());
+
+		uint32_t cursor = 0;
+		for (auto& [meshKey, batch] : batchMap) {
+			batch.ssboBaseOffset = cursor;
+			batch.instanceCount = static_cast<uint32_t>(batch.modelMatrices.size());
+
+			memcpy(
+				(glm::mat4*)ssboMapped + cursor,
+				batch.modelMatrices.data(),
+				batch.instanceCount * sizeof(glm::mat4)
+			);
+
+			cursor += batch.instanceCount;
+			outBatches.push_back(std::move(batch));
+		}
 	}
 
 }

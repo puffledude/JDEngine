@@ -119,7 +119,10 @@ namespace JD
 			currentRenderTransmition = renderTransmition;
 		}
 		void drawFrame();
-
+		void BuildInstanceBatches(
+			const std::vector<RenderTransmition>& renderables,
+			std::vector<MeshInstanceBatch>& outBatches,
+			void* ssboMapped);
 		
 		void cleanupVulkan();
 		void cleanupSwapChain();
