@@ -79,7 +79,9 @@ namespace JD {
 	struct MeshComponent {
 		uint32_t id = 0; 
 		VertexBuffer vertexBuffer;
+		std::vector<Vertex> vertices; // Store vertices for potential CPU-side operations, but be mindful of memory usage.
 		IndexBuffer indexBuffer;
+		std::vector<uint32_t> indices; // Store indices for potential CPU-side operations, but be mindful of memory usage.
 		
 		// Note: VmaAllocations for vertexBuffer and indexBuffer are missing here 
 		// but would be needed to fully clean up the buffers!
