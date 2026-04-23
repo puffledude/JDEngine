@@ -174,6 +174,9 @@ int main() {
 		float dt = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
 		lastTime = currentTime;
 		scene->Update(dt);
+		world->Update(dt);
+		physics->Update(dt, 2, &temp_allocator, &job_system);
+		renderer->Update(dt);
 	}
 	delete scene;
 	delete renderer;
