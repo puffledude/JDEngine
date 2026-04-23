@@ -47,6 +47,13 @@ namespace JD
 	};
 
 	void VulkanRenderer::cleanupSwapChain() {
+		vulkanCore.device.destroyImageView(depthImageView);
+		vmaDestroyImage(vulkanCore.allocator, depthImage, depthImageAllocation);
+
+		for (auto imageView : vulkanCore.swapChainImageViews) {
+			vulkanCore.device.destroyImageView(imageView);
+		}
+		vulkanCore.swapChainImageViews.clear();
 		vulkanCore.swapChainImages.clear();
 	}
 
