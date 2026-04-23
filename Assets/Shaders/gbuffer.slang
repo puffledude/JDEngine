@@ -49,11 +49,13 @@ VSOutput vertMain(VSInput input) {
     // 3. Apply Model, View, and Projection matrices to the vertex position
     // Note: Slang/HLSL uses mul(matrix, vector) or mul(vector, matrix) depending on matrix majority.
     // Standard GLM -> Vulkan usually expects mapping vector * matrix or standard mul(MVP, pos).
-    float4 worldPos = mul(modelMatrix, float4(input.inPos, 1.0));
-    float4 viewPos = mul(cameraData.view, worldPos);
-    output.pos = mul(cameraData.projection, viewPos);
+    //float4 worldPos = mul(modelMatrix, float4(input.inPos, 1.0));
+    //float4 viewPos = mul(cameraData.view, worldPos);
+    //output.pos = mul(cameraData.projection, viewPos);
 
     // Pass through vertex colors and UVs
+    output.pos = mul(cameraData.projection, mul(cameraData.view, mul(modelMatrix, float4(input.inPos, 1.0))));
+
     output.color = input.inColor;
     output.texCoord = input.inTexCoord;
 
