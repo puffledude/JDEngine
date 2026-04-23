@@ -188,6 +188,25 @@ namespace JD
 
 	}
 
+	void VulkanRenderer::createTextureSampler() {
+		vk::PhysicalDevice physDevice = vulkanCore.vkbInstances.device.physical_device.physical_device;
+		vk::PhysicalDeviceProperties properties = physDevice.getProperties();
+		vk::SamplerCreateInfo samplerInfo{ .magFilter = vk::Filter::eLinear, .minFilter = vk::Filter::eLinear,  .mipmapMode = vk::SamplerMipmapMode::eLinear,
+			.addressModeU = vk::SamplerAddressMode::eRepeat, .addressModeV = vk::SamplerAddressMode::eRepeat, .addressModeW = vk::SamplerAddressMode::eRepeat,
+			.anisotropyEnable = vk::True, .maxAnisotropy = properties.limits.maxSamplerAnisotropy,
+			.compareEnable = vk::False, .compareOp = vk::CompareOp::eAlways };
+		samplerInfo.borderColor = vk::BorderColor::eIntOpaqueBlack;
+		samplerInfo.unnormalizedCoordinates = vk::False;
+		samplerInfo.compareEnable = vk::False;
+		samplerInfo.compareOp = vk::CompareOp::eAlways;
+
+		samplerInfo.mipmapMode = vk::SamplerMipmapMode::eLinear;
+		samplerInfo.mipLodBias = 0.0f;
+		samplerInfo.minLod = 0.0f;
+		samplerInfo.maxLod = vk::LodClampNone;
+		vulkanCore.textureSampler = vulkanCore.device.createSampler(samplerInfo);
+	}
+
 	void VulkanRenderer::copyBuffer(const vk::Buffer& srcBuffer, vk::Buffer& dstBuffer, vk::DeviceSize size) {
 		vk::CommandBuffer commandCopyBuffer = beginSingleTimeCommands();
 		commandCopyBuffer.copyBuffer(srcBuffer, dstBuffer, vk::BufferCopy(0, 0, size));

@@ -35,6 +35,7 @@ namespace JD
 		std::array<PerFrame, MAX_FRAMES_IN_FLIGHT> perFrame;
 		std::vector<vk::Image> swapChainImages;
 		std::vector<vk::ImageView> swapChainImageViews;
+		vk::Sampler textureSampler;
 		VkbStuff vkbInstances;
 		Queues queues;
 		~VulkanCore() {
