@@ -11,6 +11,8 @@ namespace JD
 		.shaderDrawParameters = VK_TRUE
 		};
 		vk::PhysicalDeviceVulkan13Features vulkan13Features{
+			.synchronization2 = VK_TRUE,
+
 			.dynamicRendering = VK_TRUE,
 		};
 		vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT extendedDynamicStateFeatures{
