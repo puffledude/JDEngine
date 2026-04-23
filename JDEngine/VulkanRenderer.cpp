@@ -342,7 +342,7 @@ namespace JD
 
 	void VulkanRenderer::createDescriptorSetLayouts() {
 		storageBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-		for (auto buffer : storageBuffers) {
+		for (auto& buffer : storageBuffers) {
 			VmaAllocation bufferAllocation{};
 			createBuffer(sizeof(GPUObjectData) * MAX_OBJECTS, vk::BufferUsageFlagBits::eStorageBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer, bufferAllocation);
 			storageBufferAllocations.push_back(bufferAllocation);
