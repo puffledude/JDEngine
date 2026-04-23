@@ -503,9 +503,17 @@ namespace JD
 		vk::PipelineColorBlendStateCreateInfo colorBlending{
 			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = 1, .pAttachments = &colorBlendAttachment };
 
+		// --- Push constant configuration added ---
+		vk::PushConstantRange pushConstantRange{
+			.stageFlags = vk::ShaderStageFlagBits::eVertex,
+			.offset = 0,
+			.size = sizeof(uint32_t)
+		};
+
 		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1,
 			.pSetLayouts = &objectDescriptorSetLayout,
-			.pushConstantRangeCount = 0 };
+			.pushConstantRangeCount = 1,
+			.pPushConstantRanges = &pushConstantRange };
 		gbufferPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
 
 		vk::PipelineDepthStencilStateCreateInfo depthStencil{
