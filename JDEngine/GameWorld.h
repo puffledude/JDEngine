@@ -26,7 +26,7 @@ namespace JD {
 			}
 			return renderObjects;
 		}
-		std::vector<RenderTransmition>* CreateRenderTransmition();
+		std::vector<RenderTransmition>* getRenderTransmitions();
 
 		JPH::PhysicsSystem* GetPhysicsSystem() {
 			return physicsSystem;
