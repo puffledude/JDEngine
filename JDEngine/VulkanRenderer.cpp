@@ -919,6 +919,8 @@ namespace JD
 	}
 
 	void VulkanRenderer::createSyncObjects() {
+		vk::SemaphoreCreateInfo semaphoreInfo{};
+
 		for (auto &frame : vulkanCore.perFrame) {
 			vk::FenceCreateInfo fenceInfo{ .flags = vk::FenceCreateFlagBits::eSignaled };
 			frame.renderFence = vulkanCore.device.createFence(fenceInfo);
@@ -927,6 +929,9 @@ namespace JD
 			frame.presentSemaphore = vulkanCore.device.createSemaphore(semaphoreInfo);
 			frame.renderSemaphore = vulkanCore.device.createSemaphore(semaphoreInfo);
 		}
+		for (size_t i = 0; i < vulkanCore.swapChainImages.size(); i++) {
+			vulkanCore.renderSemaphores.push_back(vulkanCore.device.createSemaphore(semaphoreInfo));
+	}
 	}
 
 
