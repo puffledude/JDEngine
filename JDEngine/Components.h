@@ -72,6 +72,7 @@ namespace JD {
 				normalTexture = nullptr;
 				normalTextureAllocation = VK_NULL_HANDLE;
 			}
+
 		}
 	};
 
