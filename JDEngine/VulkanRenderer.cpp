@@ -72,7 +72,7 @@ namespace JD
 				throw std::runtime_error("Failed to create Vulkan instance: " + inst_ret.error().message());
 			}
 			vulkanCore.instance = inst_ret.value();
-			
+
 			// Initialize dispatcher with vkGetInstanceProcAddr globally
 			VULKAN_HPP_DEFAULT_DISPATCHER.init(vulkanCore.instance.fp_vkGetInstanceProcAddr);
 			// Initialize dispatcher with instance level functions
@@ -95,7 +95,7 @@ namespace JD
 			//createDescriptorSets();
 			createCommandBuffers();
 			createSyncObjects();
-			
+
 			std::cout << "Vulkan initialized successfully!" << std::endl;
 
 		}
@@ -153,8 +153,8 @@ namespace JD
 
 		auto swap_ret = swapchainBuilder.set_old_swapchain(vulkanCore.swapChain).set_desired_format(desiredFormat)
 			.add_fallback_format({ VK_FORMAT_R8G8B8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
-			 .use_default_present_mode_selection()
-			 .set_image_usage_flags(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+			.use_default_present_mode_selection()
+			.set_image_usage_flags(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
 			.build();
 		if (!swap_ret) {
 			std::cout << swap_ret.error().message() << " " << swap_ret.vk_result() << "\n";
@@ -258,7 +258,7 @@ namespace JD
 		vmaUnmapMemory(vulkanCore.allocator, stagingBufferMemory);
 		createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer, vk::MemoryPropertyFlagBits::eDeviceLocal, buffer, allocation);
 		copyBuffer(stagingBuffer, buffer, bufferSize);
-		
+
 	}
 
 	void VulkanRenderer::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, VmaAllocation& allocation) {
@@ -307,7 +307,7 @@ namespace JD
 		vk::PipelineStageFlags2 dst_stage_mask,
 		vk::ImageAspectFlags image_aspect_flags,
 		uint32_t mip_levels) {
-
+		
 		vk::ImageMemoryBarrier2 barrier{
 			.srcStageMask = src_stage_mask,
 			.srcAccessMask = src_access_mask,
@@ -331,21 +331,8 @@ namespace JD
 			.pImageMemoryBarriers = &barrier
 		};
 		commandBuffer.pipelineBarrier2(dependencyInfo);
-		}
-		else if (oldLayout == vk::ImageLayout::eTransferDstOptimal && newLayout == vk::ImageLayout::eShaderReadOnlyOptimal) {
-			barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-			barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
-
-			sourceStage = vk::PipelineStageFlagBits::eTransfer;
-			destinationStage = vk::PipelineStageFlagBits::eFragmentShader;
-		}
-		else {
-			throw std::invalid_argument("unsupported layout transition!");
-		}
-
-		commandBuffer.pipelineBarrier(sourceStage, destinationStage, {}, {}, nullptr, barrier);
-		endSingleTimeCommands(commandBuffer);
 	}
+
 	vk::CommandBuffer VulkanRenderer::beginSingleTimeCommands() {
 		vk::CommandBufferAllocateInfo allocInfo{ .commandPool = vulkanCore.commandPool, .level = vk::CommandBufferLevel::ePrimary, .commandBufferCount = 1 };
 		vk::CommandBuffer commandBuffer = vulkanCore.device.allocateCommandBuffers(allocInfo).front();
@@ -538,13 +525,12 @@ namespace JD
 		.layout = gbufferPipelineLayout,
 		.renderPass = nullptr},
 		{.colorAttachmentCount = 1, .pColorAttachmentFormats = &colorAttachmentFormat, .depthAttachmentFormat = depthImageFormat} };
-		//graphicsPipeline = vk::raii::Pipeline(device, nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
-	
+		
 		// --- Fix missing pipeline assignment ---
 		auto pipelineResult = vulkanCore.device.createGraphicsPipeline(nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
 		if (pipelineResult.result != vk::Result::eSuccess) {
 			throw std::runtime_error("Failed to create gbuffer pipeline!");
-	}
+		}
 		gBufferPipeline = pipelineResult.value;
 	}
 
@@ -565,9 +551,6 @@ namespace JD
 
 		image = vk::Image(rawImage);
 	}
-
-
-
 
 	void VulkanRenderer::copyBufferToImage(const vk::Buffer& buffer, vk::Image& image, uint32_t width, uint32_t height) {
 		vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
@@ -898,7 +881,7 @@ namespace JD
 				createIndexBuffer(indices, indBuffer, indBufferAllocation);
 				meshComponent.indexBuffer = indBuffer;
 				meshComponent.indexBufferAllocation = indBufferAllocation;
-
+				meshComponent.indices = std::move(indices);
 				if (primitive.material >= 0) {
 					meshComponent.material = materials[primitive.material];
 				}
@@ -924,14 +907,11 @@ namespace JD
 		for (auto &frame : vulkanCore.perFrame) {
 			vk::FenceCreateInfo fenceInfo{ .flags = vk::FenceCreateFlagBits::eSignaled };
 			frame.renderFence = vulkanCore.device.createFence(fenceInfo);
-
-			vk::SemaphoreCreateInfo semaphoreInfo{};
 			frame.presentSemaphore = vulkanCore.device.createSemaphore(semaphoreInfo);
-			frame.renderSemaphore = vulkanCore.device.createSemaphore(semaphoreInfo);
 		}
 		for (size_t i = 0; i < vulkanCore.swapChainImages.size(); i++) {
 			vulkanCore.renderSemaphores.push_back(vulkanCore.device.createSemaphore(semaphoreInfo));
-	}
+		}
 	}
 
 
@@ -1053,7 +1033,6 @@ namespace JD
 	}
 
 	void VulkanRenderer::drawFrame() {
-
 		auto fenceResult = vulkanCore.device.waitForFences(vulkanCore.perFrame[currentFrame].renderFence, vk::True, UINT64_MAX);
 		if (fenceResult != vk::Result::eSuccess)
 		{
@@ -1062,7 +1041,6 @@ namespace JD
 		auto [result, imageIndex] = vulkanCore.device.acquireNextImageKHR(
 			vulkanCore.swapChain, UINT64_MAX, vulkanCore.perFrame[currentFrame].presentSemaphore, nullptr);
 		vulkanCore.device.resetFences(vulkanCore.perFrame[currentFrame].renderFence);
-
 
 		std::vector<RenderTransmition>* renderTransmissions = gameworld.getRenderTransmitions();
 		std::vector<MeshInstanceBatch> meshInstanceBatches;
@@ -1073,7 +1051,7 @@ namespace JD
 		updateCameraBuffer(currentFrame);
 
 		recordCommandBuffer(imageIndex, meshInstanceBatches); // Fixed imageIndex being passed
-
+		
 		vk::PipelineStageFlags waitDestinationStageMask = (vk::PipelineStageFlagBits::eColorAttachmentOutput);
 		const vk::SubmitInfo submitInfo{ .waitSemaphoreCount = 1,
 								  .pWaitSemaphores = &vulkanCore.perFrame[currentFrame].presentSemaphore,
@@ -1093,7 +1071,7 @@ namespace JD
 			.pImageIndices = &imageIndex,
 			.pResults = nullptr
 		};
-
+		
 		result = static_cast<vk::Result>(
 			VULKAN_HPP_DEFAULT_DISPATCHER.vkQueuePresentKHR(
 				static_cast<VkQueue>(vulkanCore.queues.graphicsQueue),
@@ -1107,108 +1085,8 @@ namespace JD
 		else {
 			assert(result == vk::Result::eSuccess);
 		}
-
-
-
-
-
-
-
-
-
-
-
+		
 		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-		//Possible draw loop structure.
-
-		//for (auto& batch : batches) {
-		//	// Push the base offset once per mesh type
-		//	PushConstants pc{ .instanceBaseOffset = batch.ssboBaseOffset };
-		//	vkCmdPushConstants(..., &pc);
-
-		//	for (MeshComponent* piece : batch.pieces) {
-		//		vkCmdBindVertexBuffers(..., piece->vertexBuffer, ...);
-		//		vkCmdBindIndexBuffer(..., piece->indexBuffer, ...);
-		//		// Bind piece material descriptors here
-		//		vkCmdDrawIndexed(..., batch.instanceCount, 0, 0, 0);
-		//	}
-		//}
-
-
-
-
-
-
-
-
-
-
-		//Get fences and semaphores for the current frame
-		//Then bring in the render objects to the command buffer and submit the command buffer to the graphics queue
-
-
-		//auto fenceResult = vkWaitForFences(vulkanCore.device, 1, inFlightFences[frameIndex], VK_TRUE, UINT64_MAX);
-		//if (fenceResult != VK_SUCCESS)
-		//{
-		//	throw std::runtime_error("failed to wait for fence!");
-		//}
-
-		//auto [result, imageIndex] = swapChain.acquireNextImage(UINT64_MAX, *presentCompleteSemaphores[frameIndex], nullptr);
-
-		//if (result == vk::Result::eErrorOutOfDateKHR)
-		//{
-		//	std::cout << "Swap chain is out of date, recreating swap chain..." << std::endl;
-		//	recreateSwapChain();
-		//	return;
-		//}
-		//if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR)
-		//{
-		//	assert(result == vk::Result::eTimeout || result == vk::Result::eNotReady);
-		//	throw std::runtime_error("failed to acquire swap chain image!");
-		//}
-
-		//// Only reset the fence if we are submitting work
-		//device.resetFences(*inFlightFences[frameIndex]);
-
-		////updateUniformBuffer(frameIndex);
-		//recordCommandBuffer(imageIndex);
-		//vk::PipelineStageFlags waitDestinationStageMask = (vk::PipelineStageFlagBits::eColorAttachmentOutput);
-		//const vk::SubmitInfo   submitInfo{ .waitSemaphoreCount = 1,
-		//						  .pWaitSemaphores = &*presentCompleteSemaphores[frameIndex],
-		//						  .pWaitDstStageMask = &waitDestinationStageMask,
-		//						  .commandBufferCount = 1,
-		//						  .pCommandBuffers = &*commandBuffers[frameIndex],
-		//						  .signalSemaphoreCount = 1,
-		//						  .pSignalSemaphores = &*renderFinishedSemaphores[imageIndex] };
-
-		//graphicsQueue.submit(submitInfo, *inFlightFences[frameIndex]);
-
-		//const vk::PresentInfoKHR presentInfo{
-		//	.waitSemaphoreCount = 1,
-		//	.pWaitSemaphores = &*renderFinishedSemaphores[imageIndex],
-		//	.swapchainCount = 1,
-		//	.pSwapchains = &*swapChain,
-		//	.pImageIndices = &imageIndex,
-		//	.pResults = nullptr
-		//};
-		////result = graphicsQueue.presentKHR(presentInfo);
-		////This is dumb. The c++ bindings throw an exception if the result isn't esuccess or suboptimal.
-		//result = static_cast<vk::Result>(
-		//	graphicsQueue.getDispatcher()->vkQueuePresentKHR(static_cast<VkQueue>(*graphicsQueue), reinterpret_cast<const VkPresentInfoKHR*>(&presentInfo)));
-
-
-		//if ((result == vk::Result::eErrorOutOfDateKHR) || (result == vk::Result::eSuboptimalKHR) || framebufferResized) {
-		//	std::cout << "Swap chain is out of date or suboptimal, recreating swap chain..." << std::endl;
-		//	framebufferResized = false;
-		//	recreateSwapChain();
-		//}
-		//else {
-		//	assert(result == vk::Result::eSuccess);
-		// }
-		//frameIndex = (frameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
-
-
-
 	}
 
 
