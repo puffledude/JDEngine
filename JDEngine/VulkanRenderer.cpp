@@ -947,6 +947,110 @@ namespace JD
 		vmaUnmapMemory(vulkanCore.allocator, cameraBufferAllocations[frameIndex]);
 	}
 
+	struct PushConstants {
+		uint32_t instanceBaseOffset;
+	};
+
+	void VulkanRenderer::recordCommandBuffer(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches) {
+		// Use currentFrame, not frameIndex
+		vk::CommandBuffer* commandBuffer = &vulkanCore.commandBuffers[currentFrame];
+		vk::CommandBufferBeginInfo beginInfo{};
+		commandBuffer->begin(beginInfo);
+		// We have to specify mipLevels, default is 1 since we're writing to the swapchain colour attachment directly here
+		uint32_t mipLevels = 1;
+		transitionImageLayout(*commandBuffer,
+			vulkanCore.swapChainImages[imageIndex],
+			vk::ImageLayout::eUndefined,
+			vk::ImageLayout::eColorAttachmentOptimal,
+			{},
+			vk::AccessFlagBits2::eColorAttachmentWrite,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::ImageAspectFlagBits::eColor,
+			mipLevels
+		);
+		transitionImageLayout(*commandBuffer,
+			depthImage,
+			vk::ImageLayout::eUndefined,
+			vk::ImageLayout::eDepthAttachmentOptimal,
+			vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
+			vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
+			vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests,
+			vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests,
+			vk::ImageAspectFlagBits::eDepth,
+			1
+		);
+
+		int width = vulkanCore.vkbInstances.swapChain.extent.width;
+		int height = vulkanCore.vkbInstances.swapChain.extent.height;
+		vk::Extent2D extent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
+		vk::RenderPassBeginInfo renderPassInfo{
+			.renderPass = nullptr,
+			.framebuffer = nullptr,
+			.renderArea = vk::Rect2D({0, 0}, extent),
+			.clearValueCount = 0,
+			.pClearValues = nullptr
+		};
+		
+		vk::RenderingAttachmentInfo colorAttachment{
+			.imageView = vulkanCore.swapChainImageViews[imageIndex],
+			.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+			.loadOp = vk::AttachmentLoadOp::eClear,
+			.storeOp = vk::AttachmentStoreOp::eStore,
+			.clearValue = { std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f} }
+		};
+
+		vk::RenderingAttachmentInfo depthAttachment{
+			.imageView = depthImageView,
+			.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+			.loadOp = vk::AttachmentLoadOp::eClear,
+			.storeOp = vk::AttachmentStoreOp::eDontCare,
+			.clearValue = { vk::ClearDepthStencilValue{ 1.0f, 0 } }
+		};
+
+		vk::RenderingInfo renderingInfo{
+			.renderArea = vk::Rect2D({ 0, 0 }, extent),
+			.layerCount = 1,
+			.viewMask = 0,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &colorAttachment,
+			.pDepthAttachment = &depthAttachment,
+			.pStencilAttachment = nullptr
+		};
+		commandBuffer->beginRendering(renderingInfo);
+		commandBuffer->setViewport(0, vk::Viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width), static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f });
+		commandBuffer->setScissor(0, vk::Rect2D({ 0, 0 }, extent));
+		commandBuffer->bindPipeline(vk::PipelineBindPoint::eGraphics, gBufferPipeline); // Fix typo: gBufferPipeline
+		
+		for (const auto& batch : meshInstanceBatches) {
+			if (batch.instanceCount == 0) continue;
+
+			// Push the instanceBaseOffset using push constants
+			PushConstants pc{ .instanceBaseOffset = batch.ssboBaseOffset };
+			commandBuffer->pushConstants(gbufferPipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &pc);
+
+			for (MeshComponent* piece : batch.pieces) {
+				commandBuffer->bindDescriptorSets(vk::PipelineBindPoint::eGraphics, gbufferPipelineLayout, 0, piece->material.descriptorSets[currentFrame], {});
+
+				commandBuffer->bindVertexBuffers(0, piece->vertexBuffer, { 0 });
+				commandBuffer->bindIndexBuffer(piece->indexBuffer, 0, vk::IndexType::eUint32);
+				commandBuffer->drawIndexed(static_cast<uint32_t>(piece->indices.size()), batch.instanceCount, 0, 0, 0);
+			}
+		}
+		
+		commandBuffer->endRendering();
+		transitionImageLayout(*commandBuffer,
+			vulkanCore.swapChainImages[imageIndex],
+			vk::ImageLayout::eColorAttachmentOptimal,
+			vk::ImageLayout::ePresentSrcKHR,
+			vk::AccessFlagBits2::eColorAttachmentWrite,             // srcAccessMask
+			{},                                                     // dstAccessMask
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,     // srcStage
+			vk::PipelineStageFlagBits2::eBottomOfPipe,               // dstStage
+			vk::ImageAspectFlagBits::eColor,
+			1);
+		commandBuffer->end();
+	}
 
 	void VulkanRenderer::drawFrame() {
 
@@ -955,7 +1059,7 @@ namespace JD
 		{
 			throw std::runtime_error("failed to wait for fence!");
 		}
-		auto acquireResult = vulkanCore.device.acquireNextImageKHR(
+		auto [result, imageIndex] = vulkanCore.device.acquireNextImageKHR(
 			vulkanCore.swapChain, UINT64_MAX, vulkanCore.perFrame[currentFrame].presentSemaphore, nullptr);
 		vulkanCore.device.resetFences(vulkanCore.perFrame[currentFrame].renderFence);
 
@@ -968,11 +1072,41 @@ namespace JD
 		vmaUnmapMemory(vulkanCore.allocator, storageBufferAllocations[currentFrame]);
 		updateCameraBuffer(currentFrame);
 
+		recordCommandBuffer(imageIndex, meshInstanceBatches); // Fixed imageIndex being passed
 
+		vk::PipelineStageFlags waitDestinationStageMask = (vk::PipelineStageFlagBits::eColorAttachmentOutput);
+		const vk::SubmitInfo submitInfo{ .waitSemaphoreCount = 1,
+								  .pWaitSemaphores = &vulkanCore.perFrame[currentFrame].presentSemaphore,
+								  .pWaitDstStageMask = &waitDestinationStageMask,
+								  .commandBufferCount = 1,
+								  .pCommandBuffers = &vulkanCore.commandBuffers[currentFrame],
+								  .signalSemaphoreCount = 1,
+								  .pSignalSemaphores = &vulkanCore.renderSemaphores[imageIndex]};
 
+		vulkanCore.queues.graphicsQueue.submit(submitInfo, vulkanCore.perFrame[currentFrame].renderFence);
 
+		const vk::PresentInfoKHR presentInfo{
+			.waitSemaphoreCount = 1,
+			.pWaitSemaphores = &vulkanCore.renderSemaphores[imageIndex],
+			.swapchainCount = 1,
+			.pSwapchains = &vulkanCore.swapChain,
+			.pImageIndices = &imageIndex,
+			.pResults = nullptr
+		};
 
+		result = static_cast<vk::Result>(
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkQueuePresentKHR(
+				static_cast<VkQueue>(vulkanCore.queues.graphicsQueue),
+				reinterpret_cast<const VkPresentInfoKHR*>(&presentInfo)));
 
+		if ((result == vk::Result::eErrorOutOfDateKHR) || (result == vk::Result::eSuboptimalKHR) || framebufferResized) {
+			std::cout << "Swap chain is out of date or suboptimal, recreating swap chain..." << std::endl;
+			framebufferResized = false;
+			recreateSwapChain();
+		}
+		else {
+			assert(result == vk::Result::eSuccess);
+		}
 
 
 
