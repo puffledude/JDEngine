@@ -697,7 +697,19 @@ namespace JD
 				uint32_t mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
 
 				createImage(width, height, mipLevels, vk::Format::eR8G8B8A8Srgb, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferSrc |vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, textureImage, textureAllocation);
-				transitionImageLayout(textureImage, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, mipLevels);
+				vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
+				transitionImageLayout(commandBuffer,
+					textureImage,
+					vk::ImageLayout::eUndefined,
+					vk::ImageLayout::eTransferDstOptimal,
+					{},
+					vk::AccessFlagBits2::eTransferWrite,
+					vk::PipelineStageFlagBits2::eTopOfPipe,
+					vk::PipelineStageFlagBits2::eTransfer,
+					vk::ImageAspectFlagBits::eColor,
+					mipLevels
+				);
+				endSingleTimeCommands(commandBuffer);
 				copyBufferToImage(stagingBuffer, textureImage, width, height);
 				generateMipmaps(textureImage, vk::Format::eR8G8B8A8Srgb, width, height, mipLevels);
 				//transitionImageLayout(textureImage, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, 1);
@@ -839,6 +851,7 @@ namespace JD
 				createVertexBuffer(vertices, vertexBuffer, vertexBufferAllocation);
 				meshComponent.vertexBuffer = vertexBuffer;
 				meshComponent.vertexBufferAllocation = vertexBufferAllocation;
+				meshComponent.vertices = std::move(vertices);
 				const unsigned char* indexData = &indexBuffer.data[indexBufferView.byteOffset + indexAccessor.byteOffset];
 				size_t               indexCount = indexAccessor.count;
 				size_t               indexStride = 0;
