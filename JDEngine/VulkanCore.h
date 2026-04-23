@@ -8,7 +8,6 @@ namespace JD
 	struct PerFrame {
 		vk::Fence renderFence;
 		vk::Semaphore presentSemaphore;
-		vk::Semaphore renderSemaphore;
 		vk::CommandBuffer commandBuffer;
 	};
 
@@ -35,6 +34,8 @@ namespace JD
 		std::array<PerFrame, MAX_FRAMES_IN_FLIGHT> perFrame;
 		std::vector<vk::Image> swapChainImages;
 		std::vector<vk::ImageView> swapChainImageViews;
+		std::vector<vk::Semaphore> renderSemaphores;
+
 		vk::Sampler textureSampler;
 		VkbStuff vkbInstances;
 		Queues queues;
@@ -44,7 +45,6 @@ namespace JD
 				// Use the neatly wrapped vulkan.hpp C++ device methods
 				if (var.renderFence) device.destroy(var.renderFence);
 				if (var.presentSemaphore) device.destroy(var.presentSemaphore);
-				if (var.renderSemaphore) device.destroy(var.renderSemaphore);
 			}
 
 			if (commandPool) {
