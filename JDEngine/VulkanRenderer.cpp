@@ -327,10 +327,10 @@ namespace JD
 			createBuffer(sizeof(GPUObjectData) * MAX_OBJECTS, vk::BufferUsageFlagBits::eStorageBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer, bufferAllocation);
 			storageBufferAllocations.push_back(bufferAllocation);
 		}
-		createGbufferDescriptorSetLayout();
+		createObjectDescriptorSetLayouts();
 	}
 
-	void VulkanRenderer::createGbufferDescriptorSetLayout() 
+	void VulkanRenderer::createObjectDescriptorSetLayouts() 
 	{
 		std::array bindings = {
 			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  //Model matrix buffer
@@ -339,7 +339,7 @@ namespace JD
 			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr)  // Normal texture
 		};
 		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
-		gbufferDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
+		objectDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
 	}
 
 	void VulkanRenderer::createDescriptorPool() {
@@ -447,7 +447,7 @@ namespace JD
 			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = 1, .pAttachments = &colorBlendAttachment };
 
 		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1,
-			.pSetLayouts = &gbufferDescriptorSetLayout,
+			.pSetLayouts = &objectDescriptorSetLayout,
 			.pushConstantRangeCount = 0 };
 		gbufferPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
 
@@ -665,6 +665,49 @@ namespace JD
 				mat.normalTextureView = textureImageViews[texture.source];
 				mat.normalTextureAllocation = textureAllocations[texture.source];
 			}
+			std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, objectDescriptorSetLayout);
+			vk::DescriptorSetAllocateInfo allocInfo{
+				.descriptorPool = descriptorPool,
+				.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
+				.pSetLayouts = layouts.data()
+			};
+			mat.descriptorSets.clear();
+			mat.descriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
+			for (size_t i=0; i<MAX_FRAMES_IN_FLIGHT; i++) {
+				vk::DescriptorBufferInfo bufferInfo{ .buffer = storageBuffers[i], .offset = 0, .range = sizeof(GPUObjectData) * MAX_OBJECTS };
+				vk::DescriptorImageInfo baseColorImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = mat.baseColorTextureView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+				vk::DescriptorImageInfo normalImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = mat.normalTextureView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+				std::array<vk::WriteDescriptorSet, 3> descriptorWrites = {
+						vk::WriteDescriptorSet {
+							.dstSet = mat.descriptorSets[i],
+							.dstBinding = 0,
+							.dstArrayElement = 0,
+							.descriptorCount = 1,
+							.descriptorType = vk::DescriptorType::eStorageBuffer,
+							.pBufferInfo = &bufferInfo
+						},
+						vk::WriteDescriptorSet {
+							.dstSet = mat.descriptorSets[i],
+							.dstBinding = 2,
+							.dstArrayElement = 0,
+							.descriptorCount = 1,
+							.descriptorType = vk::DescriptorType::eCombinedImageSampler,
+							.pImageInfo = &baseColorImageInfo
+						},
+						vk::WriteDescriptorSet {
+							.dstSet = mat.descriptorSets[i],
+							.dstBinding = 3,
+							.dstArrayElement = 0,
+							.descriptorCount = 1,
+							.descriptorType = vk::DescriptorType::eCombinedImageSampler,
+							.pImageInfo = &normalImageInfo
+						}
+									};
+				vulkanCore.device.updateDescriptorSets(descriptorWrites, {});
+			}
+
+
+
 			materials.push_back(mat);
 		}
 

@@ -89,9 +89,9 @@ namespace JD
 		void createDescriptorSetLayouts();
 		void createDescriptorPool();
 		void createDepthResources();
-		void createGbufferDescriptorSetLayout();
-		void createDescriptorSets();
-		void createGbufferDescriptorSets();
+		void createObjectDescriptorSetLayouts();
+		/*void createDescriptorSets();
+		void createGbufferDescriptorSets();*/
 		void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, VmaAllocation& allocation);
 		void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation);
 
@@ -149,8 +149,8 @@ namespace JD
 		//uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 		uint32_t currentFrame = 0;
 		uint32_t MAX_OBJECTS = 1000;
-		vk::DescriptorSetLayout gbufferDescriptorSetLayout;
-		std::vector<vk::DescriptorSet> gbufferDescriptorSets;
+		vk::DescriptorSetLayout objectDescriptorSetLayout;
+		//std::vector<vk::DescriptorSet> gbufferDescriptorSets;
 		vk::PipelineLayout gbufferPipelineLayout;
 		vk::Pipeline gBufferPipeline;
 		vk::Image depthImage;

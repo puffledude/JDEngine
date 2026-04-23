@@ -49,6 +49,7 @@ namespace JD {
 		Texture normalTexture;
 		TextureView normalTextureView;
 		VmaAllocation normalTextureAllocation = VK_NULL_HANDLE;
+		std::vector<vk::DescriptorSet> descriptorSets;
 
 		// Appropriate manual "destructor" requiring necessary Vulkan context
 		void Destroy(vk::Device device, VmaAllocator allocator) {
