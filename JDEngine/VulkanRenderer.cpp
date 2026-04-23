@@ -102,6 +102,7 @@ namespace JD
 	void VulkanRenderer::createDevices() {
 		vkb::PhysicalDeviceSelector physDeviceSelector(vulkanCore.instance);
 		auto phys_device_ret = physDeviceSelector.set_surface(vulkanCore.surface).set_minimum_version(1, 3)
+			.set_required_features(JD::RequiredPhysicalFeatures().features.features)
 			.set_required_features_11(JD::RequiredPhysicalFeatures().vulkan11Features)
 			.set_required_features_13(JD::RequiredPhysicalFeatures().vulkan13Features)
 			.add_required_extension_features(JD::RequiredPhysicalFeatures().extendedDynamicStateFeatures)
