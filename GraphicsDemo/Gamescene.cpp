@@ -10,7 +10,7 @@ using namespace JD;
 GameScene::GameScene(JD::Gameworld* gameWorld, JD::Renderer* renderer) : gameWorld(gameWorld), renderer(renderer){
     environmentEntity = gameWorld->CreateEntity();
 	renderer->loadGLTF(Environment, GLTFDIR "/Environment/CourseWorkProject.gltf");
-	gameWorld->GetRegistry()->emplace<JD::MeshComponent>(*environmentEntity, Environment[0]);
+    gameWorld->GetRegistry()->emplace<JD::RenderableComponent>(*environmentEntity, &Environment);
     JPH::BoxShapeSettings test  = JPH::BoxShapeSettings(JPH::Vec3(10.0f, 10.0f, 10.0f));
     JPH::ShapeSettings::ShapeResult Result = test.Create();
     JPH::ShapeRefC boxShape = Result.Get();
