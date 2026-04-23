@@ -78,7 +78,15 @@ namespace JD
 		void initVMA();
 		vk::ImageView createImageView(const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels);
 		void createImageViews();
-		void transitionImageLayout(const vk::Image& image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, uint32_t mipLevels);
+		void transitionImageLayout(vk::CommandBuffer& commandbuffer ,vk::Image image,
+			vk::ImageLayout         old_layout,
+			vk::ImageLayout         new_layout,
+			vk::AccessFlags2        src_access_mask,
+			vk::AccessFlags2        dst_access_mask,
+			vk::PipelineStageFlags2 src_stage_mask,
+			vk::PipelineStageFlags2 dst_stage_mask,
+			vk::ImageAspectFlags image_aspect_flags,
+			uint32_t mip_levels);
 		vk::CommandBuffer beginSingleTimeCommands();
 		void endSingleTimeCommands(vk::CommandBuffer& commandBuffer);
 		void copyBuffer(const vk::Buffer& srcBuffer, vk::Buffer& dstBuffer, vk::DeviceSize size);
@@ -122,6 +130,7 @@ namespace JD
 		}
 		void updateCameraBuffer(uint32_t frameIndex);
 		void drawFrame();
+		void recordCommandBuffer(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
 		void BuildInstanceBatches(
 			const std::vector<RenderTransmition>& renderables,
 			std::vector<MeshInstanceBatch>& outBatches,

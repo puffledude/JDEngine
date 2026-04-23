@@ -291,20 +291,39 @@ namespace JD
 		}
 	}
 
-	void VulkanRenderer::transitionImageLayout(const vk::Image& image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, uint32_t mipLevels) {
-		auto commandBuffer = beginSingleTimeCommands();
-		vk::ImageMemoryBarrier barrier{ .oldLayout = oldLayout, .newLayout = newLayout, .image = image, .subresourceRange = { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 } };
-		barrier.subresourceRange.levelCount = mipLevels;
+	void VulkanRenderer::transitionImageLayout(vk::CommandBuffer& commandBuffer, vk::Image image,
+		vk::ImageLayout       old_layout,
+		vk::ImageLayout         new_layout,
+		vk::AccessFlags2        src_access_mask,
+		vk::AccessFlags2        dst_access_mask,
+		vk::PipelineStageFlags2 src_stage_mask,
+		vk::PipelineStageFlags2 dst_stage_mask,
+		vk::ImageAspectFlags image_aspect_flags,
+		uint32_t mip_levels) {
 
-		vk::PipelineStageFlags sourceStage;
-		vk::PipelineStageFlags destinationStage;
+		vk::ImageMemoryBarrier2 barrier{
+			.srcStageMask = src_stage_mask,
+			.srcAccessMask = src_access_mask,
+			.dstStageMask = dst_stage_mask,
+			.dstAccessMask = dst_access_mask,
+			.oldLayout = old_layout,
+			.newLayout = new_layout,
+			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.image = image,
+			.subresourceRange = {
+				.aspectMask = image_aspect_flags,
+				.baseMipLevel = 0,
+				.levelCount = mip_levels,
+				.baseArrayLayer = 0,
+				.layerCount = 1} };
 
-		if (oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eTransferDstOptimal) {
-			barrier.srcAccessMask = {};
-			barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
-
-			sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
-			destinationStage = vk::PipelineStageFlagBits::eTransfer;
+		vk::DependencyInfo dependencyInfo{
+			.dependencyFlags = {},
+			.imageMemoryBarrierCount = 1,
+			.pImageMemoryBarriers = &barrier
+		};
+		commandBuffer.pipelineBarrier2(dependencyInfo);
 		}
 		else if (oldLayout == vk::ImageLayout::eTransferDstOptimal && newLayout == vk::ImageLayout::eShaderReadOnlyOptimal) {
 			barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
