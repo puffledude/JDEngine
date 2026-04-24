@@ -49,12 +49,13 @@ VSOutput vertMain(VSInput input) {
     // 3. Apply Model, View, and Projection matrices to the vertex position
     // Note: Slang/HLSL uses mul(matrix, vector) or mul(vector, matrix) depending on matrix majority.
     // Standard GLM -> Vulkan usually expects mapping vector * matrix or standard mul(MVP, pos).
-    //float4 worldPos = mul(modelMatrix, float4(input.inPos, 1.0));
-    //float4 viewPos = mul(cameraData.view, worldPos);
-    //output.pos = mul(cameraData.projection, viewPos);
-
+    // float4 worldPos = mul(modelMatrix, float4(input.inPos, 1.0));
+    // float4 viewPos = mul(cameraData.view, worldPos);
+    // output.pos = mul(cameraData.projection, viewPos);
+    float4x4 projection = cameraData.projection;
+    projection[1][1] *= -1; // Flip Y for Vulkan's coordinate system
     // Pass through vertex colors and UVs
-    output.pos = mul(cameraData.projection, mul(cameraData.view, mul(modelMatrix, float4(input.inPos, 1.0))));
+    output.pos = mul(projection, mul(cameraData.view, mul(modelMatrix, float4(input.inPos, 1.0))));
 
     output.color = input.inColor;
     output.texCoord = input.inTexCoord;
@@ -71,6 +72,9 @@ Sampler2D normalTexture;
 [Shader("fragment")]
 float4 fragMain(VSOutput vertIn) : SV_Target
 {
+    float4 col = colourTexure.Sample(vertIn.texCoord);
+    float4 norm = normalTexture.Sample(vertIn.texCoord);
+
     // Optionally multiply by vertIn.color if your GLTF models have vertex colors!
-    return colourTexure.Sample(vertIn.texCoord);
+    return col;
 }
