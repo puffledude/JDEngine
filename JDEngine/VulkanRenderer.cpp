@@ -654,31 +654,68 @@ namespace JD
 		//Suggstion from tutorial. Load materials and textures first so they can be referenced when loading meshes.
 		//Reference from here https://docs.vulkan.org/tutorial/latest/Building_a_Simple_Engine/Loading_Models/04_loading_gltf.html
 		meshComponents.clear();
-		std::vector<vk::Image> textures;
-		std::vector<vk::ImageView> textureImageViews;
-		std::vector<VmaAllocation> textureAllocations;
+		std::unordered_map<int, vk::Image> textures;
+		std::unordered_map<int, vk::ImageView> textureImageViews;
+		std::unordered_map<int, VmaAllocation> textureAllocations;
 		std::vector<Material> materials;
 		for (size_t i = 0; i < model.textures.size(); i++) {
 			const auto& texture = model.textures[i];
 			const auto& image = model.images[texture.source];
+		/*	for (const auto& material : model.materials) {
+				std::cout << "Material: " << material.name << std::endl;
+				std::cout << "  baseColorTexture.index = "
+					<< material.pbrMetallicRoughness.baseColorTexture.index << std::endl;
+				std::cout << "  normalTexture.index = "
+					<< material.normalTexture.index << std::endl;
+			}*/
 			tinygltf::Texture tex;
 			tex.name = image.name.empty() ? "texture_" + std::to_string(i) : image.name;
-			vk::Image textureImage{};
+			//To detect if its the normal map. Compare the normal texture index to the texture index.
 			if (!image.image.empty()) {
 				// TinyGLTF has already decoded the PNG/JPG into raw pixel data!
 				const unsigned char* dataPtr = image.image.data();
 				int width = image.width;
 				int height = image.height;
+				int components = image.component;
+
 				const vk::DeviceSize imageSize = width * height * 4;
+
+				std::vector<unsigned char> expandedData;
+				if (components == 3) {
+					expandedData.resize(width * height * 4);
+					for (int i = 0; i < width * height; ++i) {
+						expandedData[i * 4 + 0] = dataPtr[i * 3 + 0]; // R
+						expandedData[i * 4 + 1] = dataPtr[i * 3 + 1]; // G
+						expandedData[i * 4 + 2] = dataPtr[i * 3 + 2]; // B
+						expandedData[i * 4 + 3] = 255;                 // A (fully opaque)
+					}
+					dataPtr = expandedData.data();
+				}
+				else if (components != 4) {
+					std::cerr << "Unexpected component count: " << components << std::endl;
+					continue; // or handle grayscale etc.
+				}
+				if (image.bits == 16) {
+					// Convert 16-bit channels down to 8-bit
+					expandedData.resize(width * height * 4);
+					const uint16_t* src = reinterpret_cast<const uint16_t*>(dataPtr);
+					for (int i = 0; i < width * height * 4; ++i) {
+						expandedData[i] = static_cast<unsigned char>(src[i] >> 8); // take high byte
+					}
+					dataPtr = expandedData.data();
+
+				}
 				vk::Buffer stagingBuffer = vk::Buffer{};
 				VmaAllocation stagingAllocation = VmaAllocation{};
 				createBuffer(imageSize, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingAllocation);
 				void* mapped = nullptr;
+				int centerPixel = (height / 2 * width + width / 2);
+				int offset = centerPixel * (components == 3 ? 3 : 4);
 				vmaMapMemory(vulkanCore.allocator, stagingAllocation, &mapped);
 				std::memcpy(mapped, dataPtr, static_cast<size_t>(imageSize));
 				vmaUnmapMemory(vulkanCore.allocator, stagingAllocation);
-				vk::Image textureImage;
-				VmaAllocation textureAllocation;
+				vk::Image textureImage{};
+				VmaAllocation textureAllocation{};
 				uint32_t mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
 
 				createImage(width, height, mipLevels, vk::Format::eR8G8B8A8Srgb, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferSrc |vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, textureImage, textureAllocation);
@@ -701,17 +738,31 @@ namespace JD
 
 				//transitionImageLayout(textureImage, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, 1);
 				vk::ImageView textureview = createImageView(textureImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor, mipLevels);
-				textures.push_back(textureImage);
-				textureImageViews.push_back(textureview);
-				textureAllocations.push_back(textureAllocation);
+				textures[texture.source] = textureImage;
+				textureImageViews[texture.source] = textureview;
+				textureAllocations[texture.source] = textureAllocation;
 			}
 			 else {
 				std::cerr << "Unsupported texture format: " << image.mimeType << std::endl;
 			}
 
 		}
+		/*for (size_t i = 0; i < model.textures.size(); i++) {
+			std::cout << "model.textures[" << i << "].source = "
+				<< model.textures[i].source << std::endl;
+		}*/
+
 		for (const auto& material : model.materials) {
 			Material mat;
+
+		/*	const auto& texture = model.textures[material.pbrMetallicRoughness.baseColorTexture.index];
+			std::cout << "baseColor texture.source = " << texture.source << std::endl;
+			std::cout << "baseColorTextureView handle = "
+				<< (VkImageView)textureImageViews[texture.source] << std::endl;
+			std::cout << "normalTextureView handle = "
+				<< (VkImageView)textureImageViews[model.textures[material.normalTexture.index].source] << std::endl;*/
+
+
 			if (material.pbrMetallicRoughness.baseColorFactor.size() == 4) {
 				mat.baseColorFactor.r = material.pbrMetallicRoughness.baseColorFactor[0];
 				mat.baseColorFactor.g = material.pbrMetallicRoughness.baseColorFactor[1];
@@ -748,6 +799,8 @@ namespace JD
 				vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
 				vk::DescriptorImageInfo baseColorImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = mat.baseColorTextureView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 				vk::DescriptorImageInfo normalImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = mat.normalTextureView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+				//std::cout << "baseColorTextureView: " << (VkImageView)mat.baseColorTextureView << std::endl;
+				//std::cout << "normalTextureView:    " << (VkImageView)mat.normalTextureView << std::endl;
 				std::array<vk::WriteDescriptorSet, 4> descriptorWrites = {
 						vk::WriteDescriptorSet {
 							.dstSet = mat.descriptorSets[i],
@@ -956,7 +1009,7 @@ namespace JD
 		transitionImageLayout(*commandBuffer,
 			depthImage,
 			vk::ImageLayout::eUndefined,
-			vk::ImageLayout::eDepthAttachmentOptimal,
+			vk::ImageLayout::eDepthStencilAttachmentOptimal,
 			vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
 			vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
 			vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests,
