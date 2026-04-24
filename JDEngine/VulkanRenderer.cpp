@@ -36,15 +36,137 @@ namespace JD
 
 
 	void VulkanRenderer::cleanupVulkan() {
-		// 1. Wait for everything on the GPU to finish before destroying anything
-		/*if (vulkanCore.device.device != VK_NULL_HANDLE) {
-			vkDeviceWaitIdle(vulkanCore.device.device);
-		}*/
-		vulkanCore.device.waitIdle();
+		// Try to idle the device first
+		try {
+			if (vulkanCore.device) vulkanCore.device.waitIdle();
+		}
+		catch (...) {}
 
-		// 2. Clear out the swap chain and other abstractions
-		cleanupSwapChain();
-	};
+		// 0) Destroy mesh-related VMA resources owned by the GameWorld (must happen before vmaDestroyAllocator)
+		{
+			// Gameworld::GetRenderobjects returns a newly allocated vector<RenderableComponent>*
+			DestroyAllRenderables();
+			//std::vector<RenderableComponent>* renderObjects = gameworld.GetRenderobjects();
+			//if (renderObjects) {
+			//	for (const auto& ro : *renderObjects) {
+			//		if (ro.mesh) {
+			//			for (auto& meshComp : *ro.mesh) {
+			//				// Components.h provides Destroy(device, allocator) which frees VMA images/buffers
+			//				meshComp.Destroy(vulkanCore.device, vulkanCore.allocator);
+			//			}
+			//			// Keep the container lifetime as-is (we only free GPU resources here)
+			//		}
+			//	}
+			//	delete renderObjects;
+			//	renderObjects = nullptr;
+			//}
+		}
+
+		// 1) Destroy per-frame fences and semaphores
+		for (auto& frame : vulkanCore.perFrame) {
+			if (frame.renderFence) { try { vulkanCore.device.destroyFence(frame.renderFence); } catch (...) {} frame.renderFence = vk::Fence{}; }
+			if (frame.presentSemaphore) { try { vulkanCore.device.destroySemaphore(frame.presentSemaphore); } catch (...) {} frame.presentSemaphore = vk::Semaphore{}; }
+		}
+
+		// 2) Destroy any additional semaphores used for rendering
+		for (auto& sem : vulkanCore.renderSemaphores) {
+			if (sem) { try { vulkanCore.device.destroySemaphore(sem); } catch (...) {} }
+		}
+		vulkanCore.renderSemaphores.clear();
+
+		// 3) Free command buffers
+		if (vulkanCore.commandPool && !vulkanCore.commandBuffers.empty()) {
+			try {
+				vulkanCore.device.freeCommandBuffers(vulkanCore.commandPool, static_cast<uint32_t>(vulkanCore.commandBuffers.size()), vulkanCore.commandBuffers.data());
+			}
+			catch (...) {}
+			vulkanCore.commandBuffers.clear();
+		}
+
+		// 4) Destroy graphics resources created by this renderer (pipelines, layouts, descriptor sets/pools/layouts, sampler)
+		if (gBufferPipeline) { try { vulkanCore.device.destroyPipeline(gBufferPipeline); } catch (...) {} gBufferPipeline = vk::Pipeline{}; }
+		if (gbufferPipelineLayout) { try { vulkanCore.device.destroyPipelineLayout(gbufferPipelineLayout); } catch (...) {} gbufferPipelineLayout = vk::PipelineLayout{}; }
+
+		if (descriptorPool) { try { vulkanCore.device.destroyDescriptorPool(descriptorPool); } catch (...) {} descriptorPool = vk::DescriptorPool{}; }
+		if (objectDescriptorSetLayout) { try { vulkanCore.device.destroyDescriptorSetLayout(objectDescriptorSetLayout); } catch (...) {} objectDescriptorSetLayout = vk::DescriptorSetLayout{}; }
+
+		if (vulkanCore.textureSampler) { try { vulkanCore.device.destroySampler(vulkanCore.textureSampler); } catch (...) {} vulkanCore.textureSampler = vk::Sampler{}; }
+
+		// 5) Destroy and free buffers allocated via VMA (camera & storage)
+		for (size_t i = 0; i < cameraBuffers.size(); ++i) {
+			if (cameraBuffers[i]) { try { vmaDestroyBuffer(vulkanCore.allocator, static_cast<VkBuffer>(cameraBuffers[i]), cameraBufferAllocations[i]); } catch (...) {} }
+		}
+		cameraBuffers.clear();
+		cameraBufferAllocations.clear();
+
+		for (size_t i = 0; i < storageBuffers.size(); ++i) {
+			if (storageBuffers[i]) { try { vmaDestroyBuffer(vulkanCore.allocator, static_cast<VkBuffer>(storageBuffers[i]), storageBufferAllocations[i]); } catch (...) {} }
+		}
+		storageBuffers.clear();
+		storageBufferAllocations.clear();
+
+		// 6) Destroy depth image view and free depth image via VMA
+		if (depthImageView) { try { vulkanCore.device.destroyImageView(depthImageView); } catch (...) {} depthImageView = vk::ImageView{}; }
+		if (depthImage && vulkanCore.allocator) {
+			try { vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(depthImage), depthImageAllocation); }
+			catch (...) {}
+			depthImage = vk::Image{}; depthImageAllocation = VK_NULL_HANDLE;
+		}
+
+		// 7) Ensure any remaining swapchain image views are destroyed
+		for (auto imageView : vulkanCore.swapChainImageViews) {
+			if (imageView) { try { vulkanCore.device.destroyImageView(imageView); } catch (...) {} }
+		}
+		vulkanCore.swapChainImageViews.clear();
+		vulkanCore.swapChainImages.clear();
+
+		// 8) Destroy command pool
+		if (vulkanCore.commandPool) { try { vulkanCore.device.destroyCommandPool(vulkanCore.commandPool); } catch (...) {} vulkanCore.commandPool = vk::CommandPool{}; }
+
+		// 9) Destroy VMA allocator (only after all VMA allocations are freed)
+		if (vulkanCore.allocator != nullptr) {
+			try { vmaDestroyAllocator(vulkanCore.allocator); }
+			catch (...) {}
+			vulkanCore.allocator = nullptr;
+		}
+
+		// 10) Destroy swapchain, device, surface and instance via vk-bootstrap (best-effort)
+		try { if (vulkanCore.vkbInstances.swapChain) vkb::destroy_swapchain(vulkanCore.vkbInstances.swapChain); }
+		catch (...) {}
+		try { if (vulkanCore.vkbInstances.device) vkb::destroy_device(vulkanCore.vkbInstances.device); }
+		catch (...) {}
+		try { if (vulkanCore.surface) vkb::destroy_surface(vulkanCore.instance, vulkanCore.surface); }
+		catch (...) {}
+		try { if (vulkanCore.instance) vkb::destroy_instance(vulkanCore.instance); }
+		catch (...) {}
+
+		// leave members in a safe, null state
+		vulkanCore.swapChain = vk::SwapchainKHR{};
+		vulkanCore.surface = vk::SurfaceKHR{};
+		vulkanCore.device = vk::Device{};
+		vulkanCore.vkbInstances.device = vkb::Device{};
+		vulkanCore.vkbInstances.swapChain = vkb::Swapchain{};
+	}
+
+	void VulkanRenderer::DestroyAllRenderables()
+	{
+		std::vector<RenderableComponent>* renderObjects = gameworld.getallRenderableComponents();
+		for (size_t i =0; i<renderObjects->size(); ++i) {
+			if (renderObjects->at(i).mesh) {
+				for (auto& meshComp : *renderObjects->at(i).mesh) {
+					meshComp.Destroy(vulkanCore.device, vulkanCore.allocator);
+				}
+				// Keep the container lifetime as-is (we only free GPU resources here)
+			}
+		}
+	} 
+
+	void VulkanRenderer::DestroyMesh(std::vector<MeshComponent>& mesh) {
+		for (auto& meshComp : mesh) {
+			meshComp.Destroy(vulkanCore.device, vulkanCore.allocator);
+		}
+		mesh.clear();
+	}
 
 	void VulkanRenderer::cleanupSwapChain() {
 		vulkanCore.device.destroyImageView(depthImageView);

@@ -122,7 +122,8 @@ namespace JD
 		void createSyncObjects();
 		void updateUniformBuffers();
 		void updatePushConstants();
-
+		void DestroyMesh(std::vector<MeshComponent>& mesh) override;
+		void DestroyAllRenderables();
 
 		void recreateSwapChain();
 		void sendRenderTransmition(std::vector<RenderTransmition>* renderTransmition) {

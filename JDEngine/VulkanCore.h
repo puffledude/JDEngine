@@ -1,4 +1,4 @@
-#include <vulkan/vulkan.hpp>
+	#include <vulkan/vulkan.hpp>
 #include <vma/vk_mem_alloc.h>
 #include <VkBootstrap.h>
 namespace JD
@@ -39,28 +39,9 @@ namespace JD
 		vk::Sampler textureSampler;
 		VkbStuff vkbInstances;
 		Queues queues;
-		~VulkanCore() {
-			for (const PerFrame& var : perFrame)
-			{
-				// Use the neatly wrapped vulkan.hpp C++ device methods
-				if (var.renderFence) device.destroy(var.renderFence);
-				if (var.presentSemaphore) device.destroy(var.presentSemaphore);
-			}
 
-			if (commandPool) {
-				device.destroy(commandPool);
-			}
-
-			if (allocator != nullptr) {
-				vmaDestroyAllocator(allocator);
-			}
-
-			// Ensure we are passing the vkb:: struct variants back to vkb::destroy
-			vkb::destroy_swapchain(vkbInstances.swapChain);
-			vkb::destroy_device(vkbInstances.device);
-			vkb::destroy_surface(instance, surface);
-			vkb::destroy_instance(instance);
-		}
+		// Do not perform complex destruction here; cleanup must be done explicitly and in a well-defined order.
+		~VulkanCore() noexcept = default;
 	};
 
 
