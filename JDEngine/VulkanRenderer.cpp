@@ -243,6 +243,7 @@ namespace JD
 		//VmaAllocation vertexBufferMemory = VmaAllocation{};
 		createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer, vk::MemoryPropertyFlagBits::eDeviceLocal, buffer, allocation);
 		copyBuffer(stagingBuffer, buffer, bufferSize);
+		vmaDestroyBuffer(vulkanCore.allocator, static_cast<VkBuffer>(stagingBuffer), stagingBufferMemory);
 
 
 	}
@@ -258,6 +259,7 @@ namespace JD
 		vmaUnmapMemory(vulkanCore.allocator, stagingBufferMemory);
 		createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer, vk::MemoryPropertyFlagBits::eDeviceLocal, buffer, allocation);
 		copyBuffer(stagingBuffer, buffer, bufferSize);
+		vmaDestroyBuffer(vulkanCore.allocator, static_cast<VkBuffer>(stagingBuffer), stagingBufferMemory);
 
 	}
 
@@ -695,6 +697,8 @@ namespace JD
 				endSingleTimeCommands(commandBuffer);
 				copyBufferToImage(stagingBuffer, textureImage, width, height);
 				generateMipmaps(textureImage, vk::Format::eR8G8B8A8Srgb, width, height, mipLevels);
+				vmaDestroyBuffer(vulkanCore.allocator, static_cast<VkBuffer>(stagingBuffer), stagingAllocation);
+
 				//transitionImageLayout(textureImage, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, 1);
 				vk::ImageView textureview = createImageView(textureImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor, mipLevels);
 				textures.push_back(textureImage);
