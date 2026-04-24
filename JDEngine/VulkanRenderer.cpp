@@ -45,7 +45,6 @@ namespace JD
 		// 0) Destroy mesh-related VMA resources owned by the GameWorld (must happen before vmaDestroyAllocator)
 		{
 			// Gameworld::GetRenderobjects returns a newly allocated vector<RenderableComponent>*
-			DestroyAllRenderables();
 			//std::vector<RenderableComponent>* renderObjects = gameworld.GetRenderobjects();
 			//if (renderObjects) {
 			//	for (const auto& ro : *renderObjects) {
@@ -61,6 +60,7 @@ namespace JD
 			//	renderObjects = nullptr;
 			//}
 		}
+		//DestroyAllRenderables();
 
 		// 1) Destroy per-frame fences and semaphores
 		for (auto& frame : vulkanCore.perFrame) {
@@ -151,7 +151,7 @@ namespace JD
 	void VulkanRenderer::DestroyAllRenderables()
 	{
 		std::vector<RenderableComponent>* renderObjects = gameworld.getallRenderableComponents();
-		for (size_t i =0; i<renderObjects->size(); ++i) {
+		for (size_t i = 0; i < renderObjects->size(); ++i) {
 			if (renderObjects->at(i).mesh) {
 				for (auto& meshComp : *renderObjects->at(i).mesh) {
 					meshComp.Destroy(vulkanCore.device, vulkanCore.allocator);
@@ -159,6 +159,10 @@ namespace JD
 				// Keep the container lifetime as-is (we only free GPU resources here)
 			}
 		}
+
+		// Free the temporary container allocated by Gameworld
+		delete renderObjects;
+		renderObjects = nullptr;
 	} 
 
 	void VulkanRenderer::DestroyMesh(std::vector<MeshComponent>& mesh) {
@@ -674,7 +678,7 @@ namespace JD
 		vmaCreateImage(vulkanCore.allocator, reinterpret_cast<const VkImageCreateInfo*>(&imageInfo), &allocInfo, &rawImage, &allocation, nullptr);
 
 		image = vk::Image(rawImage);
-	}
+		}
 
 	void VulkanRenderer::copyBufferToImage(const vk::Buffer& buffer, vk::Image& image, uint32_t width, uint32_t height) {
 		vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
@@ -1104,6 +1108,10 @@ namespace JD
 		vmaMapMemory(vulkanCore.allocator, cameraBufferAllocations[frameIndex], &data);
 		std::memcpy(data, cameraInfo, sizeof(CameraInfo));
 		vmaUnmapMemory(vulkanCore.allocator, cameraBufferAllocations[frameIndex]);
+
+		// Free the temporary CameraInfo returned by Gameworld
+		delete cameraInfo;
+		cameraInfo = nullptr;
 	}
 
 	struct PushConstants {

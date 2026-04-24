@@ -21,6 +21,7 @@ GameScene::GameScene(JD::Gameworld* gameWorld, JD::Renderer* renderer) : gameWor
 }
 
 GameScene::~GameScene() {
+	renderer->DestroyMesh(Environment);
 }
 
 void GameScene::Update(float dt) {

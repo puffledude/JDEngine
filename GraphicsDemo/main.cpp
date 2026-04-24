@@ -179,8 +179,10 @@ int main() {
 		renderer->Update(dt);
 	}
 	delete scene;
+
 	delete renderer;
 	delete world;
+
 
 	glfwDestroyWindow(window);
 	glfwTerminate();
