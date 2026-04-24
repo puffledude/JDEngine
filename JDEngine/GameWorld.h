@@ -28,6 +28,15 @@ namespace JD {
 		}
 		std::vector<RenderTransmition>* getRenderTransmitions();
 
+		std::vector<RenderableComponent>* getallRenderableComponents() {
+			std::vector<RenderableComponent>* renderableComponents = new std::vector<RenderableComponent>();
+			auto view = registry->view<RenderableComponent>();
+			for (auto entity : view) {
+				renderableComponents->push_back(view.get<RenderableComponent>(entity));
+			}
+			return renderableComponents;
+		}
+
 		CameraInfo* getCameraInfo() {
 			CameraInfo* cameraInfo = new CameraInfo();
 			cameraInfo->view = glm::mat4(1.0f);

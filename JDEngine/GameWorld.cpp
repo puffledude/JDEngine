@@ -10,7 +10,7 @@ namespace JD
 	void Gameworld::Update(float dt) {
 	}
 
-	Gameworld::~Gameworld() {
+	Gameworld::~Gameworld() {		
 		delete registry;
 	}
 
