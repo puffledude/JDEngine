@@ -1,14 +1,16 @@
 #pragma once
 #include <vector>
 #include "Components.h"
+#include "Controller.h"
 #include <entt/entt.hpp>
 #include <Jolt/Jolt.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 
 namespace JD {
+	class Camera;
 	class Gameworld {
 	public:
-		Gameworld(JPH::PhysicsSystem* physicsSystem);
+		Gameworld(JPH::PhysicsSystem* physicsSystem, Controller* controller);
 		~Gameworld();
 		void Update(float dt);
 		entt::entity* CreateEntity() {
@@ -36,12 +38,8 @@ namespace JD {
 			}
 			return renderableComponents;
 		}
-		glm::mat4& getCameraView() 
-		{
-			glm::mat4 cameraView = glm::mat4(1.0f);
-			// In a more complete implementation, you would calculate the camera view matrix based on the camera's position and orientation.
-			return cameraView;
-		}
+		glm::mat4& getCameraView();
+		
 
 		/*CameraInfo* getCameraInfo() {
 			CameraInfo* cameraInfo = new CameraInfo();
@@ -57,6 +55,8 @@ namespace JD {
 	protected:
 		entt::registry* registry;
 		JPH::PhysicsSystem* physicsSystem;
+		Controller* controller;
+		Camera* camera;
 	};
 };
 

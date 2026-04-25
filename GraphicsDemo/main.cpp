@@ -12,6 +12,7 @@
 #include <Jolt/Physics/Body/BodyActivationListener.h>
 #include "BroadPhaseLayers.h"
 #include "WorldContactListener.h"
+#include "KeyboardController.h"
 
 const uint32_t WIDTH = 1280;
 const uint32_t HEIGHT = 720;
@@ -153,21 +154,22 @@ int main() {
 	BPLayerInterfaceImpl broad_phase_layer_interface;
 	ObjectVsBroadPhaseLayerFilterImpl object_vs_broadphase_layer_filter;
 	ObjectLayerPairFilterImpl object_vs_object_layer_filter;
+	GLFWwindow* window = initWindow();
 
 	physics->Init(1000, 16, 10000, 10000, broad_phase_layer_interface, object_vs_broadphase_layer_filter, object_vs_object_layer_filter);
-	JD::Gameworld* world = new JD::Gameworld(physics);
+	JD::KeyboardController* controller = new JD::KeyboardController(window);
+
+	JD::Gameworld* world = new JD::Gameworld(physics, controller);
 
 	physics->SetContactListener(new JD::WorldContactListener(*world, *physics));
 	physics->SetBodyActivationListener(new MyBodyActivationListener());
 	physics->OptimizeBroadPhase();
 
-
 	JD::VulkanRenderer* renderer = new JD::VulkanRenderer(*world);
-	GLFWwindow* window = initWindow();
 	renderer->AssignWindow(window);
 	auto lastTime = std::chrono::high_resolution_clock::now();
 	GameScene* scene = new GameScene(world, renderer);
-	while (!glfwWindowShouldClose(window)) {
+	while (!glfwWindowShouldClose(window) || glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS) {
 		glfwPollEvents();
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float dt = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();

@@ -73,7 +73,7 @@ namespace JD
 		}
 		glm::mat4& getProjMatrix() const {
 			static glm::mat4 proj = glm::perspective(glm::radians(45.0f), (float)vulkanCore.vkbInstances.swapChain.extent.width / (float)vulkanCore.vkbInstances.swapChain.extent.height, 0.1f, 100.0f);
-				proj[1][1] *= -1; // Invert Y coordinate for Vulkan
+				//proj[1][1] *= -1; // Invert Y coordinate for Vulkan
 				return proj;
 		}
 

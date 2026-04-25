@@ -1,13 +1,23 @@
 #include "GameWorld.h"
+#include "Camera.h"
 #include <Jolt/Physics/Body/Body.h>
 #include <Jolt/Physics/Body/BodyLockInterface.h>
 namespace JD
 {
-	Gameworld::Gameworld(JPH::PhysicsSystem* physicsSystem) : physicsSystem(physicsSystem) {
+	Gameworld::Gameworld(JPH::PhysicsSystem* physicsSystem, Controller* controller) : physicsSystem(physicsSystem), controller(controller) {
+
+		camera = new Camera(glm::vec3(0.0f, 0.0f, 0.0f), controller, 0.0f, 0.0f);
 		registry = new entt::registry();
 	}
 
 	void Gameworld::Update(float dt) {
+		camera->Update(dt);
+	}
+
+	glm::mat4& Gameworld::getCameraView() {
+		glm::mat4 cameraView = camera->GetViewMatrix();
+		// In a more complete implementation, you would calculate the camera view matrix based on the camera's position and orientation.
+		return cameraView;
 	}
 
 	Gameworld::~Gameworld() {		
