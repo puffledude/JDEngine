@@ -149,7 +149,6 @@ int main() {
 	const JPH::uint cMaxPhysicsBarriers = 8;
 	JPH::TempAllocatorImpl temp_allocator(10 * 1024 * 1024);
 	JPH::JobSystemThreadPool job_system(cMaxPhysicsJobs, cMaxPhysicsBarriers, thread::hardware_concurrency() - 1);
-	//JobSystemThreadPool* job_system = new JobSystemThreadPool(cMaxPhysicsJobs, cMaxPhysicsBarriers, std::thread::hardware_concurrency() - 1);
 	JPH::PhysicsSystem* physics = new JPH::PhysicsSystem();
 	BPLayerInterfaceImpl broad_phase_layer_interface;
 	ObjectVsBroadPhaseLayerFilterImpl object_vs_broadphase_layer_filter;

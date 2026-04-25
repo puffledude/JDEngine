@@ -36,13 +36,19 @@ namespace JD {
 			}
 			return renderableComponents;
 		}
+		glm::mat4& getCameraView() 
+		{
+			glm::mat4 cameraView = glm::mat4(1.0f);
+			// In a more complete implementation, you would calculate the camera view matrix based on the camera's position and orientation.
+			return cameraView;
+		}
 
-		CameraInfo* getCameraInfo() {
+		/*CameraInfo* getCameraInfo() {
 			CameraInfo* cameraInfo = new CameraInfo();
 			cameraInfo->view = glm::mat4(1.0f);
 			cameraInfo->projection = glm::mat4(1.0f);
 			return cameraInfo;
-		}
+		}*/
 
 		JPH::PhysicsSystem* GetPhysicsSystem() {
 			return physicsSystem;

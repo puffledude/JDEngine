@@ -1103,7 +1103,9 @@ namespace JD
 	}
 
 	void VulkanRenderer::updateCameraBuffer(uint32_t frameIndex) {
-		CameraInfo* cameraInfo = gameworld.getCameraInfo();
+		glm::mat4 cameraView = gameworld.getCameraView();
+		glm::mat4 cameraProjection = getProjMatrix();
+		CameraInfo* cameraInfo = new CameraInfo{ .view = cameraView, .projection = cameraProjection };
 		void* data;
 		vmaMapMemory(vulkanCore.allocator, cameraBufferAllocations[frameIndex], &data);
 		std::memcpy(data, cameraInfo, sizeof(CameraInfo));
