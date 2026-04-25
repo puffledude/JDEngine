@@ -26,6 +26,10 @@ namespace JD {
 		// std::vector cleans up its own memory automatically.
 	};
 
+	struct scaleComponent {
+		glm::vec3 scale;
+	};
+
 	enum class RenderableType {
 		GLTF,
 		BasicShape
@@ -91,7 +95,7 @@ namespace JD {
 		Material material;
 
 		// Appropriate manual "destructor" requiring necessary Vulkan context
-		void Destroy(vk::Device device, VmaAllocator allocator) {
+`		void Destroy(vk::Device device, VmaAllocator allocator) {
 			material.Destroy(device, allocator);
 
 			if (vertexBuffer && vertexBufferAllocation) {

@@ -38,7 +38,7 @@ namespace JD {
 			}
 			return renderableComponents;
 		}
-		glm::mat4& getCameraView();
+        glm::mat4 getCameraView();
 		
 
 		/*CameraInfo* getCameraInfo() {

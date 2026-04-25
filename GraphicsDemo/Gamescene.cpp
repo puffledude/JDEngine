@@ -9,8 +9,11 @@
 using namespace JD;
 GameScene::GameScene(JD::Gameworld* gameWorld, JD::Renderer* renderer) : gameWorld(gameWorld), renderer(renderer){
     environmentEntity = gameWorld->CreateEntity();
+    scaleComponent scale{};
+	scale.scale = glm::vec3(10.0f);
 	renderer->loadGLTF(Environment, GLTFDIR "/Environment/CourseWorkProject.gltf");
     gameWorld->GetRegistry()->emplace<JD::RenderableComponent>(*environmentEntity, &Environment);
+	gameWorld->GetRegistry()->emplace<JD::scaleComponent>(*environmentEntity, scale);
     JPH::BoxShapeSettings test  = JPH::BoxShapeSettings(JPH::Vec3(10.0f, 10.0f, 10.0f));
     JPH::ShapeSettings::ShapeResult Result = test.Create();
     JPH::ShapeRefC boxShape = Result.Get();

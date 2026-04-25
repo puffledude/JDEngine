@@ -14,10 +14,9 @@ namespace JD
 		camera->Update(dt);
 	}
 
-	glm::mat4& Gameworld::getCameraView() {
-		glm::mat4 cameraView = camera->GetViewMatrix();
-		// In a more complete implementation, you would calculate the camera view matrix based on the camera's position and orientation.
-		return cameraView;
+    glm::mat4 Gameworld::getCameraView() {
+		// Return the camera view matrix by value. Returning a reference to a local variable would be undefined behavior.
+		return camera->GetViewMatrix();
 	}
 
 	Gameworld::~Gameworld() {		
@@ -39,10 +38,16 @@ namespace JD
 			JPH::BodyLockRead lock(lock_interface, jolt.bodyID);
 			if (lock.Succeeded()) // body_id may no longer be valid
 			{
-				const JPH::Body& body = lock.GetBody();
+                const JPH::Body& body = lock.GetBody();
 				JPH::RVec3 position = body.GetPosition();
 				JPH::Quat rotation = body.GetRotation();
-				glm::mat4 modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(position.GetX(), position.GetY(), position.GetZ())) * glm::mat4_cast(glm::quat(rotation.GetW(), rotation.GetX(), rotation.GetY(), rotation.GetZ()));
+				auto scaleView = registry->view<scaleComponent>();
+				glm::vec3 scale(1.0f);
+				if (scaleView.contains(entity)) {
+					scaleComponent scaleComp = scaleView.get<scaleComponent>(entity);
+					scale = scaleComp.scale;
+				}
+				glm::mat4 modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(position.GetX(), position.GetY(), position.GetZ())) * glm::mat4_cast(glm::quat(rotation.GetW(), rotation.GetX(), rotation.GetY(), rotation.GetZ())) * glm::scale(glm::mat4(1.0f), scale);
 				transmition.modelMatrix = modelMatrix;
 			}
 			renderTransmition->push_back(transmition);
