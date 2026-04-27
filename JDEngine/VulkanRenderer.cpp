@@ -44,12 +44,12 @@ namespace JD
 			}
 		}
 
-		if (skyboxImage){
-			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(skyboxImage), skyboxAllocation);
-			vulkanCore.device.destroyImageView(skyboxImageView);
-			skyboxImage = nullptr;
-			skyboxAllocation = nullptr;
-			skyboxImageView = nullptr;
+		if (skybox.skyboxImage){
+			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(skybox.skyboxImage), skybox.skyboxAllocation);
+			vulkanCore.device.destroyImageView(skybox.skyboxImageView);
+			skybox.skyboxImage = nullptr;
+			skybox.skyboxAllocation = nullptr;
+			skybox.skyboxImageView = nullptr;
 		}
 
 		// 1) Sync objects
@@ -66,14 +66,14 @@ namespace JD
 		if (gBufferPipeline) { vulkanCore.device.destroyPipeline(gBufferPipeline);             gBufferPipeline = nullptr; }
 		if (gbufferPipelineLayout) { vulkanCore.device.destroyPipelineLayout(gbufferPipelineLayout); gbufferPipelineLayout = nullptr; }
 
-		if (skyboxPipeline) { vulkanCore.device.destroyPipeline(skyboxPipeline); skyboxPipeline = nullptr; }
-		if (skyboxPipelineLayout) { vulkanCore.device.destroyPipelineLayout(skyboxPipelineLayout); skyboxPipelineLayout = nullptr; }
+		if (skybox.skyboxPipeline) { vulkanCore.device.destroyPipeline(skybox.skyboxPipeline); skybox.skyboxPipeline = nullptr; }
+		if (skybox.skyboxPipelineLayout) { vulkanCore.device.destroyPipelineLayout(skybox.skyboxPipelineLayout); skybox.skyboxPipelineLayout = nullptr; }
 
 
 		// 3) Descriptor pool (implicitly frees all descriptor sets), then layout
 		if (descriptorPool) { vulkanCore.device.destroyDescriptorPool(descriptorPool);                descriptorPool = nullptr; }
 		if (objectDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(objectDescriptorSetLayout); objectDescriptorSetLayout = nullptr; }
-		if (skyboxDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(skyboxDescriptorSetLayout); skyboxDescriptorSetLayout = nullptr; }
+		if (skybox.skyboxDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(skybox.skyboxDescriptorSetLayout); skybox.skyboxDescriptorSetLayout = nullptr; }
 
 		// 4) Sampler
 		if (vulkanCore.textureSampler) { vulkanCore.device.destroySampler(vulkanCore.textureSampler); vulkanCore.textureSampler = nullptr; }
@@ -493,7 +493,7 @@ namespace JD
 			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr)  // Cubemap texture
 		};
 		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
-		skyboxDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
+		skybox.skyboxDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
 	}
 
 
@@ -706,8 +706,8 @@ namespace JD
 		};
 
 		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1,
-		.pSetLayouts = &skyboxDescriptorSetLayout };
-		skyboxPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
+		.pSetLayouts = &skybox.skyboxDescriptorSetLayout };
+		skybox.skyboxPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
 		vk::Format colorAttachmentFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
 
 		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
@@ -720,7 +720,7 @@ namespace JD
 		 .pMultisampleState = &multisampling,
 		 .pColorBlendState = &colorBlending,
 		 .pDynamicState = &dynamicState,
-		 .layout = skyboxPipelineLayout,
+		 .layout = skybox.skyboxPipelineLayout,
 		 .renderPass = nullptr},
 		{.colorAttachmentCount = 1, .pColorAttachmentFormats = &colorAttachmentFormat} };
 
@@ -728,7 +728,7 @@ namespace JD
 		if (pipelineResult.result != vk::Result::eSuccess) {
 			throw std::runtime_error("Failed to create skybox pipeline!");
 		}
-		skyboxPipeline = pipelineResult.value;
+		skybox.skyboxPipeline = pipelineResult.value;
 		vulkanCore.device.destroyShaderModule(shaderModule);
 
 	}
@@ -1209,7 +1209,7 @@ namespace JD
 		copyBufferToImage(stagingBuffer, cubemapImage, static_cast<uint32_t>(width), static_cast<uint32_t>(height)); //Unsure if *6 here
 		generateMipmaps(cubemapImage, vk::Format::eR8G8B8A8Srgb, width, height, mipLevels);
 		vmaDestroyBuffer(vulkanCore.allocator, stagingBuffer, stagingAllocation);
-		skyboxImageView =createImageView(cubemapImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor, mipLevels, vk::ImageViewType::eCube, 6);
+		cubemapImageView =createImageView(cubemapImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor, mipLevels, vk::ImageViewType::eCube, 6);
 	}
 
 
@@ -1223,7 +1223,9 @@ namespace JD
 			IMAGEDIR"/skybox/CubeMapDown.jpg",
 			IMAGEDIR"/skybox/CubeMapBack.jpg",
 			IMAGEDIR"/skybox/CubeMapFront.jpg"
-			},skyboxImage ,skyboxAllocation, skyboxImageView);
+			},skybox.skyboxImage ,skybox.skyboxAllocation, skybox.skyboxImageView);
+
+
 
 	}
 

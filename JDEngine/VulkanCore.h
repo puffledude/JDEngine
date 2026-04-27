@@ -53,4 +53,14 @@ namespace JD
 		std::vector<MeshComponent*> pieces; // all pieces that belong to this mesh
 	};
 
+	struct Skybox {
+
+		vk::DescriptorSetLayout skyboxDescriptorSetLayout = nullptr;
+		vk::Pipeline skyboxPipeline = nullptr;
+		vk::PipelineLayout skyboxPipelineLayout = nullptr;
+		vk::Image skyboxImage = nullptr;
+		VmaAllocation skyboxAllocation = nullptr;
+		vk::ImageView skyboxImageView = nullptr;
+	};
+
 }

@@ -194,13 +194,7 @@ namespace JD
 		VmaAllocation depthImageAllocation;
 
 		vk::DescriptorPool descriptorPool;
-
-		vk::DescriptorSetLayout skyboxDescriptorSetLayout= nullptr;
-		vk::Pipeline skyboxPipeline= nullptr;
-		vk::PipelineLayout skyboxPipelineLayout = nullptr;
-		vk::Image skyboxImage =nullptr;
-		VmaAllocation skyboxAllocation = nullptr;
-		vk::ImageView skyboxImageView = nullptr;
+		Skybox skybox{};
 		std::vector<RenderTransmition>* currentRenderTransmition = nullptr;
 
 #ifdef NDEBUG
