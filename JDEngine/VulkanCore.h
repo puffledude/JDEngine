@@ -41,7 +41,7 @@ namespace JD
 		Queues queues;
 
 		// Do not perform complex destruction here; cleanup must be done explicitly and in a well-defined order.
-		~VulkanCore() noexcept = default;
+		//~VulkanCore() noexcept = default;
 	};
 
 
