@@ -19,23 +19,36 @@ struct VSInput {
 struct VSOutput
 {
     float4 pos : SV_Position;
-    float3 UVW;
+    float3 viewDir;
 };
 
 [Shader("vertex")]
 VSOutput vertMain(VSInput input) {
     VSOutput output;
-    // output.pos = float4(input.inPos, 1.0);
+
+    // Set the NDC position directly (quad z is 0.0, forming a fullscreen quad)
+    output.pos = float4(input.inPos, 1.0);
+
     float3 pos = input.inPos;
-    pos.xy *= -1.0;
-    output.UVW = pos;
-    float4x4 viewMatrix = cameraData.view;
-    // remove translation from view matrix
-    viewMatrix[0][3] = 0.0;
-    viewMatrix[1][3] = 0.0;
-    viewMatrix[2][3] = 0.0;
-    output.pos = mul(cameraData.projection, mul(viewMatrix, float4(pos, 1.0)));
-    // float4x4 invProj = transpose(cameraData.projection);
+
+    // Apply the diagonal inverse of the projection matrix equivalent
+    float invProjX = 1.0 / cameraData.projection[0][0];
+    float invProjY = 1.0 / cameraData.projection[1][1];
+
+    pos.x *= invProjX;
+    pos.y *= invProjY;
+    pos.z = -1.0;
+
+    // Extract the 3x3 rotation view matrix
+    float3x3 view3x3 = float3x3(
+        cameraData.view[0].xyz,
+        cameraData.view[1].xyz,
+        cameraData.view[2].xyz
+    );
+
+    // Multiply by the transposed (inverse) view matrix to reconstruct the world-space direction
+    output.viewDir = mul(transpose(view3x3), normalize(pos));
+
     return output;
 }
 
@@ -45,5 +58,5 @@ SamplerCube skyboxTexture;
 [Shader("fragment")]
 float4 fragMain(VSOutput vertIn) : SV_Target
 {
-    return skyboxTexture.Sample(vertIn.UVW);
+    return skyboxTexture.Sample(vertIn.viewDir);
 }
