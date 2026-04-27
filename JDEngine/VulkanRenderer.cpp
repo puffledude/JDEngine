@@ -1308,7 +1308,70 @@ namespace JD
 		uint32_t instanceBaseOffset;
 	};
 
-	void VulkanRenderer::recordCommandBuffer(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches) {
+	
+
+	void VulkanRenderer::drawFrame() {
+		// Draw skybox first into its own image view
+		// Then draw regular into another image view.
+		//Then in a final pass combine the two where if alpha is 0 sample from the skybox.
+
+
+		auto fenceResult = vulkanCore.device.waitForFences(vulkanCore.perFrame[currentFrame].renderFence, vk::True, UINT64_MAX);
+		if (fenceResult != vk::Result::eSuccess)
+		{
+			throw std::runtime_error("failed to wait for fence!");
+		}
+		auto [result, imageIndex] = vulkanCore.device.acquireNextImageKHR(
+			vulkanCore.swapChain, UINT64_MAX, vulkanCore.perFrame[currentFrame].presentSemaphore, nullptr);
+		vulkanCore.device.resetFences(vulkanCore.perFrame[currentFrame].renderFence);
+
+		std::vector<RenderTransmition>* renderTransmissions = gameworld.getRenderTransmitions();
+		std::vector<MeshInstanceBatch> meshInstanceBatches;
+		void* mappedData;
+		vmaMapMemory(vulkanCore.allocator, storageBufferAllocations[currentFrame], &mappedData);
+		BuildInstanceBatches(*renderTransmissions, meshInstanceBatches, mappedData);
+		vmaUnmapMemory(vulkanCore.allocator, storageBufferAllocations[currentFrame]);
+		updateCameraBuffer(currentFrame);
+
+		drawGBufferPass(imageIndex, meshInstanceBatches); // Fixed imageIndex being passed
+		
+		vk::PipelineStageFlags waitDestinationStageMask = (vk::PipelineStageFlagBits::eColorAttachmentOutput);
+		const vk::SubmitInfo submitInfo{ .waitSemaphoreCount = 1,
+								  .pWaitSemaphores = &vulkanCore.perFrame[currentFrame].presentSemaphore,
+								  .pWaitDstStageMask = &waitDestinationStageMask,
+								  .commandBufferCount = 1,
+								  .pCommandBuffers = &vulkanCore.commandBuffers[currentFrame],
+								  .signalSemaphoreCount = 1,
+								  .pSignalSemaphores = &vulkanCore.renderSemaphores[imageIndex]};
+
+		vulkanCore.queues.graphicsQueue.submit(submitInfo, vulkanCore.perFrame[currentFrame].renderFence);
+
+		const vk::PresentInfoKHR presentInfo{
+			.waitSemaphoreCount = 1,
+			.pWaitSemaphores = &vulkanCore.renderSemaphores[imageIndex],
+			.swapchainCount = 1,
+			.pSwapchains = &vulkanCore.swapChain,
+			.pImageIndices = &imageIndex,
+			.pResults = nullptr
+		};
+		
+		result = static_cast<vk::Result>(
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkQueuePresentKHR(
+				static_cast<VkQueue>(vulkanCore.queues.graphicsQueue),
+				reinterpret_cast<const VkPresentInfoKHR*>(&presentInfo)));
+
+		if ((result == vk::Result::eErrorOutOfDateKHR) || (result == vk::Result::eSuboptimalKHR) || framebufferResized) {
+			std::cout << "Swap chain is out of date or suboptimal, recreating swap chain..." << std::endl;
+			framebufferResized = false;
+			recreateSwapChain();
+		}
+		else {
+			assert(result == vk::Result::eSuccess);
+		}
+		
+		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+	}
+	void VulkanRenderer::drawGBufferPass(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches) {
 		// Use currentFrame, not frameIndex
 		vk::CommandBuffer* commandBuffer = &vulkanCore.commandBuffers[currentFrame];
 		vk::CommandBufferBeginInfo beginInfo{};
@@ -1348,13 +1411,13 @@ namespace JD
 			.clearValueCount = 0,
 			.pClearValues = nullptr
 		};
-		
+
 		vk::RenderingAttachmentInfo colorAttachment{
 			.imageView = vulkanCore.swapChainImageViews[imageIndex],
 			.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
 			.loadOp = vk::AttachmentLoadOp::eClear,
 			.storeOp = vk::AttachmentStoreOp::eStore,
-			.clearValue = { std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f} }
+			.clearValue = { std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f} }
 		};
 
 		vk::RenderingAttachmentInfo depthAttachment{
@@ -1378,7 +1441,7 @@ namespace JD
 		commandBuffer->setViewport(0, vk::Viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width), static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f });
 		commandBuffer->setScissor(0, vk::Rect2D({ 0, 0 }, extent));
 		commandBuffer->bindPipeline(vk::PipelineBindPoint::eGraphics, gBufferPipeline); // Fix typo: gBufferPipeline
-		
+
 		for (const auto& batch : meshInstanceBatches) {
 			if (batch.instanceCount == 0) continue;
 
@@ -1394,7 +1457,7 @@ namespace JD
 				commandBuffer->drawIndexed(static_cast<uint32_t>(piece->indices.size()), batch.instanceCount, 0, 0, 0);
 			}
 		}
-		
+
 		commandBuffer->endRendering();
 		transitionImageLayout(*commandBuffer,
 			vulkanCore.swapChainImages[imageIndex],
@@ -1408,64 +1471,6 @@ namespace JD
 			1);
 		commandBuffer->end();
 	}
-
-	void VulkanRenderer::drawFrame() {
-		auto fenceResult = vulkanCore.device.waitForFences(vulkanCore.perFrame[currentFrame].renderFence, vk::True, UINT64_MAX);
-		if (fenceResult != vk::Result::eSuccess)
-		{
-			throw std::runtime_error("failed to wait for fence!");
-		}
-		auto [result, imageIndex] = vulkanCore.device.acquireNextImageKHR(
-			vulkanCore.swapChain, UINT64_MAX, vulkanCore.perFrame[currentFrame].presentSemaphore, nullptr);
-		vulkanCore.device.resetFences(vulkanCore.perFrame[currentFrame].renderFence);
-
-		std::vector<RenderTransmition>* renderTransmissions = gameworld.getRenderTransmitions();
-		std::vector<MeshInstanceBatch> meshInstanceBatches;
-		void* mappedData;
-		vmaMapMemory(vulkanCore.allocator, storageBufferAllocations[currentFrame], &mappedData);
-		BuildInstanceBatches(*renderTransmissions, meshInstanceBatches, mappedData);
-		vmaUnmapMemory(vulkanCore.allocator, storageBufferAllocations[currentFrame]);
-		updateCameraBuffer(currentFrame);
-
-		recordCommandBuffer(imageIndex, meshInstanceBatches); // Fixed imageIndex being passed
-		
-		vk::PipelineStageFlags waitDestinationStageMask = (vk::PipelineStageFlagBits::eColorAttachmentOutput);
-		const vk::SubmitInfo submitInfo{ .waitSemaphoreCount = 1,
-								  .pWaitSemaphores = &vulkanCore.perFrame[currentFrame].presentSemaphore,
-								  .pWaitDstStageMask = &waitDestinationStageMask,
-								  .commandBufferCount = 1,
-								  .pCommandBuffers = &vulkanCore.commandBuffers[currentFrame],
-								  .signalSemaphoreCount = 1,
-								  .pSignalSemaphores = &vulkanCore.renderSemaphores[imageIndex]};
-
-		vulkanCore.queues.graphicsQueue.submit(submitInfo, vulkanCore.perFrame[currentFrame].renderFence);
-
-		const vk::PresentInfoKHR presentInfo{
-			.waitSemaphoreCount = 1,
-			.pWaitSemaphores = &vulkanCore.renderSemaphores[imageIndex],
-			.swapchainCount = 1,
-			.pSwapchains = &vulkanCore.swapChain,
-			.pImageIndices = &imageIndex,
-			.pResults = nullptr
-		};
-		
-		result = static_cast<vk::Result>(
-			VULKAN_HPP_DEFAULT_DISPATCHER.vkQueuePresentKHR(
-				static_cast<VkQueue>(vulkanCore.queues.graphicsQueue),
-				reinterpret_cast<const VkPresentInfoKHR*>(&presentInfo)));
-
-		if ((result == vk::Result::eErrorOutOfDateKHR) || (result == vk::Result::eSuboptimalKHR) || framebufferResized) {
-			std::cout << "Swap chain is out of date or suboptimal, recreating swap chain..." << std::endl;
-			framebufferResized = false;
-			recreateSwapChain();
-		}
-		else {
-			assert(result == vk::Result::eSuccess);
-		}
-		
-		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-	}
-
 
 	void VulkanRenderer::BuildInstanceBatches(
 		const std::vector<RenderTransmition>& renderables,

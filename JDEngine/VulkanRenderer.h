@@ -143,6 +143,8 @@ namespace JD
 		}
 		void updateCameraBuffer(uint32_t frameIndex);
 		void drawFrame();
+		void drawSkyboxPass(vk::CommandBuffer& commandBuffer, uint32_t imageIndex);
+		void drawGBufferPass(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
 		void recordCommandBuffer(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
 		void BuildInstanceBatches(
 			const std::vector<RenderTransmition>& renderables,
