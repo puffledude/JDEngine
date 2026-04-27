@@ -1257,6 +1257,8 @@ namespace JD
 			};
 
 		}
+		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, vk::Format::eR8G8B8A8Srgb, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, skybox.skyboxRenderOutputImage, skybox.skyboxRenderOutputAllocation);
+		skybox.skyboxRenderOutputView = createImageView(skybox.skyboxRenderOutputImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor, 1);
 
 	}
 
