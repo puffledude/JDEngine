@@ -2,11 +2,10 @@
 //#define TINYGLTF_IMPLEMENTATION
 //#define STB_IMAGE_WRITE_IMPLEMENTATION
 #define VMA_IMPLEMENTATION
-// Now include the headers so they catch the defines above!
 #include "tiny_gltf_v3.h"
 #include "vma/vk_mem_alloc.h"
 
-// Then your project headers
+#include "stb_image.h"
 
 #include "RequiredFeatures.h"
 
@@ -45,11 +44,12 @@ namespace JD
 			}
 		}
 
-		if (cubemapImage){
-			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(cubemapImage), cubemapAllocation);
-			cubemapImage = nullptr;
-			cubemapAllocation = nullptr;
-			cubemapImageView = nullptr;
+		if (skyboxImage){
+			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(skyboxImage), skyboxAllocation);
+			vulkanCore.device.destroyImageView(skyboxImageView);
+			skyboxImage = nullptr;
+			skyboxAllocation = nullptr;
+			skyboxImageView = nullptr;
 		}
 
 		// 1) Sync objects
@@ -65,11 +65,15 @@ namespace JD
 		// 2) Pipeline & layout
 		if (gBufferPipeline) { vulkanCore.device.destroyPipeline(gBufferPipeline);             gBufferPipeline = nullptr; }
 		if (gbufferPipelineLayout) { vulkanCore.device.destroyPipelineLayout(gbufferPipelineLayout); gbufferPipelineLayout = nullptr; }
+
 		if (skyboxPipeline) { vulkanCore.device.destroyPipeline(skyboxPipeline); skyboxPipeline = nullptr; }
+		if (skyboxPipelineLayout) { vulkanCore.device.destroyPipelineLayout(skyboxPipelineLayout); skyboxPipelineLayout = nullptr; }
+
 
 		// 3) Descriptor pool (implicitly frees all descriptor sets), then layout
 		if (descriptorPool) { vulkanCore.device.destroyDescriptorPool(descriptorPool);                descriptorPool = nullptr; }
 		if (objectDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(objectDescriptorSetLayout); objectDescriptorSetLayout = nullptr; }
+		if (skyboxDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(skyboxDescriptorSetLayout); skyboxDescriptorSetLayout = nullptr; }
 
 		// 4) Sampler
 		if (vulkanCore.textureSampler) { vulkanCore.device.destroySampler(vulkanCore.textureSampler); vulkanCore.textureSampler = nullptr; }
@@ -194,9 +198,10 @@ namespace JD
 			createDepthResources();
 			createTextureSampler();
 			createGraphicsPipelines();
-			loadSkybox();
 			createCameraBuffers();
 			createCommandPool();
+			loadSkybox();
+
 			//createDescriptorSets();
 			createCommandBuffers();
 			createSyncObjects();
@@ -281,9 +286,9 @@ namespace JD
 		}
 	}
 
-	vk::ImageView VulkanRenderer::createImageView(const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels) {
-		vk::ImageViewCreateInfo viewInfo{ .image = image, .viewType = vk::ImageViewType::e2D,
-			.format = format, .subresourceRange = { aspectFlags, 0, 1, 0, 1 } };
+	vk::ImageView VulkanRenderer::createImageView(const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels, vk::ImageViewType viewType, uint32_t layerCount) {
+		vk::ImageViewCreateInfo viewInfo{ .image = image, .viewType = viewType,
+			.format = format, .subresourceRange = { aspectFlags, 0, 1, 0, layerCount } };
 		viewInfo.subresourceRange.levelCount = mipLevels;
 		return vulkanCore.device.createImageView(viewInfo);		//return vk::ImageView(static_cast<vk::Device>(vulkanCore.device.device), viewInfo);
 	}
@@ -478,8 +483,19 @@ namespace JD
 			createBuffer(sizeof(GPUObjectData) * MAX_OBJECTS, vk::BufferUsageFlagBits::eStorageBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer, bufferAllocation);
 			storageBufferAllocations.push_back(bufferAllocation);
 		}
+		createSkyboxDescriptorSetLayout();
 		createObjectDescriptorSetLayouts();
 	}
+
+	void VulkanRenderer::createSkyboxDescriptorSetLayout() {
+		std::array bindings = {
+			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  // view projection buffer
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr)  // Cubemap texture
+		};
+		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
+		skyboxDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
+	}
+
 
 	void VulkanRenderer::createObjectDescriptorSetLayouts() 
 	{
@@ -645,13 +661,98 @@ namespace JD
 	}
 
 	void VulkanRenderer::createSkyboxPipeline() {
+		vk::ShaderModule shaderModule = createShaderModule(readFile(SHADERDIR"/skybox.slang.spv"));
+		vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule,  .pName = "vertMain" };
+		vk::PipelineShaderStageCreateInfo fragShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eFragment, .module = shaderModule, .pName = "fragMain" };
+		vk::PipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 	
-		
-	
+		auto bindingDescription = Vertex::getBindingDescription();
+		auto attributeDescriptions = Vertex::getAttributeDescriptions();
+		vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
+			.vertexBindingDescriptionCount = 1,
+			.pVertexBindingDescriptions = &bindingDescription,
+			.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
+			.pVertexAttributeDescriptions = attributeDescriptions.data()
+		};
+		vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
+		.topology = vk::PrimitiveTopology::eTriangleList,
+		};
+
+		vk::Viewport viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width),
+		static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f };
+
+		std::vector<vk::DynamicState> dynamicStates = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
+
+		vk::PipelineDynamicStateCreateInfo dynamicState{ .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()), .pDynamicStates = dynamicStates.data() };
+
+		vk::PipelineViewportStateCreateInfo viewportState{ .viewportCount = 1, .scissorCount = 1 };
+		vk::PipelineRasterizationStateCreateInfo rasterizer{
+		.depthClampEnable = VK_FALSE,
+		.rasterizerDiscardEnable = VK_FALSE,
+		.polygonMode = vk::PolygonMode::eFill,
+		.cullMode = vk::CullModeFlagBits::eBack,
+		.frontFace = vk::FrontFace::eCounterClockwise,
+		.depthBiasEnable = VK_FALSE,
+		.lineWidth = 1.0f,
+		};
+
+		vk::PipelineMultisampleStateCreateInfo multisampling{ .rasterizationSamples = vk::SampleCountFlagBits::e1, .sampleShadingEnable = VK_FALSE };
+		vk::PipelineColorBlendAttachmentState colorBlendAttachment{
+		.blendEnable = VK_FALSE,
+		.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
+		};
+		vk::PipelineColorBlendStateCreateInfo colorBlending{
+			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = 1, .pAttachments = &colorBlendAttachment 
+		};
+
+		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1,
+		.pSetLayouts = &skyboxDescriptorSetLayout };
+		skyboxPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
+		vk::Format colorAttachmentFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
+
+		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
+		{.stageCount = 2,
+		 .pStages = shaderStages,
+		 .pVertexInputState = &vertexInputInfo,
+		 .pInputAssemblyState = &inputAssembly,
+		 .pViewportState = &viewportState,
+		 .pRasterizationState = &rasterizer,
+		 .pMultisampleState = &multisampling,
+		 .pColorBlendState = &colorBlending,
+		 .pDynamicState = &dynamicState,
+		 .layout = skyboxPipelineLayout,
+		 .renderPass = nullptr},
+		{.colorAttachmentCount = 1, .pColorAttachmentFormats = &colorAttachmentFormat} };
+
+		auto pipelineResult = vulkanCore.device.createGraphicsPipeline(nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
+		if (pipelineResult.result != vk::Result::eSuccess) {
+			throw std::runtime_error("Failed to create skybox pipeline!");
+		}
+		skyboxPipeline = pipelineResult.value;
+		vulkanCore.device.destroyShaderModule(shaderModule);
+
 	}
 
 
+	void VulkanRenderer::createCubeMapTextureImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation) {
+		vk::ImageCreateInfo imageInfo{ .imageType = vk::ImageType::e2D, .format = format,
+			.extent = {width, height, 1}, .mipLevels = mipLevels, .arrayLayers = 6,
+			.samples = vk::SampleCountFlagBits::e1, .tiling = tiling,
+			.usage = usage, .sharingMode = vk::SharingMode::eExclusive,
+		};
+		imageInfo.mipLevels = mipLevels;
+		imageInfo.flags = vk::ImageCreateFlagBits::eCubeCompatible;
 
+		VmaAllocationCreateInfo allocInfo = {};
+		allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+
+
+		VkImage rawImage = VK_NULL_HANDLE;
+		vmaCreateImage(vulkanCore.allocator, reinterpret_cast<const VkImageCreateInfo*>(&imageInfo), &allocInfo, &rawImage, &allocation, nullptr);
+
+		image = vk::Image(rawImage);
+
+	}
 
 	void VulkanRenderer::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation) {
 		vk::ImageCreateInfo imageInfo{ .imageType = vk::ImageType::e2D, .format = format,
@@ -1066,6 +1167,67 @@ namespace JD
 		
 	}
 
+	void VulkanRenderer::loadCubemap(std::vector<std::string> faces, vk::Image& cubemapImage, VmaAllocation& cubemapAllocation, vk::ImageView& cubemapImageView) 
+	{
+		int width, height, channels;
+		std::array<unsigned char*, 6> data;
+		for (size_t i = 0; i < faces.size(); i++) {
+			data[i] = stbi_load(faces[i].c_str(), &width, &height, &channels, STBI_rgb_alpha);
+			if (!data[i]) {
+				throw std::runtime_error("Failed to load cubemap texture: " + faces[i]);
+			}
+		}
+		const vk::DeviceSize imageSize = width * height * 4*6;
+		vk::Buffer stagingBuffer;
+		VmaAllocation stagingAllocation;
+		createBuffer(imageSize, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingAllocation);
+		void* mapped;
+		vmaMapMemory(vulkanCore.allocator, stagingAllocation, &mapped);
+		for (size_t i = 0; i < faces.size(); i++) {
+			std::memcpy(static_cast<unsigned char*>(mapped) + i * width * height * 4, data[i], static_cast<size_t>(width * height * 4));
+		}
+		vmaUnmapMemory(vulkanCore.allocator, stagingAllocation);
+		for (size_t i = 0; i < faces.size(); i++) {
+			stbi_image_free(data[i]);
+		}
+		float mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
+
+		createCubeMapTextureImage(width, height, mipLevels, vk::Format::eR8G8B8A8Srgb, vk::ImageTiling::eOptimal,vk::ImageUsageFlagBits::eTransferSrc |vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, cubemapImage, cubemapAllocation);
+		vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
+		transitionImageLayout(commandBuffer,
+			cubemapImage,
+			vk::ImageLayout::eUndefined,
+			vk::ImageLayout::eTransferDstOptimal,
+			{},
+			vk::AccessFlagBits2::eTransferWrite,
+			vk::PipelineStageFlagBits2::eTopOfPipe,
+			vk::PipelineStageFlagBits2::eTransfer,
+			vk::ImageAspectFlagBits::eColor,
+			mipLevels
+		);
+		endSingleTimeCommands(commandBuffer);
+		copyBufferToImage(stagingBuffer, cubemapImage, static_cast<uint32_t>(width), static_cast<uint32_t>(height)); //Unsure if *6 here
+		generateMipmaps(cubemapImage, vk::Format::eR8G8B8A8Srgb, width, height, mipLevels);
+		vmaDestroyBuffer(vulkanCore.allocator, stagingBuffer, stagingAllocation);
+		skyboxImageView =createImageView(cubemapImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor, mipLevels, vk::ImageViewType::eCube, 6);
+	}
+
+
+
+	void VulkanRenderer::loadSkybox() {
+
+		loadCubemap({
+			IMAGEDIR"/skybox/CubeMapLeft.jpg",
+			IMAGEDIR"/skybox/CubeMapRight.jpg",
+			IMAGEDIR"/skybox/CubeMapUp.jpg",
+			IMAGEDIR"/skybox/CubeMapDown.jpg",
+			IMAGEDIR"/skybox/CubeMapBack.jpg",
+			IMAGEDIR"/skybox/CubeMapFront.jpg"
+			},skyboxImage ,skyboxAllocation, skyboxImageView);
+
+	}
+
+
 	void VulkanRenderer::createCommandBuffers() {
 		vk::CommandBufferAllocateInfo allocInfo{
 			.commandPool = vulkanCore.commandPool,
@@ -1091,7 +1253,6 @@ namespace JD
 
 	void VulkanRenderer::Update(float dt) {
 		drawFrame();
-		vulkanCore.device.waitIdle();
 	}
 
 	void VulkanRenderer::updateCameraBuffer(uint32_t frameIndex) {

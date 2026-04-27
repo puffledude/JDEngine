@@ -16,7 +16,7 @@ project ("JDEngine")
 
 
 set(ASSETDIR ${CMAKE_SOURCE_DIR}/Assets)
-set(IMAGEDIR ${ASSETDIR}/Images)
+set(IMAGEDIR ${ASSETDIR}/Textures)
 set(MODELDIR ${ASSETDIR}/Models)
 set(GLTFDIR ${MODELDIR}/GLTF)
 set(SHADERDIR ${ASSETDIR}/Shaders)

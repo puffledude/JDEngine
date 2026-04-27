@@ -83,7 +83,7 @@ namespace JD
 		void createDevices();
 		void createSwapChain();
 		void initVMA();
-		vk::ImageView createImageView(const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels);
+		vk::ImageView createImageView(const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels, vk::ImageViewType viewType = vk::ImageViewType::e2D, uint32_t layerCount = 1);
 		void createImageViews();
 		void transitionImageLayout(vk::CommandBuffer& commandbuffer ,vk::Image image,
 			vk::ImageLayout         old_layout,
@@ -118,9 +118,11 @@ namespace JD
 		void createGBufferPipeline();
 		void createCameraBuffers();
 		void createSkyboxPipeline();
+
+		void createCubeMapTextureImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation);
 		void loadCubemap(std::vector<std::string> faces, vk::Image& cubemapImage, VmaAllocation& cubemapAllocation, vk::ImageView& cubemapImageView);
 		void loadSkybox();
-
+		void createSkyboxDescriptorSetLayout();
 		void createShadowPipeline();
 		void createOutputPipeline();
 		void createQueues();
@@ -150,6 +152,7 @@ namespace JD
 		void cleanupVulkan();
 		void cleanupSwapChain();
 
+		
 		//tinygltf::Scene* makeGLTFScene(GLTFData data) override;
 	/*	void createInstance();
 		void setupDebugMessenger();
@@ -192,11 +195,12 @@ namespace JD
 
 		vk::DescriptorPool descriptorPool;
 
+		vk::DescriptorSetLayout skyboxDescriptorSetLayout= nullptr;
 		vk::Pipeline skyboxPipeline= nullptr;
 		vk::PipelineLayout skyboxPipelineLayout = nullptr;
-		vk::Image cubemapImage =nullptr;
-		VmaAllocation cubemapAllocation = nullptr;
-		vk::ImageView cubemapImageView = nullptr;
+		vk::Image skyboxImage =nullptr;
+		VmaAllocation skyboxAllocation = nullptr;
+		vk::ImageView skyboxImageView = nullptr;
 		std::vector<RenderTransmition>* currentRenderTransmition = nullptr;
 
 #ifdef NDEBUG
