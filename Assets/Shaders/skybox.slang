@@ -17,11 +17,6 @@ struct VSInput {
     float2 inTexCoord;
 };
 
-
-
-
-
-
 struct VSOutput
 {
     float4 pos : SV_Position;
