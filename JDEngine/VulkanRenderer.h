@@ -102,7 +102,7 @@ namespace JD
 		void createVertexBuffer(std::vector<Vertex>& verticies, vk::Buffer& buffer, VmaAllocation& allocation);
 		void createIndexBuffer(std::vector<uint32_t>& indicies, vk::Buffer& buffer, VmaAllocation& allocation);
 		void createTextureSampler();
-
+		void createQuad();
 		void createDescriptorSetLayouts();
 		void createDescriptorPool();
 		void createDepthResources();
@@ -198,7 +198,7 @@ namespace JD
 		vk::DescriptorPool descriptorPool;
 		Skybox skybox{};
 		std::vector<RenderTransmition>* currentRenderTransmition = nullptr;
-
+		MeshComponent quad;
 #ifdef NDEBUG
 		const bool enableValidationLayers = false;
 #else

@@ -67,4 +67,5 @@ namespace JD
 		vk::ImageView skyboxRenderOutputView = nullptr;
 	};
 
+
 }

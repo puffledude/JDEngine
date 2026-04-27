@@ -43,6 +43,7 @@ namespace JD
 				std::cerr << "[Vulkan Cleanup] waitIdle failed: " << e.what() << "\n";
 			}
 		}
+		quad.Destroy(vulkanCore.device, vulkanCore.allocator);
 
 		if (skybox.skyboxImage){
 			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(skybox.skyboxImage), skybox.skyboxAllocation);
@@ -205,6 +206,7 @@ namespace JD
 			createGraphicsPipelines();
 			createCameraBuffers();
 			createCommandPool();
+			createQuad();
 			loadSkybox();
 
 			//createDescriptorSets();
@@ -402,6 +404,29 @@ namespace JD
 		buffer = vk::Buffer(cBuffer);
 		allocation = createdAllocation;
 	}
+
+	void VulkanRenderer::createQuad() {
+		quad = {};
+		/*std::vector<Vertex> vertices = {
+			{{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
+			{{ 1.0f, -1.0f, 0.0f}, {1.0f, 0.0f}},
+			{{ 1.0f,  1.0f, 0.0f}, {1.0f, 1.0f}},
+			{{-1.0f,  1.0f, 0.0f}, {0.0f, 1.0f}}
+		};*/
+		std::vector<Vertex> vertices = {
+		Vertex{{-1.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
+		Vertex{{ 1.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
+		Vertex{{ 1.0f,  1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
+		Vertex{{-1.0f,  1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
+		};
+
+		std::vector<uint32_t> indices = { 0, 1, 2, 2, 3, 0 };
+		createVertexBuffer(vertices, quad.vertexBuffer, quad.vertexBufferAllocation);
+		createIndexBuffer(indices, quad.indexBuffer, quad.indexBufferAllocation);
+		quad.vertices = std::move(vertices);
+		quad.indices = std::move(indices);
+	}
+
 
 	void VulkanRenderer::createCameraBuffers() {
 		cameraBuffers.clear();
@@ -1337,7 +1362,7 @@ namespace JD
 		BuildInstanceBatches(*renderTransmissions, meshInstanceBatches, mappedData);
 		vmaUnmapMemory(vulkanCore.allocator, storageBufferAllocations[currentFrame]);
 		updateCameraBuffer(currentFrame);
-			
+		
 		drawGBufferPass(imageIndex, meshInstanceBatches); // Fixed imageIndex being passed
 		
 		vk::PipelineStageFlags waitDestinationStageMask = (vk::PipelineStageFlagBits::eColorAttachmentOutput);
