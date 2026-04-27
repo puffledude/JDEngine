@@ -448,7 +448,8 @@ namespace JD
 		vk::PipelineStageFlags2 src_stage_mask,
 		vk::PipelineStageFlags2 dst_stage_mask,
 		vk::ImageAspectFlags image_aspect_flags,
-		uint32_t mip_levels) {
+		uint32_t mip_levels,
+		uint32_t layer_count) {
 		
 		vk::ImageMemoryBarrier2 barrier{
 			.srcStageMask = src_stage_mask,
@@ -465,7 +466,7 @@ namespace JD
 				.baseMipLevel = 0,
 				.levelCount = mip_levels,
 				.baseArrayLayer = 0,
-				.layerCount = 1} };
+				.layerCount = layer_count} };
 
 		vk::DependencyInfo dependencyInfo{
 			.dependencyFlags = {},
@@ -701,7 +702,7 @@ namespace JD
 		vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
 			.vertexBindingDescriptionCount = 1,
 			.pVertexBindingDescriptions = &bindingDescription,
-			.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
+			.vertexAttributeDescriptionCount = 1, //Apparently optimised out the other two unused variables
 			.pVertexAttributeDescriptions = attributeDescriptions.data()
 		};
 		vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
@@ -802,75 +803,102 @@ namespace JD
 		image = vk::Image(rawImage);
 		}
 
-	void VulkanRenderer::copyBufferToImage(const vk::Buffer& buffer, vk::Image& image, uint32_t width, uint32_t height) {
+	void VulkanRenderer::copyBufferToImage(const vk::Buffer& buffer, vk::Image& image, uint32_t width, uint32_t height, uint32_t layerCount) {
 		vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
 		vk::BufferImageCopy region{ .bufferOffset = 0, .bufferRowLength = 0, .bufferImageHeight = 0,
-		.imageSubresource = { vk::ImageAspectFlagBits::eColor, 0, 0, 1 }, .imageOffset = {0, 0, 0}, .imageExtent = {width, height, 1} };
+		.imageSubresource = { vk::ImageAspectFlagBits::eColor, 0, 0, layerCount }, .imageOffset = {0, 0, 0}, .imageExtent = {width, height, 1} };
 		commandBuffer.copyBufferToImage(buffer, image, vk::ImageLayout::eTransferDstOptimal, region);
 		endSingleTimeCommands(commandBuffer);
 
 	}
-	void VulkanRenderer::generateMipmaps(vk::Image& image, vk::Format imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels) {
-		//vk::FormatProperties formatProperties = physicalDevice.getFormatProperties(imageFormat);
+	void VulkanRenderer::generateMipmaps(vk::Image& image, vk::Format imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels, uint32_t layerCount) {
 		vk::PhysicalDevice physDevice = vulkanCore.vkbInstances.device.physical_device.physical_device;
-		vk::FormatProperties formatProperties =   physDevice.getFormatProperties(imageFormat);
+		vk::FormatProperties formatProperties = physDevice.getFormatProperties(imageFormat);
 		if (!(formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear)) {
 			throw std::runtime_error("texture image format does not support linear blitting!");
 		}
 
 		vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
-		vk::ImageMemoryBarrier barrier{
-		.srcAccessMask = vk::AccessFlagBits::eTransferWrite,
-		.dstAccessMask = vk::AccessFlagBits::eTransferRead,
-		.oldLayout = vk::ImageLayout::eTransferDstOptimal,
-		.newLayout = vk::ImageLayout::eTransferSrcOptimal,
-		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.image = image };
-		barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-		barrier.subresourceRange.baseArrayLayer = 0;
-		barrier.subresourceRange.layerCount = 1;
-		barrier.subresourceRange.levelCount = 1;
 
-		int32_t mipWidth = texWidth;
-		int32_t mipHeight = texHeight;
-		for (uint32_t i = 1; i < mipLevels; i++) {
-			barrier.subresourceRange.baseMipLevel = i - 1;
-			barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
-			barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;
-			barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-			barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
-			commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, {}, {}, barrier);
+		// For each layer, generate mipmaps by blitting downwards
+		for (uint32_t layer = 0; layer < layerCount; ++layer) {
+			int32_t mipWidth = texWidth;
+			int32_t mipHeight = texHeight;
 
-			vk::ArrayWrapper1D<vk::Offset3D, 2> offsets, dstOffsets;
-			offsets[0] = vk::Offset3D(0, 0, 0);
-			offsets[1] = vk::Offset3D(mipWidth, mipHeight, 1);
-			dstOffsets[0] = vk::Offset3D(0, 0, 0);
-			dstOffsets[1] = vk::Offset3D(mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1);
-			vk::ImageBlit blit = { .srcSubresource = {}, .srcOffsets = offsets,
-								.dstSubresource = {}, .dstOffsets = dstOffsets };
-			blit.srcSubresource = vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, i - 1, 0, 1);
-			blit.dstSubresource = vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, i, 0, 1);
+			// Transition level 0 of this layer from TRANSFER_DST_OPTIMAL -> TRANSFER_SRC_OPTIMAL when needed inside loop
+			for (uint32_t i = 1; i < mipLevels; i++) {
+				// Barrier for src (previous mip) before blit
+				vk::ImageMemoryBarrier barrierSrc{
+					.srcAccessMask = vk::AccessFlagBits::eTransferWrite,
+					.dstAccessMask = vk::AccessFlagBits::eTransferRead,
+					.oldLayout = vk::ImageLayout::eTransferDstOptimal,
+					.newLayout = vk::ImageLayout::eTransferSrcOptimal,
+					.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+					.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+					.image = image
+				};
+				barrierSrc.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+				barrierSrc.subresourceRange.baseMipLevel = i - 1;
+				barrierSrc.subresourceRange.levelCount = 1;
+				barrierSrc.subresourceRange.baseArrayLayer = layer;
+				barrierSrc.subresourceRange.layerCount = 1; // Must process 1 layer at a time
 
-			commandBuffer.blitImage(image, vk::ImageLayout::eTransferSrcOptimal, image, vk::ImageLayout::eTransferDstOptimal, blit, vk::Filter::eLinear);
+				commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, {}, {}, barrierSrc);
 
-			barrier.oldLayout = vk::ImageLayout::eTransferSrcOptimal;
-			barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-			barrier.srcAccessMask = vk::AccessFlagBits::eTransferRead;
-			barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+				vk::ArrayWrapper1D<vk::Offset3D, 2> srcOffsets, dstOffsets;
+				srcOffsets[0] = vk::Offset3D(0, 0, 0);
+				srcOffsets[1] = vk::Offset3D(mipWidth, mipHeight, 1);
+				dstOffsets[0] = vk::Offset3D(0, 0, 0);
+				dstOffsets[1] = vk::Offset3D(mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1);
 
-			commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader, {}, {}, {}, barrier);
+				vk::ImageBlit blit{};
+				blit.srcSubresource = vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, i - 1, layer, 1);
+				blit.srcOffsets = srcOffsets;
+				blit.dstSubresource = vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, i, layer, 1);
+				blit.dstOffsets = dstOffsets;
 
-			if (mipWidth > 1) mipWidth /= 2;
-			if (mipHeight > 1) mipHeight /= 2;
+				commandBuffer.blitImage(image, vk::ImageLayout::eTransferSrcOptimal, image, vk::ImageLayout::eTransferDstOptimal, 1, &blit, vk::Filter::eLinear);
+
+				// Barrier for src mip after blit to transition to SHADER_READ_ONLY_OPTIMAL for fragment shader reading
+				vk::ImageMemoryBarrier barrierDst{
+					.srcAccessMask = vk::AccessFlagBits::eTransferRead,
+					.dstAccessMask = vk::AccessFlagBits::eShaderRead,
+					.oldLayout = vk::ImageLayout::eTransferSrcOptimal, // Updated from TransferDstOptimal
+					.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+					.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+					.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+					.image = image
+				};
+				barrierDst.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+				barrierDst.subresourceRange.baseMipLevel = i - 1;
+				barrierDst.subresourceRange.levelCount = 1;
+				barrierDst.subresourceRange.baseArrayLayer = layer;
+				barrierDst.subresourceRange.layerCount = 1; // Must process 1 layer at a time
+
+				commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader, {}, {}, {}, barrierDst);
+
+				if (mipWidth > 1) mipWidth /= 2;
+				if (mipHeight > 1) mipHeight /= 2;
+			}
+
+			// Transition the last mip level to SHADER_READ_ONLY_OPTIMAL
+			vk::ImageMemoryBarrier barrierLast{
+				.srcAccessMask = vk::AccessFlagBits::eTransferWrite,
+				.dstAccessMask = vk::AccessFlagBits::eShaderRead,
+				.oldLayout = vk::ImageLayout::eTransferDstOptimal,
+				.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+				.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+				.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+				.image = image
+			};
+			barrierLast.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+			barrierLast.subresourceRange.baseMipLevel = mipLevels - 1;
+			barrierLast.subresourceRange.levelCount = 1;
+			barrierLast.subresourceRange.baseArrayLayer = layer;
+			barrierLast.subresourceRange.layerCount = 1; // Must process 1 layer at a time
+
+			commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader, {}, {}, {}, barrierLast);
 		}
-		barrier.subresourceRange.baseMipLevel = mipLevels - 1;
-		barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
-		barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-		barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-		barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
-
-		commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader, {}, {}, {}, barrier);
 
 		endSingleTimeCommands(commandBuffer);
 	}
@@ -1233,13 +1261,14 @@ namespace JD
 			vk::PipelineStageFlagBits2::eTopOfPipe,
 			vk::PipelineStageFlagBits2::eTransfer,
 			vk::ImageAspectFlagBits::eColor,
-			mipLevels
+			mipLevels,
+			6
 		);
 		endSingleTimeCommands(commandBuffer);
-		copyBufferToImage(stagingBuffer, cubemapImage, static_cast<uint32_t>(width), static_cast<uint32_t>(height)); //Unsure if *6 here
-		generateMipmaps(cubemapImage, vk::Format::eR8G8B8A8Srgb, width, height, mipLevels);
+		copyBufferToImage(stagingBuffer, cubemapImage, static_cast<uint32_t>(width), static_cast<uint32_t>(height), 6);
+		generateMipmaps(cubemapImage, vk::Format::eR8G8B8A8Srgb, width, height, mipLevels ,6);
 		vmaDestroyBuffer(vulkanCore.allocator, stagingBuffer, stagingAllocation);
-		cubemapImageView =createImageView(cubemapImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor, mipLevels, vk::ImageViewType::eCube, 6);
+		cubemapImageView =std::move(createImageView(cubemapImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor, mipLevels, vk::ImageViewType::eCube, 6));
 	}
 
 
@@ -1285,10 +1314,14 @@ namespace JD
 					.pImageInfo = &imageInfo
 				}
 			};
+			vulkanCore.device.updateDescriptorSets(descriptorWrites, {});
+
 
 		}
-		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, vk::Format::eR8G8B8A8Srgb, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, skybox.skyboxRenderOutputImage, skybox.skyboxRenderOutputAllocation);
-		skybox.skyboxRenderOutputView = createImageView(skybox.skyboxRenderOutputImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor, 1);
+		vk::Format renderOutputFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
+
+		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, renderOutputFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, skybox.skyboxRenderOutputImage, skybox.skyboxRenderOutputAllocation);
+		skybox.skyboxRenderOutputView = createImageView(skybox.skyboxRenderOutputImage, renderOutputFormat, vk::ImageAspectFlagBits::eColor, 1);
 
 	}
 
@@ -1362,7 +1395,7 @@ namespace JD
 		BuildInstanceBatches(*renderTransmissions, meshInstanceBatches, mappedData);
 		vmaUnmapMemory(vulkanCore.allocator, storageBufferAllocations[currentFrame]);
 		updateCameraBuffer(currentFrame);
-		
+		drawSkyboxPass(imageIndex);
 		drawGBufferPass(imageIndex, meshInstanceBatches); // Fixed imageIndex being passed
 		
 		vk::PipelineStageFlags waitDestinationStageMask = (vk::PipelineStageFlagBits::eColorAttachmentOutput);
@@ -1401,11 +1434,97 @@ namespace JD
 		
 		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 	}
+
+	void VulkanRenderer::drawSkyboxPass(uint32_t imageIndex) {
+		vk::CommandBuffer commandBuffer = vulkanCore.commandBuffers[currentFrame];
+		vk::CommandBufferBeginInfo beginInfo{};
+		commandBuffer.begin(beginInfo);
+		uint32_t mipLevels = 1;
+		transitionImageLayout(commandBuffer,
+			skybox.skyboxRenderOutputImage,
+			vk::ImageLayout::eUndefined,
+			vk::ImageLayout::eColorAttachmentOptimal,
+			{},
+			vk::AccessFlagBits2::eColorAttachmentWrite,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::ImageAspectFlagBits::eColor,
+			mipLevels
+		);
+		int width = vulkanCore.vkbInstances.swapChain.extent.width;
+		int height = vulkanCore.vkbInstances.swapChain.extent.height;
+		vk::Extent2D extent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
+
+		vk::RenderPassBeginInfo renderPassInfo{
+			.renderPass = nullptr,
+			.framebuffer = nullptr,
+			.renderArea = vk::Rect2D({0, 0}, extent),
+			.clearValueCount = 0,
+			.pClearValues = nullptr
+		};
+
+		vk::RenderingAttachmentInfo colorAttachment{
+			.imageView = skybox.skyboxRenderOutputView,
+			.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+			.loadOp = vk::AttachmentLoadOp::eClear,
+			.storeOp = vk::AttachmentStoreOp::eStore,
+			.clearValue = { std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f} }
+		};
+
+		vk::RenderingInfo renderingInfo{
+			.renderArea = vk::Rect2D({ 0, 0 }, extent),
+			.layerCount = 1,
+			.viewMask = 0,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &colorAttachment,
+			.pDepthAttachment = nullptr,
+			.pStencilAttachment = nullptr
+		};
+
+		commandBuffer.beginRendering(renderingInfo);
+		commandBuffer.setViewport(0, vk::Viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width), static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f });
+		commandBuffer.setScissor(0, vk::Rect2D({ 0, 0 }, extent));
+		commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, skybox.skyboxPipeline);
+		commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, skybox.skyboxPipelineLayout, 0, skybox.skyboxDescriptorSets[currentFrame], {});
+		commandBuffer.bindVertexBuffers(0, quad.vertexBuffer, { 0 });
+		commandBuffer.bindIndexBuffer(quad.indexBuffer, 0, vk::IndexType::eUint32);
+		commandBuffer.drawIndexed(static_cast<uint32_t>(quad.indices.size()), 1, 0, 0, 0);
+		commandBuffer.endRendering();
+		transitionImageLayout(commandBuffer,
+			skybox.skyboxRenderOutputImage,
+			vk::ImageLayout::eColorAttachmentOptimal,
+			vk::ImageLayout::eShaderReadOnlyOptimal,
+			vk::AccessFlagBits2::eColorAttachmentWrite,              // srcAccessMask
+			vk::AccessFlagBits2::eShaderRead,                        // dstAccessMask
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,      // srcStage
+			vk::PipelineStageFlagBits2::eFragmentShader,             // dstStage
+			vk::ImageAspectFlagBits::eColor,
+			1);
+		 /*transitionImageLayout(commandBuffer,
+			skybox.skyboxRenderOutputImage,
+			vk::ImageLayout::eColorAttachmentOptimal,
+			vk::ImageLayout::eShaderReadOnlyOptimal,
+			{},
+			vk::AccessFlagBits2::eColorAttachmentWrite,
+			vk::AccessFlagBits2::eShaderRead,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::PipelineStageFlagBits2::eFragmentShader,
+			vk::ImageAspectFlagBits::eColor,
+			1
+		 );*/
+
+		//commandBuffer.end();
+	}
+
+
+
 	void VulkanRenderer::drawGBufferPass(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches) {
 		// Use currentFrame, not frameIndex
 		vk::CommandBuffer* commandBuffer = &vulkanCore.commandBuffers[currentFrame];
+		//commandBuffer->reset(vk::CommandBufferResetFlagBits::eReleaseResources);
+
 		vk::CommandBufferBeginInfo beginInfo{};
-		commandBuffer->begin(beginInfo);
+		//commandBuffer->begin(beginInfo);
 		// We have to specify mipLevels, default is 1 since we're writing to the swapchain colour attachment directly here
 		uint32_t mipLevels = 1;
 		transitionImageLayout(*commandBuffer,

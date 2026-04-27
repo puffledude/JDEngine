@@ -93,7 +93,8 @@ namespace JD
 			vk::PipelineStageFlags2 src_stage_mask,
 			vk::PipelineStageFlags2 dst_stage_mask,
 			vk::ImageAspectFlags image_aspect_flags,
-			uint32_t mip_levels);
+			uint32_t mip_levels,
+			uint32_t layer_count=1);
 		vk::CommandBuffer beginSingleTimeCommands();
 		void endSingleTimeCommands(vk::CommandBuffer& commandBuffer);
 		void copyBuffer(const vk::Buffer& srcBuffer, vk::Buffer& dstBuffer, vk::DeviceSize size);
@@ -112,8 +113,8 @@ namespace JD
 		void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, VmaAllocation& allocation);
 		void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation);
 
-		void copyBufferToImage(const vk::Buffer& buffer, vk::Image& image, uint32_t width, uint32_t height);
-		void generateMipmaps(vk::Image& image, vk::Format imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
+		void copyBufferToImage(const vk::Buffer& buffer, vk::Image& image, uint32_t width, uint32_t height, uint32_t layerCount = 1);
+		void generateMipmaps(vk::Image& image, vk::Format imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels, uint32_t layerCount = 1);
 		void createGraphicsPipelines();
 		void createGBufferPipeline();
 		void createCameraBuffers();
@@ -143,7 +144,7 @@ namespace JD
 		}
 		void updateCameraBuffer(uint32_t frameIndex);
 		void drawFrame();
-		void drawSkyboxPass(vk::CommandBuffer& commandBuffer, uint32_t imageIndex);
+		void drawSkyboxPass(uint32_t imageIndex);
 		void drawGBufferPass(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
 		void recordCommandBuffer(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
 		void BuildInstanceBatches(

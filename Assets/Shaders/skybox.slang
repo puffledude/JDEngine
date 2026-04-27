@@ -10,7 +10,6 @@ struct CameraInfo {
 [[vk::binding(0, 0)]]
 ConstantBuffer<CameraInfo> cameraData;
 
-
 struct VSInput {
     float3 inPos;
     float3 inColor;
