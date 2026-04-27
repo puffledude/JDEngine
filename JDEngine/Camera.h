@@ -26,7 +26,7 @@ namespace JD
 			Controller* controller;
 			void updateCameraVectors();
 			float speed = 5.0f;
-			float sensitivity = 3.0f;
+			float sensitivity =6.0f;
 
 	};
 }

@@ -95,7 +95,7 @@ namespace JD {
 		Material material;
 
 		// Appropriate manual "destructor" requiring necessary Vulkan context
-`		void Destroy(vk::Device device, VmaAllocator allocator) {
+		void Destroy(vk::Device device, VmaAllocator allocator) {
 			material.Destroy(device, allocator);
 
 			if (vertexBuffer && vertexBufferAllocation) {
