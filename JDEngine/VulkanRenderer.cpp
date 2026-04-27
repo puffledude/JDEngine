@@ -46,10 +46,15 @@ namespace JD
 
 		if (skybox.skyboxImage){
 			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(skybox.skyboxImage), skybox.skyboxAllocation);
+			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(skybox.skyboxRenderOutputImage), skybox.skyboxRenderOutputAllocation);
 			vulkanCore.device.destroyImageView(skybox.skyboxImageView);
+			vulkanCore.device.destroyImageView(skybox.skyboxRenderOutputView);
 			skybox.skyboxImage = nullptr;
+			skybox.skyboxRenderOutputImage = nullptr;
 			skybox.skyboxAllocation = nullptr;
+			skybox.skyboxRenderOutputAllocation = nullptr;
 			skybox.skyboxImageView = nullptr;
+			skybox.skyboxRenderOutputView = nullptr;
 		}
 
 		// 1) Sync objects
@@ -68,7 +73,7 @@ namespace JD
 
 		if (skybox.skyboxPipeline) { vulkanCore.device.destroyPipeline(skybox.skyboxPipeline); skybox.skyboxPipeline = nullptr; }
 		if (skybox.skyboxPipelineLayout) { vulkanCore.device.destroyPipelineLayout(skybox.skyboxPipelineLayout); skybox.skyboxPipelineLayout = nullptr; }
-
+		
 
 		// 3) Descriptor pool (implicitly frees all descriptor sets), then layout
 		if (descriptorPool) { vulkanCore.device.destroyDescriptorPool(descriptorPool);                descriptorPool = nullptr; }
@@ -1332,7 +1337,7 @@ namespace JD
 		BuildInstanceBatches(*renderTransmissions, meshInstanceBatches, mappedData);
 		vmaUnmapMemory(vulkanCore.allocator, storageBufferAllocations[currentFrame]);
 		updateCameraBuffer(currentFrame);
-
+			
 		drawGBufferPass(imageIndex, meshInstanceBatches); // Fixed imageIndex being passed
 		
 		vk::PipelineStageFlags waitDestinationStageMask = (vk::PipelineStageFlagBits::eColorAttachmentOutput);
