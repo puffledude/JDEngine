@@ -41,7 +41,7 @@ namespace JD
 		Queues queues;
 
 		// Do not perform complex destruction here; cleanup must be done explicitly and in a well-defined order.
-		~VulkanCore() noexcept = default;
+		//~VulkanCore() noexcept = default;
 	};
 
 
@@ -51,6 +51,20 @@ namespace JD
 		uint32_t instanceCount;			//How many instances of this mesh are being rendered
 		std::vector<glm::mat4> modelMatrices; // model matrices for each instance of this mesh
 		std::vector<MeshComponent*> pieces; // all pieces that belong to this mesh
+	};
+
+	struct Skybox {
+
+		vk::DescriptorSetLayout skyboxDescriptorSetLayout = nullptr;
+		std::vector<vk::DescriptorSet> skyboxDescriptorSets;
+		vk::Pipeline skyboxPipeline = nullptr;
+		vk::PipelineLayout skyboxPipelineLayout = nullptr;
+		vk::Image skyboxImage = nullptr;
+		VmaAllocation skyboxAllocation = nullptr;
+		vk::ImageView skyboxImageView = nullptr;
+		vk::Image skyboxRenderOutputImage = nullptr;
+		VmaAllocation skyboxRenderOutputAllocation = nullptr;
+		vk::ImageView skyboxRenderOutputView = nullptr;
 	};
 
 }

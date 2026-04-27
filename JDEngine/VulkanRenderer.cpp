@@ -2,11 +2,10 @@
 //#define TINYGLTF_IMPLEMENTATION
 //#define STB_IMAGE_WRITE_IMPLEMENTATION
 #define VMA_IMPLEMENTATION
-// Now include the headers so they catch the defines above!
 #include "tiny_gltf_v3.h"
 #include "vma/vk_mem_alloc.h"
 
-// Then your project headers
+#include "stb_image.h"
 
 #include "RequiredFeatures.h"
 
@@ -36,117 +35,105 @@ namespace JD
 
 
 	void VulkanRenderer::cleanupVulkan() {
-		// Try to idle the device first
-		try {
-			if (vulkanCore.device) vulkanCore.device.waitIdle();
+		if (vulkanCore.device) {
+			try {
+				vulkanCore.device.waitIdle();
+			}
+			catch (const vk::SystemError& e) {
+				std::cerr << "[Vulkan Cleanup] waitIdle failed: " << e.what() << "\n";
+			}
 		}
-		catch (...) {}
 
-		// 0) Destroy mesh-related VMA resources owned by the GameWorld (must happen before vmaDestroyAllocator)
-		{
-			// Gameworld::GetRenderobjects returns a newly allocated vector<RenderableComponent>*
-			//std::vector<RenderableComponent>* renderObjects = gameworld.GetRenderobjects();
-			//if (renderObjects) {
-			//	for (const auto& ro : *renderObjects) {
-			//		if (ro.mesh) {
-			//			for (auto& meshComp : *ro.mesh) {
-			//				// Components.h provides Destroy(device, allocator) which frees VMA images/buffers
-			//				meshComp.Destroy(vulkanCore.device, vulkanCore.allocator);
-			//			}
-			//			// Keep the container lifetime as-is (we only free GPU resources here)
-			//		}
-			//	}
-			//	delete renderObjects;
-			//	renderObjects = nullptr;
-			//}
+		if (skybox.skyboxImage){
+			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(skybox.skyboxImage), skybox.skyboxAllocation);
+			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(skybox.skyboxRenderOutputImage), skybox.skyboxRenderOutputAllocation);
+			vulkanCore.device.destroyImageView(skybox.skyboxImageView);
+			vulkanCore.device.destroyImageView(skybox.skyboxRenderOutputView);
+			skybox.skyboxImage = nullptr;
+			skybox.skyboxRenderOutputImage = nullptr;
+			skybox.skyboxAllocation = nullptr;
+			skybox.skyboxRenderOutputAllocation = nullptr;
+			skybox.skyboxImageView = nullptr;
+			skybox.skyboxRenderOutputView = nullptr;
 		}
-		//DestroyAllRenderables();
 
-		// 1) Destroy per-frame fences and semaphores
+		// 1) Sync objects
 		for (auto& frame : vulkanCore.perFrame) {
-			if (frame.renderFence) { try { vulkanCore.device.destroyFence(frame.renderFence); } catch (...) {} frame.renderFence = vk::Fence{}; }
-			if (frame.presentSemaphore) { try { vulkanCore.device.destroySemaphore(frame.presentSemaphore); } catch (...) {} frame.presentSemaphore = vk::Semaphore{}; }
+			if (frame.renderFence) { vulkanCore.device.destroyFence(frame.renderFence);          frame.renderFence = nullptr; }
+			if (frame.presentSemaphore) { vulkanCore.device.destroySemaphore(frame.presentSemaphore); frame.presentSemaphore = nullptr; }
 		}
-
-		// 2) Destroy any additional semaphores used for rendering
 		for (auto& sem : vulkanCore.renderSemaphores) {
-			if (sem) { try { vulkanCore.device.destroySemaphore(sem); } catch (...) {} }
+			if (sem) vulkanCore.device.destroySemaphore(sem);
 		}
 		vulkanCore.renderSemaphores.clear();
 
-		// 3) Free command buffers
-		if (vulkanCore.commandPool && !vulkanCore.commandBuffers.empty()) {
-			try {
-				vulkanCore.device.freeCommandBuffers(vulkanCore.commandPool, static_cast<uint32_t>(vulkanCore.commandBuffers.size()), vulkanCore.commandBuffers.data());
-			}
-			catch (...) {}
-			vulkanCore.commandBuffers.clear();
-		}
+		// 2) Pipeline & layout
+		if (gBufferPipeline) { vulkanCore.device.destroyPipeline(gBufferPipeline);             gBufferPipeline = nullptr; }
+		if (gbufferPipelineLayout) { vulkanCore.device.destroyPipelineLayout(gbufferPipelineLayout); gbufferPipelineLayout = nullptr; }
 
-		// 4) Destroy graphics resources created by this renderer (pipelines, layouts, descriptor sets/pools/layouts, sampler)
-		if (gBufferPipeline) { try { vulkanCore.device.destroyPipeline(gBufferPipeline); } catch (...) {} gBufferPipeline = vk::Pipeline{}; }
-		if (gbufferPipelineLayout) { try { vulkanCore.device.destroyPipelineLayout(gbufferPipelineLayout); } catch (...) {} gbufferPipelineLayout = vk::PipelineLayout{}; }
+		if (skybox.skyboxPipeline) { vulkanCore.device.destroyPipeline(skybox.skyboxPipeline); skybox.skyboxPipeline = nullptr; }
+		if (skybox.skyboxPipelineLayout) { vulkanCore.device.destroyPipelineLayout(skybox.skyboxPipelineLayout); skybox.skyboxPipelineLayout = nullptr; }
+		
 
-		if (descriptorPool) { try { vulkanCore.device.destroyDescriptorPool(descriptorPool); } catch (...) {} descriptorPool = vk::DescriptorPool{}; }
-		if (objectDescriptorSetLayout) { try { vulkanCore.device.destroyDescriptorSetLayout(objectDescriptorSetLayout); } catch (...) {} objectDescriptorSetLayout = vk::DescriptorSetLayout{}; }
+		// 3) Descriptor pool (implicitly frees all descriptor sets), then layout
+		if (descriptorPool) { vulkanCore.device.destroyDescriptorPool(descriptorPool);                descriptorPool = nullptr; }
+		if (objectDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(objectDescriptorSetLayout); objectDescriptorSetLayout = nullptr; }
+		if (skybox.skyboxDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(skybox.skyboxDescriptorSetLayout); skybox.skyboxDescriptorSetLayout = nullptr; }
 
-		if (vulkanCore.textureSampler) { try { vulkanCore.device.destroySampler(vulkanCore.textureSampler); } catch (...) {} vulkanCore.textureSampler = vk::Sampler{}; }
+		// 4) Sampler
+		if (vulkanCore.textureSampler) { vulkanCore.device.destroySampler(vulkanCore.textureSampler); vulkanCore.textureSampler = nullptr; }
 
-		// 5) Destroy and free buffers allocated via VMA (camera & storage)
+		// 5) VMA buffers (camera & storage)
 		for (size_t i = 0; i < cameraBuffers.size(); ++i) {
-			if (cameraBuffers[i]) { try { vmaDestroyBuffer(vulkanCore.allocator, static_cast<VkBuffer>(cameraBuffers[i]), cameraBufferAllocations[i]); } catch (...) {} }
+			if (cameraBuffers[i]) vmaDestroyBuffer(vulkanCore.allocator, static_cast<VkBuffer>(cameraBuffers[i]), cameraBufferAllocations[i]);
 		}
 		cameraBuffers.clear();
 		cameraBufferAllocations.clear();
 
 		for (size_t i = 0; i < storageBuffers.size(); ++i) {
-			if (storageBuffers[i]) { try { vmaDestroyBuffer(vulkanCore.allocator, static_cast<VkBuffer>(storageBuffers[i]), storageBufferAllocations[i]); } catch (...) {} }
+			if (storageBuffers[i]) vmaDestroyBuffer(vulkanCore.allocator, static_cast<VkBuffer>(storageBuffers[i]), storageBufferAllocations[i]);
 		}
 		storageBuffers.clear();
 		storageBufferAllocations.clear();
 
-		// 6) Destroy depth image view and free depth image via VMA
-		if (depthImageView) { try { vulkanCore.device.destroyImageView(depthImageView); } catch (...) {} depthImageView = vk::ImageView{}; }
-		if (depthImage && vulkanCore.allocator) {
-			try { vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(depthImage), depthImageAllocation); }
-			catch (...) {}
-			depthImage = vk::Image{}; depthImageAllocation = VK_NULL_HANDLE;
-		}
+		// 6) Depth image view, then depth image
+		if (depthImageView) { vulkanCore.device.destroyImageView(depthImageView); depthImageView = nullptr; }
+		if (depthImage) { vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(depthImage), depthImageAllocation); depthImage = nullptr; depthImageAllocation = nullptr; }
 
-		// 7) Ensure any remaining swapchain image views are destroyed
-		for (auto imageView : vulkanCore.swapChainImageViews) {
-			if (imageView) { try { vulkanCore.device.destroyImageView(imageView); } catch (...) {} }
+		// 7) Swapchain image views
+		for (auto& iv : vulkanCore.swapChainImageViews) {
+			if (iv) vulkanCore.device.destroyImageView(iv);
 		}
 		vulkanCore.swapChainImageViews.clear();
 		vulkanCore.swapChainImages.clear();
 
-		// 8) Destroy command pool
-		if (vulkanCore.commandPool) { try { vulkanCore.device.destroyCommandPool(vulkanCore.commandPool); } catch (...) {} vulkanCore.commandPool = vk::CommandPool{}; }
-
-		// 9) Destroy VMA allocator (only after all VMA allocations are freed)
-		if (vulkanCore.allocator != nullptr) {
-			try { vmaDestroyAllocator(vulkanCore.allocator); }
-			catch (...) {}
-			vulkanCore.allocator = nullptr;
+		// 8) Command pool (implicitly frees all command buffers)
+		std::cerr << ">> commandPool handle: " << (VkCommandPool)vulkanCore.commandPool << "\n";
+		if (vulkanCore.commandPool) {
+			vulkanCore.device.destroyCommandPool(vulkanCore.commandPool);
+			vulkanCore.commandPool = nullptr;
+			std::cerr << ">> commandPool destroyed\n";
 		}
+		std::cerr << ">> past commandPool\n";
+		// 9) VMA allocator
+		if (vulkanCore.allocator) { vmaDestroyAllocator(vulkanCore.allocator); vulkanCore.allocator = nullptr; }
 
-		// 10) Destroy swapchain, device, surface and instance via vk-bootstrap (best-effort)
-		try { if (vulkanCore.vkbInstances.swapChain) vkb::destroy_swapchain(vulkanCore.vkbInstances.swapChain); }
-		catch (...) {}
-		try { if (vulkanCore.vkbInstances.device) vkb::destroy_device(vulkanCore.vkbInstances.device); }
-		catch (...) {}
-		try { if (vulkanCore.surface) vkb::destroy_surface(vulkanCore.instance, vulkanCore.surface); }
-		catch (...) {}
-		try { if (vulkanCore.instance) vkb::destroy_instance(vulkanCore.instance); }
-		catch (...) {}
+		// 10) Swapchain  device  surface  instance (vk-bootstrap)
+		if (vulkanCore.vkbInstances.swapChain) vkb::destroy_swapchain(vulkanCore.vkbInstances.swapChain);
+		if (vulkanCore.vkbInstances.device)    vkb::destroy_device(vulkanCore.vkbInstances.device);
+		if (vulkanCore.surface)                vkb::destroy_surface(vulkanCore.instance, vulkanCore.surface);
+		if (vulkanCore.instance)               vkb::destroy_instance(vulkanCore.instance);
 
-		// leave members in a safe, null state
-		vulkanCore.swapChain = vk::SwapchainKHR{};
-		vulkanCore.surface = vk::SurfaceKHR{};
-		vulkanCore.device = vk::Device{};
-		vulkanCore.vkbInstances.device = vkb::Device{};
+		// Null all vkb wrappers so their destructors are no-ops when VulkanCore goes out of scope
 		vulkanCore.vkbInstances.swapChain = vkb::Swapchain{};
+		vulkanCore.vkbInstances.device = vkb::Device{};
+		vulkanCore.vkbInstances.surface = nullptr;
+		vulkanCore.instance = vkb::Instance{};
+		vulkanCore.surface = nullptr;
+		vulkanCore.swapChain = nullptr;
+		vulkanCore.device = nullptr;
 	}
+
 
 	void VulkanRenderer::DestroyAllRenderables()
 	{
@@ -208,7 +195,7 @@ namespace JD
 			createDevices();
 			createSwapChain();
 			initVMA();
-			createCommandPool();
+			//createCommandPool();
 			createQueues();
 			createImageViews();
 			createDescriptorSetLayouts();
@@ -218,6 +205,8 @@ namespace JD
 			createGraphicsPipelines();
 			createCameraBuffers();
 			createCommandPool();
+			loadSkybox();
+
 			//createDescriptorSets();
 			createCommandBuffers();
 			createSyncObjects();
@@ -302,9 +291,9 @@ namespace JD
 		}
 	}
 
-	vk::ImageView VulkanRenderer::createImageView(const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels) {
-		vk::ImageViewCreateInfo viewInfo{ .image = image, .viewType = vk::ImageViewType::e2D,
-			.format = format, .subresourceRange = { aspectFlags, 0, 1, 0, 1 } };
+	vk::ImageView VulkanRenderer::createImageView(const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels, vk::ImageViewType viewType, uint32_t layerCount) {
+		vk::ImageViewCreateInfo viewInfo{ .image = image, .viewType = viewType,
+			.format = format, .subresourceRange = { aspectFlags, 0, 1, 0, layerCount } };
 		viewInfo.subresourceRange.levelCount = mipLevels;
 		return vulkanCore.device.createImageView(viewInfo);		//return vk::ImageView(static_cast<vk::Device>(vulkanCore.device.device), viewInfo);
 	}
@@ -499,8 +488,19 @@ namespace JD
 			createBuffer(sizeof(GPUObjectData) * MAX_OBJECTS, vk::BufferUsageFlagBits::eStorageBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer, bufferAllocation);
 			storageBufferAllocations.push_back(bufferAllocation);
 		}
+		createSkyboxDescriptorSetLayout();
 		createObjectDescriptorSetLayouts();
 	}
+
+	void VulkanRenderer::createSkyboxDescriptorSetLayout() {
+		std::array bindings = {
+			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  // view projection buffer
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr)  // Cubemap texture
+		};
+		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
+		skybox.skyboxDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
+	}
+
 
 	void VulkanRenderer::createObjectDescriptorSetLayouts() 
 	{
@@ -571,6 +571,7 @@ namespace JD
 	}
 
 	void VulkanRenderer::createGraphicsPipelines() {
+		createSkyboxPipeline();
 		createGBufferPipeline();
 
 	}
@@ -660,6 +661,102 @@ namespace JD
 			throw std::runtime_error("Failed to create gbuffer pipeline!");
 		}
 		gBufferPipeline = pipelineResult.value;
+		vulkanCore.device.destroyShaderModule(shaderModule);
+		
+	}
+
+	void VulkanRenderer::createSkyboxPipeline() {
+		vk::ShaderModule shaderModule = createShaderModule(readFile(SHADERDIR"/skybox.slang.spv"));
+		vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule,  .pName = "vertMain" };
+		vk::PipelineShaderStageCreateInfo fragShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eFragment, .module = shaderModule, .pName = "fragMain" };
+		vk::PipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+	
+		auto bindingDescription = Vertex::getBindingDescription();
+		auto attributeDescriptions = Vertex::getAttributeDescriptions();
+		vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
+			.vertexBindingDescriptionCount = 1,
+			.pVertexBindingDescriptions = &bindingDescription,
+			.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
+			.pVertexAttributeDescriptions = attributeDescriptions.data()
+		};
+		vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
+		.topology = vk::PrimitiveTopology::eTriangleList,
+		};
+
+		vk::Viewport viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width),
+		static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f };
+
+		std::vector<vk::DynamicState> dynamicStates = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
+
+		vk::PipelineDynamicStateCreateInfo dynamicState{ .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()), .pDynamicStates = dynamicStates.data() };
+
+		vk::PipelineViewportStateCreateInfo viewportState{ .viewportCount = 1, .scissorCount = 1 };
+		vk::PipelineRasterizationStateCreateInfo rasterizer{
+		.depthClampEnable = VK_FALSE,
+		.rasterizerDiscardEnable = VK_FALSE,
+		.polygonMode = vk::PolygonMode::eFill,
+		.cullMode = vk::CullModeFlagBits::eBack,
+		.frontFace = vk::FrontFace::eCounterClockwise,
+		.depthBiasEnable = VK_FALSE,
+		.lineWidth = 1.0f,
+		};
+
+		vk::PipelineMultisampleStateCreateInfo multisampling{ .rasterizationSamples = vk::SampleCountFlagBits::e1, .sampleShadingEnable = VK_FALSE };
+		vk::PipelineColorBlendAttachmentState colorBlendAttachment{
+		.blendEnable = VK_FALSE,
+		.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
+		};
+		vk::PipelineColorBlendStateCreateInfo colorBlending{
+			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = 1, .pAttachments = &colorBlendAttachment 
+		};
+
+		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1,
+		.pSetLayouts = &skybox.skyboxDescriptorSetLayout };
+		skybox.skyboxPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
+		vk::Format colorAttachmentFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
+
+		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
+		{.stageCount = 2,
+		 .pStages = shaderStages,
+		 .pVertexInputState = &vertexInputInfo,
+		 .pInputAssemblyState = &inputAssembly,
+		 .pViewportState = &viewportState,
+		 .pRasterizationState = &rasterizer,
+		 .pMultisampleState = &multisampling,
+		 .pColorBlendState = &colorBlending,
+		 .pDynamicState = &dynamicState,
+		 .layout = skybox.skyboxPipelineLayout,
+		 .renderPass = nullptr},
+		{.colorAttachmentCount = 1, .pColorAttachmentFormats = &colorAttachmentFormat} };
+
+		auto pipelineResult = vulkanCore.device.createGraphicsPipeline(nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
+		if (pipelineResult.result != vk::Result::eSuccess) {
+			throw std::runtime_error("Failed to create skybox pipeline!");
+		}
+		skybox.skyboxPipeline = pipelineResult.value;
+		vulkanCore.device.destroyShaderModule(shaderModule);
+
+	}
+
+
+	void VulkanRenderer::createCubeMapTextureImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation) {
+		vk::ImageCreateInfo imageInfo{ .imageType = vk::ImageType::e2D, .format = format,
+			.extent = {width, height, 1}, .mipLevels = mipLevels, .arrayLayers = 6,
+			.samples = vk::SampleCountFlagBits::e1, .tiling = tiling,
+			.usage = usage, .sharingMode = vk::SharingMode::eExclusive,
+		};
+		imageInfo.mipLevels = mipLevels;
+		imageInfo.flags = vk::ImageCreateFlagBits::eCubeCompatible;
+
+		VmaAllocationCreateInfo allocInfo = {};
+		allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+
+
+		VkImage rawImage = VK_NULL_HANDLE;
+		vmaCreateImage(vulkanCore.allocator, reinterpret_cast<const VkImageCreateInfo*>(&imageInfo), &allocInfo, &rawImage, &allocation, nullptr);
+
+		image = vk::Image(rawImage);
+
 	}
 
 	void VulkanRenderer::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation) {
@@ -1075,6 +1172,102 @@ namespace JD
 		
 	}
 
+	void VulkanRenderer::loadCubemap(std::vector<std::string> faces, vk::Image& cubemapImage, VmaAllocation& cubemapAllocation, vk::ImageView& cubemapImageView) 
+	{
+		int width, height, channels;
+		std::array<unsigned char*, 6> data;
+		for (size_t i = 0; i < faces.size(); i++) {
+			data[i] = stbi_load(faces[i].c_str(), &width, &height, &channels, STBI_rgb_alpha);
+			if (!data[i]) {
+				throw std::runtime_error("Failed to load cubemap texture: " + faces[i]);
+			}
+		}
+		const vk::DeviceSize imageSize = width * height * 4*6;
+		vk::Buffer stagingBuffer;
+		VmaAllocation stagingAllocation;
+		createBuffer(imageSize, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingAllocation);
+		void* mapped;
+		vmaMapMemory(vulkanCore.allocator, stagingAllocation, &mapped);
+		for (size_t i = 0; i < faces.size(); i++) {
+			std::memcpy(static_cast<unsigned char*>(mapped) + i * width * height * 4, data[i], static_cast<size_t>(width * height * 4));
+		}
+		vmaUnmapMemory(vulkanCore.allocator, stagingAllocation);
+		for (size_t i = 0; i < faces.size(); i++) {
+			stbi_image_free(data[i]);
+		}
+		float mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
+
+		createCubeMapTextureImage(width, height, mipLevels, vk::Format::eR8G8B8A8Srgb, vk::ImageTiling::eOptimal,vk::ImageUsageFlagBits::eTransferSrc |vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, cubemapImage, cubemapAllocation);
+		vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
+		transitionImageLayout(commandBuffer,
+			cubemapImage,
+			vk::ImageLayout::eUndefined,
+			vk::ImageLayout::eTransferDstOptimal,
+			{},
+			vk::AccessFlagBits2::eTransferWrite,
+			vk::PipelineStageFlagBits2::eTopOfPipe,
+			vk::PipelineStageFlagBits2::eTransfer,
+			vk::ImageAspectFlagBits::eColor,
+			mipLevels
+		);
+		endSingleTimeCommands(commandBuffer);
+		copyBufferToImage(stagingBuffer, cubemapImage, static_cast<uint32_t>(width), static_cast<uint32_t>(height)); //Unsure if *6 here
+		generateMipmaps(cubemapImage, vk::Format::eR8G8B8A8Srgb, width, height, mipLevels);
+		vmaDestroyBuffer(vulkanCore.allocator, stagingBuffer, stagingAllocation);
+		cubemapImageView =createImageView(cubemapImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor, mipLevels, vk::ImageViewType::eCube, 6);
+	}
+
+
+
+	void VulkanRenderer::loadSkybox() {
+
+		loadCubemap({
+			IMAGEDIR"/skybox/CubeMapLeft.jpg",
+			IMAGEDIR"/skybox/CubeMapRight.jpg",
+			IMAGEDIR"/skybox/CubeMapUp.jpg",
+			IMAGEDIR"/skybox/CubeMapDown.jpg",
+			IMAGEDIR"/skybox/CubeMapBack.jpg",
+			IMAGEDIR"/skybox/CubeMapFront.jpg"
+			},skybox.skyboxImage ,skybox.skyboxAllocation, skybox.skyboxImageView);
+		
+		std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, skybox.skyboxDescriptorSetLayout);
+		vk::DescriptorSetAllocateInfo allocInfo{
+			.descriptorPool = descriptorPool,
+			.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
+			.pSetLayouts = layouts.data()
+		};
+		skybox.skyboxDescriptorSets.clear();
+		skybox.skyboxDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
+
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
+			vk::DescriptorImageInfo imageInfo{ .sampler = vulkanCore.textureSampler, .imageView = skybox.skyboxImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			std::array<vk::WriteDescriptorSet, 2> descriptorWrites = {
+				vk::WriteDescriptorSet {
+					.dstSet = skybox.skyboxDescriptorSets[i],
+					.dstBinding = 0,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eUniformBuffer,
+					.pBufferInfo = &cameraBufferInfo
+				},
+				vk::WriteDescriptorSet {
+					.dstSet = skybox.skyboxDescriptorSets[i],
+					.dstBinding = 1,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
+					.pImageInfo = &imageInfo
+				}
+			};
+
+		}
+		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, vk::Format::eR8G8B8A8Srgb, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, skybox.skyboxRenderOutputImage, skybox.skyboxRenderOutputAllocation);
+		skybox.skyboxRenderOutputView = createImageView(skybox.skyboxRenderOutputImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor, 1);
+
+	}
+
+
 	void VulkanRenderer::createCommandBuffers() {
 		vk::CommandBufferAllocateInfo allocInfo{
 			.commandPool = vulkanCore.commandPool,
@@ -1120,7 +1313,70 @@ namespace JD
 		uint32_t instanceBaseOffset;
 	};
 
-	void VulkanRenderer::recordCommandBuffer(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches) {
+	
+
+	void VulkanRenderer::drawFrame() {
+		// Draw skybox first into its own image view
+		// Then draw regular into another image view.
+		//Then in a final pass combine the two where if alpha is 0 sample from the skybox.
+
+
+		auto fenceResult = vulkanCore.device.waitForFences(vulkanCore.perFrame[currentFrame].renderFence, vk::True, UINT64_MAX);
+		if (fenceResult != vk::Result::eSuccess)
+		{
+			throw std::runtime_error("failed to wait for fence!");
+		}
+		auto [result, imageIndex] = vulkanCore.device.acquireNextImageKHR(
+			vulkanCore.swapChain, UINT64_MAX, vulkanCore.perFrame[currentFrame].presentSemaphore, nullptr);
+		vulkanCore.device.resetFences(vulkanCore.perFrame[currentFrame].renderFence);
+
+		std::vector<RenderTransmition>* renderTransmissions = gameworld.getRenderTransmitions();
+		std::vector<MeshInstanceBatch> meshInstanceBatches;
+		void* mappedData;
+		vmaMapMemory(vulkanCore.allocator, storageBufferAllocations[currentFrame], &mappedData);
+		BuildInstanceBatches(*renderTransmissions, meshInstanceBatches, mappedData);
+		vmaUnmapMemory(vulkanCore.allocator, storageBufferAllocations[currentFrame]);
+		updateCameraBuffer(currentFrame);
+			
+		drawGBufferPass(imageIndex, meshInstanceBatches); // Fixed imageIndex being passed
+		
+		vk::PipelineStageFlags waitDestinationStageMask = (vk::PipelineStageFlagBits::eColorAttachmentOutput);
+		const vk::SubmitInfo submitInfo{ .waitSemaphoreCount = 1,
+								  .pWaitSemaphores = &vulkanCore.perFrame[currentFrame].presentSemaphore,
+								  .pWaitDstStageMask = &waitDestinationStageMask,
+								  .commandBufferCount = 1,
+								  .pCommandBuffers = &vulkanCore.commandBuffers[currentFrame],
+								  .signalSemaphoreCount = 1,
+								  .pSignalSemaphores = &vulkanCore.renderSemaphores[imageIndex]};
+
+		vulkanCore.queues.graphicsQueue.submit(submitInfo, vulkanCore.perFrame[currentFrame].renderFence);
+
+		const vk::PresentInfoKHR presentInfo{
+			.waitSemaphoreCount = 1,
+			.pWaitSemaphores = &vulkanCore.renderSemaphores[imageIndex],
+			.swapchainCount = 1,
+			.pSwapchains = &vulkanCore.swapChain,
+			.pImageIndices = &imageIndex,
+			.pResults = nullptr
+		};
+		
+		result = static_cast<vk::Result>(
+			VULKAN_HPP_DEFAULT_DISPATCHER.vkQueuePresentKHR(
+				static_cast<VkQueue>(vulkanCore.queues.graphicsQueue),
+				reinterpret_cast<const VkPresentInfoKHR*>(&presentInfo)));
+
+		if ((result == vk::Result::eErrorOutOfDateKHR) || (result == vk::Result::eSuboptimalKHR) || framebufferResized) {
+			std::cout << "Swap chain is out of date or suboptimal, recreating swap chain..." << std::endl;
+			framebufferResized = false;
+			recreateSwapChain();
+		}
+		else {
+			assert(result == vk::Result::eSuccess);
+		}
+		
+		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+	}
+	void VulkanRenderer::drawGBufferPass(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches) {
 		// Use currentFrame, not frameIndex
 		vk::CommandBuffer* commandBuffer = &vulkanCore.commandBuffers[currentFrame];
 		vk::CommandBufferBeginInfo beginInfo{};
@@ -1160,13 +1416,13 @@ namespace JD
 			.clearValueCount = 0,
 			.pClearValues = nullptr
 		};
-		
+
 		vk::RenderingAttachmentInfo colorAttachment{
 			.imageView = vulkanCore.swapChainImageViews[imageIndex],
 			.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
 			.loadOp = vk::AttachmentLoadOp::eClear,
 			.storeOp = vk::AttachmentStoreOp::eStore,
-			.clearValue = { std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f} }
+			.clearValue = { std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f} }
 		};
 
 		vk::RenderingAttachmentInfo depthAttachment{
@@ -1190,7 +1446,7 @@ namespace JD
 		commandBuffer->setViewport(0, vk::Viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width), static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f });
 		commandBuffer->setScissor(0, vk::Rect2D({ 0, 0 }, extent));
 		commandBuffer->bindPipeline(vk::PipelineBindPoint::eGraphics, gBufferPipeline); // Fix typo: gBufferPipeline
-		
+
 		for (const auto& batch : meshInstanceBatches) {
 			if (batch.instanceCount == 0) continue;
 
@@ -1206,7 +1462,7 @@ namespace JD
 				commandBuffer->drawIndexed(static_cast<uint32_t>(piece->indices.size()), batch.instanceCount, 0, 0, 0);
 			}
 		}
-		
+
 		commandBuffer->endRendering();
 		transitionImageLayout(*commandBuffer,
 			vulkanCore.swapChainImages[imageIndex],
@@ -1220,64 +1476,6 @@ namespace JD
 			1);
 		commandBuffer->end();
 	}
-
-	void VulkanRenderer::drawFrame() {
-		auto fenceResult = vulkanCore.device.waitForFences(vulkanCore.perFrame[currentFrame].renderFence, vk::True, UINT64_MAX);
-		if (fenceResult != vk::Result::eSuccess)
-		{
-			throw std::runtime_error("failed to wait for fence!");
-		}
-		auto [result, imageIndex] = vulkanCore.device.acquireNextImageKHR(
-			vulkanCore.swapChain, UINT64_MAX, vulkanCore.perFrame[currentFrame].presentSemaphore, nullptr);
-		vulkanCore.device.resetFences(vulkanCore.perFrame[currentFrame].renderFence);
-
-		std::vector<RenderTransmition>* renderTransmissions = gameworld.getRenderTransmitions();
-		std::vector<MeshInstanceBatch> meshInstanceBatches;
-		void* mappedData;
-		vmaMapMemory(vulkanCore.allocator, storageBufferAllocations[currentFrame], &mappedData);
-		BuildInstanceBatches(*renderTransmissions, meshInstanceBatches, mappedData);
-		vmaUnmapMemory(vulkanCore.allocator, storageBufferAllocations[currentFrame]);
-		updateCameraBuffer(currentFrame);
-
-		recordCommandBuffer(imageIndex, meshInstanceBatches); // Fixed imageIndex being passed
-		
-		vk::PipelineStageFlags waitDestinationStageMask = (vk::PipelineStageFlagBits::eColorAttachmentOutput);
-		const vk::SubmitInfo submitInfo{ .waitSemaphoreCount = 1,
-								  .pWaitSemaphores = &vulkanCore.perFrame[currentFrame].presentSemaphore,
-								  .pWaitDstStageMask = &waitDestinationStageMask,
-								  .commandBufferCount = 1,
-								  .pCommandBuffers = &vulkanCore.commandBuffers[currentFrame],
-								  .signalSemaphoreCount = 1,
-								  .pSignalSemaphores = &vulkanCore.renderSemaphores[imageIndex]};
-
-		vulkanCore.queues.graphicsQueue.submit(submitInfo, vulkanCore.perFrame[currentFrame].renderFence);
-
-		const vk::PresentInfoKHR presentInfo{
-			.waitSemaphoreCount = 1,
-			.pWaitSemaphores = &vulkanCore.renderSemaphores[imageIndex],
-			.swapchainCount = 1,
-			.pSwapchains = &vulkanCore.swapChain,
-			.pImageIndices = &imageIndex,
-			.pResults = nullptr
-		};
-		
-		result = static_cast<vk::Result>(
-			VULKAN_HPP_DEFAULT_DISPATCHER.vkQueuePresentKHR(
-				static_cast<VkQueue>(vulkanCore.queues.graphicsQueue),
-				reinterpret_cast<const VkPresentInfoKHR*>(&presentInfo)));
-
-		if ((result == vk::Result::eErrorOutOfDateKHR) || (result == vk::Result::eSuboptimalKHR) || framebufferResized) {
-			std::cout << "Swap chain is out of date or suboptimal, recreating swap chain..." << std::endl;
-			framebufferResized = false;
-			recreateSwapChain();
-		}
-		else {
-			assert(result == vk::Result::eSuccess);
-		}
-		
-		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-	}
-
 
 	void VulkanRenderer::BuildInstanceBatches(
 		const std::vector<RenderTransmition>& renderables,

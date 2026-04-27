@@ -23,7 +23,9 @@ namespace JD
 		void AssignWindow(GLFWwindow* window);
 		void Update(float dt) override;
 		void loadGLTF(std::vector<MeshComponent>& meshComponents, std::string filePath) override;
-
+		void wait() override {
+			vulkanCore.device.waitIdle();
+		}
 		~VulkanRenderer();
 
 	protected:
@@ -81,7 +83,7 @@ namespace JD
 		void createDevices();
 		void createSwapChain();
 		void initVMA();
-		vk::ImageView createImageView(const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels);
+		vk::ImageView createImageView(const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels, vk::ImageViewType viewType = vk::ImageViewType::e2D, uint32_t layerCount = 1);
 		void createImageViews();
 		void transitionImageLayout(vk::CommandBuffer& commandbuffer ,vk::Image image,
 			vk::ImageLayout         old_layout,
@@ -115,7 +117,12 @@ namespace JD
 		void createGraphicsPipelines();
 		void createGBufferPipeline();
 		void createCameraBuffers();
+		void createSkyboxPipeline();
 
+		void createCubeMapTextureImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation);
+		void loadCubemap(std::vector<std::string> faces, vk::Image& cubemapImage, VmaAllocation& cubemapAllocation, vk::ImageView& cubemapImageView);
+		void loadSkybox();
+		void createSkyboxDescriptorSetLayout();
 		void createShadowPipeline();
 		void createOutputPipeline();
 		void createQueues();
@@ -136,6 +143,8 @@ namespace JD
 		}
 		void updateCameraBuffer(uint32_t frameIndex);
 		void drawFrame();
+		void drawSkyboxPass(vk::CommandBuffer& commandBuffer, uint32_t imageIndex);
+		void drawGBufferPass(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
 		void recordCommandBuffer(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
 		void BuildInstanceBatches(
 			const std::vector<RenderTransmition>& renderables,
@@ -145,6 +154,7 @@ namespace JD
 		void cleanupVulkan();
 		void cleanupSwapChain();
 
+		
 		//tinygltf::Scene* makeGLTFScene(GLTFData data) override;
 	/*	void createInstance();
 		void setupDebugMessenger();
@@ -186,7 +196,7 @@ namespace JD
 		VmaAllocation depthImageAllocation;
 
 		vk::DescriptorPool descriptorPool;
-
+		Skybox skybox{};
 		std::vector<RenderTransmition>* currentRenderTransmition = nullptr;
 
 #ifdef NDEBUG
