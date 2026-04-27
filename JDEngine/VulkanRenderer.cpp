@@ -45,6 +45,13 @@ namespace JD
 			}
 		}
 
+		if (cubemapImage){
+			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(cubemapImage), cubemapAllocation);
+			cubemapImage = nullptr;
+			cubemapAllocation = nullptr;
+			cubemapImageView = nullptr;
+		}
+
 		// 1) Sync objects
 		for (auto& frame : vulkanCore.perFrame) {
 			if (frame.renderFence) { vulkanCore.device.destroyFence(frame.renderFence);          frame.renderFence = nullptr; }
@@ -58,6 +65,7 @@ namespace JD
 		// 2) Pipeline & layout
 		if (gBufferPipeline) { vulkanCore.device.destroyPipeline(gBufferPipeline);             gBufferPipeline = nullptr; }
 		if (gbufferPipelineLayout) { vulkanCore.device.destroyPipelineLayout(gbufferPipelineLayout); gbufferPipelineLayout = nullptr; }
+		if (skyboxPipeline) { vulkanCore.device.destroyPipeline(skyboxPipeline); skyboxPipeline = nullptr; }
 
 		// 3) Descriptor pool (implicitly frees all descriptor sets), then layout
 		if (descriptorPool) { vulkanCore.device.destroyDescriptorPool(descriptorPool);                descriptorPool = nullptr; }
@@ -186,6 +194,7 @@ namespace JD
 			createDepthResources();
 			createTextureSampler();
 			createGraphicsPipelines();
+			loadSkybox();
 			createCameraBuffers();
 			createCommandPool();
 			//createDescriptorSets();
@@ -541,6 +550,7 @@ namespace JD
 	}
 
 	void VulkanRenderer::createGraphicsPipelines() {
+		createSkyboxPipeline();
 		createGBufferPipeline();
 
 	}
@@ -633,6 +643,15 @@ namespace JD
 		vulkanCore.device.destroyShaderModule(shaderModule);
 		
 	}
+
+	void VulkanRenderer::createSkyboxPipeline() {
+	
+		
+	
+	}
+
+
+
 
 	void VulkanRenderer::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation) {
 		vk::ImageCreateInfo imageInfo{ .imageType = vk::ImageType::e2D, .format = format,

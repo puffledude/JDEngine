@@ -115,6 +115,9 @@ namespace JD
 		void createGraphicsPipelines();
 		void createGBufferPipeline();
 		void createCameraBuffers();
+		void createSkyboxPipeline();
+		void loadCubemap(std::vector<std::string> faces, vk::Image& cubemapImage, VmaAllocation& cubemapAllocation, vk::ImageView& cubemapImageView);
+		void loadSkybox();
 
 		void createShadowPipeline();
 		void createOutputPipeline();
@@ -187,6 +190,11 @@ namespace JD
 
 		vk::DescriptorPool descriptorPool;
 
+		vk::Pipeline skyboxPipeline= nullptr;
+		vk::PipelineLayout skyboxPipelineLayout = nullptr;
+		vk::Image cubemapImage =nullptr;
+		VmaAllocation cubemapAllocation = nullptr;
+		vk::ImageView cubemapImageView = nullptr;
 		std::vector<RenderTransmition>* currentRenderTransmition = nullptr;
 
 #ifdef NDEBUG
