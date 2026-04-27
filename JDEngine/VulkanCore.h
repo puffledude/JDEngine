@@ -56,6 +56,7 @@ namespace JD
 	struct Skybox {
 
 		vk::DescriptorSetLayout skyboxDescriptorSetLayout = nullptr;
+		std::vector<vk::DescriptorSet> skyboxDescriptorSets;
 		vk::Pipeline skyboxPipeline = nullptr;
 		vk::PipelineLayout skyboxPipelineLayout = nullptr;
 		vk::Image skyboxImage = nullptr;

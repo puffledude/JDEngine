@@ -1224,8 +1224,39 @@ namespace JD
 			IMAGEDIR"/skybox/CubeMapBack.jpg",
 			IMAGEDIR"/skybox/CubeMapFront.jpg"
 			},skybox.skyboxImage ,skybox.skyboxAllocation, skybox.skyboxImageView);
+		
+		std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, skybox.skyboxDescriptorSetLayout);
+		vk::DescriptorSetAllocateInfo allocInfo{
+			.descriptorPool = descriptorPool,
+			.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
+			.pSetLayouts = layouts.data()
+		};
+		skybox.skyboxDescriptorSets.clear();
+		skybox.skyboxDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
 
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
+			vk::DescriptorImageInfo imageInfo{ .sampler = vulkanCore.textureSampler, .imageView = skybox.skyboxImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			std::array<vk::WriteDescriptorSet, 2> descriptorWrites = {
+				vk::WriteDescriptorSet {
+					.dstSet = skybox.skyboxDescriptorSets[i],
+					.dstBinding = 0,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eUniformBuffer,
+					.pBufferInfo = &cameraBufferInfo
+				},
+				vk::WriteDescriptorSet {
+					.dstSet = skybox.skyboxDescriptorSets[i],
+					.dstBinding = 1,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
+					.pImageInfo = &imageInfo
+				}
+			};
 
+		}
 
 	}
 
