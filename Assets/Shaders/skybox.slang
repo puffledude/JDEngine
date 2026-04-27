@@ -7,7 +7,7 @@ struct CameraInfo {
     float4x4 projection;
 };
 
-[[vk::binding(1, 0)]]
+[[vk::binding(0, 0)]]
 ConstantBuffer<CameraInfo> cameraData;
 
 
@@ -41,12 +41,14 @@ VSOutput vertMain(VSInput input) {
     viewMatrix[1][3] = 0.0;
     viewMatrix[2][3] = 0.0;
     output.pos = mul(cameraData.projection, mul(viewMatrix, float4(pos, 1.0)));
-    //float4x4 invProj = transpose(cameraData.projection);
-
+    // float4x4 invProj = transpose(cameraData.projection);
+    return output;
 }
 
+[[vk::binding(1, 0)]]
 SamplerCube skyboxTexture;
 
+[Shader("fragment")]
 float4 fragMain(VSOutput vertIn) : SV_Target
 {
     return skyboxTexture.Sample(vertIn.UVW);
