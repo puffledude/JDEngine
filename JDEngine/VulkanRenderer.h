@@ -23,7 +23,9 @@ namespace JD
 		void AssignWindow(GLFWwindow* window);
 		void Update(float dt) override;
 		void loadGLTF(std::vector<MeshComponent>& meshComponents, std::string filePath) override;
-
+		void wait() override {
+			vulkanCore.device.waitIdle();
+		}
 		~VulkanRenderer();
 
 	protected:

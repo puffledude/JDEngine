@@ -179,6 +179,7 @@ int main() {
 		physics->Update(dt, 2, &temp_allocator, &job_system);
 		renderer->Update(dt);
 	}
+	renderer->wait();
 	delete scene;
 
 	delete renderer;

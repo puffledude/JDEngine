@@ -13,6 +13,8 @@ namespace JD
 			virtual void Update(float dt) = 0;
 			virtual void loadGLTF(std::vector<MeshComponent>& meshComponents, std::string filePath) = 0;
 			virtual void DestroyMesh(std::vector<MeshComponent>& mesh) = 0;
+
+			virtual void wait() {};
 			//virtual tinygltf::Scene* makeGLTFScene(GLTFData data) = 0;
 
 		protected:
