@@ -62,6 +62,9 @@ namespace JD
 		vk::Image skyboxImage = nullptr;
 		VmaAllocation skyboxAllocation = nullptr;
 		vk::ImageView skyboxImageView = nullptr;
+		vk::Image skyboxRenderOutputImage = nullptr;
+		VmaAllocation skyboxRenderOutputAllocation = nullptr;
+		vk::ImageView skyboxRenderOutputView = nullptr;
 	};
 
 }
