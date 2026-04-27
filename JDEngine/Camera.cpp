@@ -11,7 +11,6 @@ namespace JD {
 
 	glm::mat4 Camera::GetViewMatrix() {
 		// Ensure direction vectors are up-to-date, then build view matrix
-		updateCameraVectors();
 		return glm::lookAt(Position, Position + Front, Up);
 	}
 
@@ -22,13 +21,14 @@ namespace JD {
 		Position += Right * leftStickDir.x * speed * dt;
 
 		glm::vec2 rightStickDir = controller->getRightStickDir();
-		Yaw -= rightStickDir.x * sensitivity * dt;
+		Yaw += rightStickDir.x * sensitivity * dt;
 		Pitch -= rightStickDir.y * sensitivity * dt;
 
 		if (Pitch > 89.0f) Pitch = 89.0f;
 		if (Pitch < -89.0f) Pitch = -89.0f;
 		if (Yaw > 360.0f) Yaw -= 360.0f;
 		if (Yaw < 0.0f) Yaw += 360.0f;
+		updateCameraVectors();
 	}
 
 

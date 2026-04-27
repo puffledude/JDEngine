@@ -20,13 +20,13 @@ namespace JD
 	glm::vec2 KeyboardController::getRightStickDir() {
 		double cursorX, cursorY;
 		glfwGetCursorPos(window, &cursorX, &cursorY);
-		glm::vec2 dir(cursorX - lastCursorX, cursorY + lastCursorY);
+		glm::vec2 dir(cursorX - lastCursorX, cursorY - lastCursorY);
 		lastCursorX = cursorX;
 		lastCursorY = cursorY;
-		if (glm::length(dir) > 0.0f){
+	/*	if (glm::length(dir) > 0.0f){
 			dir = glm::normalize(dir);
 
-		}
+		}*/
 		return dir;
 	}
 

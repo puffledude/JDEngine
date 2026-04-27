@@ -169,7 +169,7 @@ int main() {
 	renderer->AssignWindow(window);
 	auto lastTime = std::chrono::high_resolution_clock::now();
 	GameScene* scene = new GameScene(world, renderer);
-	while (!glfwWindowShouldClose(window) || glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS) {
+	while (!glfwWindowShouldClose(window) && (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS)) {
 		glfwPollEvents();
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float dt = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
