@@ -1545,7 +1545,7 @@ namespace JD
 		drawSkyboxPass(imageIndex);
 		drawGBufferPass(imageIndex, meshInstanceBatches); // Fixed imageIndex being passed
 		drawFinalOutputPass(imageIndex);
-		
+
 		vk::PipelineStageFlags waitDestinationStageMask = (vk::PipelineStageFlagBits::eColorAttachmentOutput);
 		const vk::SubmitInfo submitInfo{ .waitSemaphoreCount = 1,
 								  .pWaitSemaphores = &vulkanCore.perFrame[currentFrame].presentSemaphore,
