@@ -628,8 +628,82 @@ namespace JD
 	void VulkanRenderer::createGraphicsPipelines() {
 		createSkyboxPipeline();
 		createGBufferPipeline();
+		createShadowPipeline();
+	}
+	void VulkanRenderer::createSkyboxPipeline() {
+		vk::ShaderModule shaderModule = createShaderModule(readFile(SHADERDIR"/skybox.slang.spv"));
+		vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule,  .pName = "vertMain" };
+		vk::PipelineShaderStageCreateInfo fragShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eFragment, .module = shaderModule, .pName = "fragMain" };
+		vk::PipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+	
+		auto bindingDescription = Vertex::getBindingDescription();
+		auto attributeDescriptions = Vertex::getAttributeDescriptions();
+		vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
+			.vertexBindingDescriptionCount = 1,
+			.pVertexBindingDescriptions = &bindingDescription,
+			.vertexAttributeDescriptionCount = 1, //Apparently optimised out the other two unused variables
+			.pVertexAttributeDescriptions = attributeDescriptions.data()
+		};
+		vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
+		.topology = vk::PrimitiveTopology::eTriangleList,
+		};
+
+		vk::Viewport viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width),
+		static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f };
+
+		std::vector<vk::DynamicState> dynamicStates = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
+
+		vk::PipelineDynamicStateCreateInfo dynamicState{ .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()), .pDynamicStates = dynamicStates.data() };
+
+		vk::PipelineViewportStateCreateInfo viewportState{ .viewportCount = 1, .scissorCount = 1 };
+		vk::PipelineRasterizationStateCreateInfo rasterizer{
+		.depthClampEnable = VK_FALSE,
+		.rasterizerDiscardEnable = VK_FALSE,
+		.polygonMode = vk::PolygonMode::eFill,
+		.cullMode = vk::CullModeFlagBits::eNone,
+		.frontFace = vk::FrontFace::eCounterClockwise,
+		.depthBiasEnable = VK_FALSE,
+		.lineWidth = 1.0f,
+		};
+
+		vk::PipelineMultisampleStateCreateInfo multisampling{ .rasterizationSamples = vk::SampleCountFlagBits::e1, .sampleShadingEnable = VK_FALSE };
+		vk::PipelineColorBlendAttachmentState colorBlendAttachment{
+		.blendEnable = VK_FALSE,
+		.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
+		};
+		vk::PipelineColorBlendStateCreateInfo colorBlending{
+			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = 1, .pAttachments = &colorBlendAttachment 
+		};
+
+		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1,
+		.pSetLayouts = &skybox.skyboxDescriptorSetLayout };
+		skybox.skyboxPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
+		vk::Format colorAttachmentFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
+
+		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
+		{.stageCount = 2,
+		 .pStages = shaderStages,
+		 .pVertexInputState = &vertexInputInfo,
+		 .pInputAssemblyState = &inputAssembly,
+		 .pViewportState = &viewportState,
+		 .pRasterizationState = &rasterizer,
+		 .pMultisampleState = &multisampling,
+		 .pColorBlendState = &colorBlending,
+		 .pDynamicState = &dynamicState,
+		 .layout = skybox.skyboxPipelineLayout,
+		 .renderPass = nullptr},
+		{.colorAttachmentCount = 1, .pColorAttachmentFormats = &colorAttachmentFormat} };
+
+		auto pipelineResult = vulkanCore.device.createGraphicsPipeline(nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
+		if (pipelineResult.result != vk::Result::eSuccess) {
+			throw std::runtime_error("Failed to create skybox pipeline!");
+	}
+		skybox.skyboxPipeline = pipelineResult.value;
+		vulkanCore.device.destroyShaderModule(shaderModule);
 
 	}
+
+
 	void VulkanRenderer::createGBufferPipeline() {
 		vk::ShaderModule shaderModule = createShaderModule(readFile(SHADERDIR"/gbuffer.slang.spv"));
 		vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule,  .pName = "vertMain" };
