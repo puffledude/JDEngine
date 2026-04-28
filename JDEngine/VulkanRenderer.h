@@ -90,6 +90,7 @@ namespace JD
 		void initVulkan();
 		void createDevices();
 		void createSwapChain();
+		void createQueues();
 		void initVMA();
 		vk::ImageView createImageView(const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels, vk::ImageViewType viewType = vk::ImageViewType::e2D, uint32_t layerCount = 1);
 		void createImageViews();
@@ -126,25 +127,35 @@ namespace JD
 
 		void copyBufferToImage(const vk::Buffer& buffer, vk::Image& image, uint32_t width, uint32_t height, uint32_t layerCount = 1);
 		void generateMipmaps(vk::Image& image, vk::Format imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels, uint32_t layerCount = 1);
+		void createCameraBuffers();
+
+		
+		
 		void createGraphicsPipelines();
 		void createGBufferPipeline();
 		void createGBufferImages();
 
-		void createCameraBuffers();
-		void createSkyboxPipeline();
 
 		void createCubeMapTextureImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation);
 		void loadCubemap(std::vector<std::string> faces, vk::Image& cubemapImage, VmaAllocation& cubemapAllocation, vk::ImageView& cubemapImageView);
 		void loadSkybox();
 		void createSkyboxDescriptorSetLayout();
+		void createSkyboxPipeline();
+
+
+
+		void createShadowDescriptorSetLayout();
+		void createShadowDescriptorSets();
 		void createShadowPipeline();
+
+
 		void createOutputDescriptorSetLayout();
 		void createOutputDescriptorSets();
 		void createOutputPipelineLayout();
 		void createOutputPipeline();
 
 
-		void createQueues();
+
 		void createLightingPipeline();
 		void createCommandPool();
 		void createCommandBuffers();
@@ -158,6 +169,7 @@ namespace JD
 		}
 		void updateCameraBuffer(uint32_t frameIndex);
 		void drawFrame();
+		void drawShadowPass(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
 		void drawSkyboxPass(uint32_t imageIndex);
 		void drawGBufferPass(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
 		void drawFinalOutputPass(uint32_t imageIndex);

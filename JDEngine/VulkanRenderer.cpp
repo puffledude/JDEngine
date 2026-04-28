@@ -589,7 +589,7 @@ namespace JD
 		.poolSizeCount = static_cast<uint32_t>(poolSizes.size()),.pPoolSizes = poolSizes.data(),  };  // Arbitrary large number for now
 		descriptorPool = vulkanCore.device.createDescriptorPool(poolInfo);
 	}
-	
+
 	void VulkanRenderer::createDepthResources() {
 		std::vector<vk::Format> candidates = {
 			vk::Format::eD32Sfloat,
@@ -689,7 +689,7 @@ namespace JD
 		auto pipelineResult = vulkanCore.device.createGraphicsPipeline(nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
 		if (pipelineResult.result != vk::Result::eSuccess) {
 			throw std::runtime_error("Failed to create skybox pipeline!");
-	}
+		}
 		skybox.skyboxPipeline = pipelineResult.value;
 		vulkanCore.device.destroyShaderModule(shaderModule);
 
@@ -794,7 +794,7 @@ namespace JD
 		vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule,  .pName = "vertMain" };
 		vk::PipelineShaderStageCreateInfo fragShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eFragment, .module = shaderModule, .pName = "fragMain" };
 		vk::PipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
-	
+
 		auto bindingDescription = Vertex::getBindingDescription();
 		auto attributeDescriptions = Vertex::getAttributeDescriptions();
 		vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
@@ -808,7 +808,7 @@ namespace JD
 		.topology = vk::PrimitiveTopology::eTriangleList,
 		};
 		vk::Viewport viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width),
-		static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f };
+			static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f };
 
 		std::vector<vk::DynamicState> dynamicStates = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
 
@@ -824,14 +824,13 @@ namespace JD
 		.depthBiasEnable = VK_FALSE,
 		.lineWidth = 1.0f,
 		};
-
 		vk::PipelineMultisampleStateCreateInfo multisampling{ .rasterizationSamples = vk::SampleCountFlagBits::e1, .sampleShadingEnable = VK_FALSE };
 		vk::PipelineColorBlendAttachmentState colorBlendAttachment{
 		.blendEnable = VK_FALSE,
 		.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
 		};
 		vk::PipelineColorBlendStateCreateInfo colorBlending{
-			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = 1, .pAttachments = &colorBlendAttachment 
+			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = 1, .pAttachments = &colorBlendAttachment
 		};
 
 		vk::PushConstantRange pushConstantRange{
@@ -872,7 +871,7 @@ namespace JD
 
 
 	}
-
+	
 
 
 	void VulkanRenderer::createCubeMapTextureImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation) {
