@@ -67,5 +67,20 @@ namespace JD
 		vk::ImageView skyboxRenderOutputView = nullptr;
 	};
 
+	struct GBuffer {
+		vk::Image gbufferImage = nullptr;
+		vk::ImageView gbufferImageView = nullptr;
+		VmaAllocation gbufferAllocation = nullptr;
+		vk::PipelineLayout gbufferPipelineLayout;
+		vk::Pipeline gBufferPipeline;
+	};
+
+
+	struct FinalOutput {
+		vk::DescriptorSetLayout finalOutputDescriptorSetLayout = nullptr;
+		std::vector<vk::DescriptorSet> finalOutputDescriptorSets;
+		vk::Pipeline finalOutputPipeline = nullptr;
+		vk::PipelineLayout finalOutputPipelineLayout = nullptr;
+	};
 
 }
