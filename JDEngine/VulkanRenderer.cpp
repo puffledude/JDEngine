@@ -526,6 +526,7 @@ namespace JD
 		}
 		createSkyboxDescriptorSetLayout();
 		createObjectDescriptorSetLayouts();
+		createOutputDescriptorSetLayout();
 	}
 
 	void VulkanRenderer::createSkyboxDescriptorSetLayout() {
@@ -549,6 +550,17 @@ namespace JD
 		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
 		objectDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
 	}
+
+	void VulkanRenderer::createOutputDescriptorSetLayout() 
+	{
+		std::array bindings = {
+			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // G-buffer color texture
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr)  // Skybox
+		};
+		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
+		finalOutput.finalOutputDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
+	}
+
 
 	void VulkanRenderer::createDescriptorPool() {
 			std::array poolSizes = {
@@ -1335,6 +1347,131 @@ namespace JD
 
 	}
 
+	void VulkanRenderer::createGBufferImages() {
+		vk::Format gbufferFormat = vk::Format::eB8G8R8A8Srgb;
+		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, gbufferFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, gBuffer.gbufferImage, gBuffer.gbufferAllocation);
+		gBuffer.gbufferImageView = createImageView(gBuffer.gbufferImage, gbufferFormat, vk::ImageAspectFlagBits::eColor, 1);
+	}
+
+
+	void VulkanRenderer::createOutputDescriptorSets() {
+		std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, finalOutput.finalOutputDescriptorSetLayout);
+		vk::DescriptorSetAllocateInfo allocInfo{
+			.descriptorPool = descriptorPool,
+			.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
+			.pSetLayouts = layouts.data()
+		};
+		finalOutput.finalOutputDescriptorSets.clear();
+		finalOutput.finalOutputDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
+		{
+			vk::DescriptorImageInfo deferredImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = gBuffer.gbufferImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo skyboxImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = skybox.skyboxRenderOutputView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			std::array<vk::WriteDescriptorSet, 2> descriptorWrites = {
+				vk::WriteDescriptorSet{
+				.dstSet = finalOutput.finalOutputDescriptorSets[i],
+				.dstBinding = 0,
+				.dstArrayElement = 0,
+				.descriptorCount = 1,
+				.descriptorType = vk::DescriptorType::eCombinedImageSampler,
+				.pImageInfo = &deferredImageInfo
+				},
+				vk::WriteDescriptorSet{
+				.dstSet = finalOutput.finalOutputDescriptorSets[i],
+				.dstBinding = 1,
+				.dstArrayElement = 0,
+				.descriptorCount = 1,
+				.descriptorType = vk::DescriptorType::eCombinedImageSampler,
+				.pImageInfo = &skyboxImageInfo
+				}
+			};
+			vulkanCore.device.updateDescriptorSets(descriptorWrites, {});
+		}
+		createOutputPipelineLayout();
+	}
+
+	void VulkanRenderer::createOutputPipelineLayout() {
+		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{
+			.setLayoutCount = 1,
+			.pSetLayouts = &finalOutput.finalOutputDescriptorSetLayout,
+			.pushConstantRangeCount = 0,
+			.pPushConstantRanges = nullptr
+		};
+		finalOutput.finalOutputPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
+		createOutputPipeline();
+	}
+
+	void VulkanRenderer::createOutputPipeline() {
+		vk::ShaderModule shaderModule = createShaderModule(readFile(SHADERDIR"/finalOut.slang.spv"));
+		vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule,  .pName = "vertMain" };
+		vk::PipelineShaderStageCreateInfo fragShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eFragment, .module = shaderModule, .pName = "fragMain" };
+		vk::PipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+
+		auto bindingDescription = Vertex::getBindingDescription();
+		auto attributeDescriptions = Vertex::getAttributeDescriptions();
+		vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
+			.vertexBindingDescriptionCount = 1,
+			.pVertexBindingDescriptions = &bindingDescription,
+			.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()), //Apparently optimised out the other two unused variables
+			.pVertexAttributeDescriptions = attributeDescriptions.data()
+		};
+		vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
+		.topology = vk::PrimitiveTopology::eTriangleList,
+		};
+
+		vk::Viewport viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width),
+		static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f };
+
+		std::vector<vk::DynamicState> dynamicStates = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
+
+		vk::PipelineDynamicStateCreateInfo dynamicState{ .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()), .pDynamicStates = dynamicStates.data() };
+
+		vk::PipelineViewportStateCreateInfo viewportState{ .viewportCount = 1, .scissorCount = 1 };
+		vk::PipelineRasterizationStateCreateInfo rasterizer{
+		.depthClampEnable = VK_FALSE,
+		.rasterizerDiscardEnable = VK_FALSE,
+		.polygonMode = vk::PolygonMode::eFill,
+		.cullMode = vk::CullModeFlagBits::eNone,
+		.frontFace = vk::FrontFace::eCounterClockwise,
+		.depthBiasEnable = VK_FALSE,
+		.lineWidth = 1.0f,
+		};
+
+		vk::PipelineMultisampleStateCreateInfo multisampling{ .rasterizationSamples = vk::SampleCountFlagBits::e1, .sampleShadingEnable = VK_FALSE };
+		vk::PipelineColorBlendAttachmentState colorBlendAttachment{
+		.blendEnable = VK_FALSE,
+		.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
+		};
+		vk::PipelineColorBlendStateCreateInfo colorBlending{
+			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = 1, .pAttachments = &colorBlendAttachment
+		};
+
+		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1,
+		.pSetLayouts = &finalOutput.finalOutputDescriptorSetLayout };
+		finalOutput.finalOutputPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
+		vk::Format colorAttachmentFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
+
+		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
+		{.stageCount = 2,
+		 .pStages = shaderStages,
+		 .pVertexInputState = &vertexInputInfo,
+		 .pInputAssemblyState = &inputAssembly,
+		 .pViewportState = &viewportState,
+		 .pRasterizationState = &rasterizer,
+		 .pMultisampleState = &multisampling,
+		 .pColorBlendState = &colorBlending,
+		 .pDynamicState = &dynamicState,
+		 .layout = finalOutput.finalOutputPipelineLayout,
+		 .renderPass = nullptr},
+		{.colorAttachmentCount = 1, .pColorAttachmentFormats = &colorAttachmentFormat} };
+
+		auto pipelineResult = vulkanCore.device.createGraphicsPipeline(nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
+		if (pipelineResult.result != vk::Result::eSuccess) {
+			throw std::runtime_error("Failed to create final output pipeline!");
+		}
+		finalOutput.finalOutputPipeline = pipelineResult.value;
+		vulkanCore.device.destroyShaderModule(shaderModule);
+	}
 
 	void VulkanRenderer::createCommandBuffers() {
 		vk::CommandBufferAllocateInfo allocInfo{
