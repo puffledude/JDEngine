@@ -28,14 +28,16 @@ void GameScene::loadEnvironment() {
     JPH::BoxShapeSettings test = JPH::BoxShapeSettings(JPH::Vec3(10.0f, 10.0f, 10.0f));
     JPH::ShapeSettings::ShapeResult Result = test.Create();
     JPH::ShapeRefC boxShape = Result.Get();
-    JPH::BodyCreationSettings bodySettings(boxShape, JPH::RVec3(0.0f, -10.0f, 0.0f), JPH::Quat::sIdentity(), JPH::EMotionType::Static, 0);
+    JPH::BodyCreationSettings bodySettings(boxShape, JPH::RVec3(-5.0f, -10.0f, 0.0f), JPH::Quat::sIdentity(), JPH::EMotionType::Static, 0);
     JPH::Body* body = gameWorld->GetPhysicsSystem()->GetBodyInterface().CreateBody(bodySettings);
     gameWorld->GetPhysicsSystem()->GetBodyInterface().AddBody(body->GetID(), JPH::EActivation::Activate);
     gameWorld->GetRegistry()->emplace<JD::JoltComponent>(*environmentEntity, body->GetID());
 }
 
 void GameScene::addLights() {
-    sun = addLight(glm::vec3(0.0f, 10.0f, 0.0f), glm::vec3(1.0f), glm::vec3(0.0f, -1.0f, 0.0f), 5.0f);
+
+    glm::vec3 viewDir = glm::normalize(glm::vec3(-8.0f, -10.0f, -5.0f) - glm::vec3(0.0f, 0.0f, 0.0f));
+    sun = addLight(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f), viewDir, 5.0f);
     gameWorld->GetRegistry()->emplace<JD::sunComponent>(*sun);
 }
 
