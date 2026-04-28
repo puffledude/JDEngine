@@ -39,7 +39,9 @@ namespace JD {
 			return renderableComponents;
 		}
 		glm::mat4 getCameraView();
-		
+		glm::mat4 getSunView();
+
+
 		lightTransmition* getSun() {
 			const JPH::BodyLockInterface& lock_interface = physicsSystem->GetBodyLockInterface(); // Or GetBodyLockInterfaceNoLock
 			auto view = registry->view<sunComponent, colourComponent, directionComponent, lightComponent, JoltComponent>();
@@ -59,7 +61,7 @@ namespace JD {
 			}
 			return nullptr;
 		}
-		
+	
 
 		JPH::PhysicsSystem* GetPhysicsSystem() {
 			return physicsSystem;
