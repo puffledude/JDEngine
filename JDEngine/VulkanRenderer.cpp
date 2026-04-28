@@ -671,8 +671,10 @@ namespace JD
 		.blendEnable = VK_FALSE,
 		.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
 		};
+		std::array blendAttachments = { colorBlendAttachment, colorBlendAttachment };
+
 		vk::PipelineColorBlendStateCreateInfo colorBlending{
-			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = 1, .pAttachments = &colorBlendAttachment };
+			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = static_cast<uint32_t>(blendAttachments.size()), .pAttachments = blendAttachments.data() };
 
 		// --- Push constant configuration added ---
 		vk::PushConstantRange pushConstantRange{
@@ -694,7 +696,8 @@ namespace JD
 		.depthBoundsTestEnable = VK_FALSE,
 		.stencilTestEnable = VK_FALSE
 		};
-		vk::Format colorAttachmentFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
+		const vk::Format gbufferColourFormat = vk::Format::eB8G8R8A8Srgb;
+		std::array<vk::Format, 2> colorAttachmentFormats = { gbufferColourFormat, gbufferColourFormat };
 		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
 		{.stageCount = 2,
 		.pStages = shaderStages,
@@ -708,7 +711,7 @@ namespace JD
 		.pDynamicState = &dynamicState,
 		.layout = gBuffer.gbufferPipelineLayout,
 		.renderPass = nullptr},
-		{.colorAttachmentCount = 1, .pColorAttachmentFormats = &colorAttachmentFormat, .depthAttachmentFormat = depthImageFormat} };
+		{.colorAttachmentCount = static_cast<uint32_t>(colorAttachmentFormats.size()), .pColorAttachmentFormats = colorAttachmentFormats.data(), .depthAttachmentFormat = depthImageFormat} };
 		
 		// --- Fix missing pipeline assignment ---
 		auto pipelineResult = vulkanCore.device.createGraphicsPipeline(nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
@@ -1715,6 +1718,18 @@ namespace JD
 			mipLevels
 		);
 		transitionImageLayout(*commandBuffer,
+			gBuffer.gbufferNormalImage,
+			vk::ImageLayout::eUndefined,
+			vk::ImageLayout::eColorAttachmentOptimal,
+			{},
+			vk::AccessFlagBits2::eColorAttachmentWrite,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::ImageAspectFlagBits::eColor,
+			mipLevels
+		);
+
+		transitionImageLayout(*commandBuffer,
 			depthImage,
 			vk::ImageLayout::eUndefined,
 			vk::ImageLayout::eDepthStencilAttachmentOptimal,
@@ -1737,6 +1752,14 @@ namespace JD
 			.pClearValues = nullptr
 		};
 
+		vk::RenderingAttachmentInfo normalAttachment{
+			.imageView = gBuffer.gbufferNormalImageView,
+			.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+			.loadOp = vk::AttachmentLoadOp::eClear,
+			.storeOp = vk::AttachmentStoreOp::eStore,
+			.clearValue = { std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f} }
+		};
+
 		vk::RenderingAttachmentInfo colorAttachment{
 			.imageView = gBuffer.gbufferColourImageView,
 			.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
@@ -1745,6 +1768,8 @@ namespace JD
 			.clearValue = { std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f} }
 		};
 
+		
+
 		vk::RenderingAttachmentInfo depthAttachment{
 			.imageView = depthImageView,
 			.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
@@ -1752,13 +1777,13 @@ namespace JD
 			.storeOp = vk::AttachmentStoreOp::eDontCare,
 			.clearValue = { vk::ClearDepthStencilValue{ 1.0f, 0 } }
 		};
-
+		const std::array<vk::RenderingAttachmentInfo, 2> colorAttachments = { colorAttachment,	normalAttachment };
 		vk::RenderingInfo renderingInfo{
 			.renderArea = vk::Rect2D({ 0, 0 }, extent),
 			.layerCount = 1,
 			.viewMask = 0,
-			.colorAttachmentCount = 1,
-			.pColorAttachments = &colorAttachment,
+			.colorAttachmentCount = 2,
+			.pColorAttachments = colorAttachments.data(),
 			.pDepthAttachment = &depthAttachment,
 			.pStencilAttachment = nullptr
 		};

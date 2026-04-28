@@ -69,12 +69,21 @@ Sampler2D colourTexure;
 [[vk::binding(3, 0)]]
 Sampler2D normalTexture;
 
+struct FragOutput {
+    float4 colour : SV_Target0;
+    float4 normal : SV_Target1;
+
+};
+
+
 [Shader("fragment")]
-float4 fragMain(VSOutput vertIn) : SV_Target
-{
-    float4 col = colourTexure.Sample(vertIn.texCoord);
+FragOutput fragMain(VSOutput vertIn)
+{    float4 col = colourTexure.Sample(vertIn.texCoord);
     float4 norm = normalTexture.Sample(vertIn.texCoord);
 
     // Optionally multiply by vertIn.color if your GLTF models have vertex colors!
-    return col;
+    FragOutput output;
+    output.colour = col;
+    output.normal = norm;
+    return output;
 }
