@@ -952,104 +952,22 @@ namespace JD
 		//Suggstion from tutorial. Load materials and textures first so they can be referenced when loading meshes.
 		//Reference from here https://docs.vulkan.org/tutorial/latest/Building_a_Simple_Engine/Loading_Models/04_loading_gltf.html
 		meshComponents.clear();
-		std::unordered_map<int, vk::Image> textures;
+		/*std::unordered_map<int, vk::Image> textures;
 		std::unordered_map<int, vk::ImageView> textureImageViews;
-		std::unordered_map<int, VmaAllocation> textureAllocations;
+		std::unordered_map<int, VmaAllocation> textureAllocations;*/
+		std::vector<tinygltf::Image> images;
 		std::vector<Material> materials;
 		for (size_t i = 0; i < model.textures.size(); i++) {
 			const auto& texture = model.textures[i];
 			const auto& image = model.images[texture.source];
-		/*	for (const auto& material : model.materials) {
-				std::cout << "Material: " << material.name << std::endl;
-				std::cout << "  baseColorTexture.index = "
-					<< material.pbrMetallicRoughness.baseColorTexture.index << std::endl;
-				std::cout << "  normalTexture.index = "
-					<< material.normalTexture.index << std::endl;
-			}*/
 			tinygltf::Texture tex;
 			tex.name = image.name.empty() ? "texture_" + std::to_string(i) : image.name;
 			//To detect if its the normal map. Compare the normal texture index to the texture index.
 			if (!image.image.empty()) {
+				images.push_back(image);
+			}
 				// TinyGLTF has already decoded the PNG/JPG into raw pixel data!
-				const unsigned char* dataPtr = image.image.data();
-				int width = image.width;
-				int height = image.height;
-				int components = image.component;
-
-				const vk::DeviceSize imageSize = width * height * 4;
-
-				std::vector<unsigned char> expandedData;
-				if (components == 3) {
-					expandedData.resize(width * height * 4);
-					for (int i = 0; i < width * height; ++i) {
-						expandedData[i * 4 + 0] = dataPtr[i * 3 + 0]; // R
-						expandedData[i * 4 + 1] = dataPtr[i * 3 + 1]; // G
-						expandedData[i * 4 + 2] = dataPtr[i * 3 + 2]; // B
-						expandedData[i * 4 + 3] = 255;                 // A (fully opaque)
-					}
-					dataPtr = expandedData.data();
-				}
-				else if (components != 4) {
-					std::cerr << "Unexpected component count: " << components << std::endl;
-					continue; // or handle grayscale etc.
-				}
-				if (image.bits == 16) {
-					// Convert 16-bit channels down to 8-bit
-					expandedData.resize(width * height * 4);
-					const uint16_t* src = reinterpret_cast<const uint16_t*>(dataPtr);
-					for (int i = 0; i < width * height * 4; ++i) {
-						expandedData[i] = static_cast<unsigned char>(src[i] >> 8); // take high byte
-					}
-					dataPtr = expandedData.data();
-
-				}
-				vk::Buffer stagingBuffer = vk::Buffer{};
-				VmaAllocation stagingAllocation = VmaAllocation{};
-				createBuffer(imageSize, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingAllocation);
-				void* mapped = nullptr;
-				int centerPixel = (height / 2 * width + width / 2);
-				int offset = centerPixel * (components == 3 ? 3 : 4);
-				vmaMapMemory(vulkanCore.allocator, stagingAllocation, &mapped);
-				std::memcpy(mapped, dataPtr, static_cast<size_t>(imageSize));
-				vmaUnmapMemory(vulkanCore.allocator, stagingAllocation);
-				vk::Image textureImage{};
-				VmaAllocation textureAllocation{};
-				uint32_t mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
-
-				createImage(width, height, mipLevels, vk::Format::eR8G8B8A8Srgb, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferSrc |vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, textureImage, textureAllocation);
-				vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
-				transitionImageLayout(commandBuffer,
-					textureImage,
-					vk::ImageLayout::eUndefined,
-					vk::ImageLayout::eTransferDstOptimal,
-					{},
-					vk::AccessFlagBits2::eTransferWrite,
-					vk::PipelineStageFlagBits2::eTopOfPipe,
-					vk::PipelineStageFlagBits2::eTransfer,
-					vk::ImageAspectFlagBits::eColor,
-					mipLevels
-				);
-				endSingleTimeCommands(commandBuffer);
-				copyBufferToImage(stagingBuffer, textureImage, width, height);
-				generateMipmaps(textureImage, vk::Format::eR8G8B8A8Srgb, width, height, mipLevels);
-				vmaDestroyBuffer(vulkanCore.allocator, static_cast<VkBuffer>(stagingBuffer), stagingAllocation);
-
-				//transitionImageLayout(textureImage, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, 1);
-				vk::ImageView textureview = createImageView(textureImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor, mipLevels);
-				textures[texture.source] = textureImage;
-				textureImageViews[texture.source] = textureview;
-				textureAllocations[texture.source] = textureAllocation;
-			}
-			 else {
-				std::cerr << "Unsupported texture format: " << image.mimeType << std::endl;
-			}
-
 		}
-		/*for (size_t i = 0; i < model.textures.size(); i++) {
-			std::cout << "model.textures[" << i << "].source = "
-				<< model.textures[i].source << std::endl;
-		}*/
-
 		for (const auto& material : model.materials) {
 			Material mat;
 
@@ -1073,16 +991,39 @@ namespace JD
 
 			if (material.pbrMetallicRoughness.baseColorTexture.index >= 0) {
 				const auto& texture = model.textures[material.pbrMetallicRoughness.baseColorTexture.index];
-				mat.baseColorTexture = textures[texture.source];
-				mat.baseColorTextureView = textureImageViews[texture.source];
-				mat.baseColorTextureAllocation = textureAllocations[texture.source];
+				tinygltf::Image image = model.images[texture.source];
+				vk::Format format = vk::Format::eR8G8B8A8Srgb;
 
+				if (image.bits == 16) {
+					format = vk::Format::eR16G16B16A16Unorm;
+					std::cout << "Image " << texture.source << " has 16 bits per channel, using R16G16B16A16Sfloat format." << std::endl;
+
+					// Decode sRGB gamma to linear before uploading
+					auto* pixels = reinterpret_cast<uint16_t*>(image.image.data());
+					int pixelCount = image.width * image.height;
+					for (int p = 0; p < pixelCount; ++p) {
+						for (int c = 0; c < 3; ++c) {  // R, G, B only — not alpha
+							float srgb = pixels[p * 4 + c] / 65535.0f;
+							float linear = srgb <= 0.04045f
+								? srgb / 12.92f
+								: powf((srgb + 0.055f) / 1.055f, 2.4f);
+							pixels[p * 4 + c] = static_cast<uint16_t>(linear * 65535.0f);
+						}
+					}
+				}
+
+				createVkImageFromGLTFImage(mat.baseColorTexture, mat.baseColorTextureView, mat.baseColorTextureAllocation, image, format);
 			}
+
 			if (material.normalTexture.index >= 0) {
 				const auto& texture = model.textures[material.normalTexture.index];
-				mat.normalTexture = textures[texture.source];
-				mat.normalTextureView = textureImageViews[texture.source];
-				mat.normalTextureAllocation = textureAllocations[texture.source];
+				tinygltf::Image image = model.images[texture.source];
+				vk::Format format = vk::Format::eR8G8B8A8Unorm; // Assuming the image is in RGBA8 format. In a real implementation, you'd want to check the actual format of the image data.
+				if (image.bits == 16) {
+					format = vk::Format::eR16G16B16A16Sfloat; // If the image has 16 bits per channel, use a 16-bit format
+					std::cout << "Image " << texture.source << " has 16 bits per channel, using R16G16B16A16Unorm format." << std::endl;
+				}
+				createVkImageFromGLTFImage(mat.normalTexture, mat.normalTextureView, mat.normalTextureAllocation, image, format);
 			}
 			std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, objectDescriptorSetLayout);
 			vk::DescriptorSetAllocateInfo allocInfo{
@@ -1246,6 +1187,84 @@ namespace JD
 		}
 		
 	}
+
+	void VulkanRenderer::createVkImageFromGLTFImage(vk::Image& image, vk::ImageView& imageView,VmaAllocation& allocation, tinygltf::Image& gltfImage, vk::Format format) {
+		const unsigned char* dataPtr = gltfImage.image.data();
+		int width = gltfImage.width;
+		int height = gltfImage.height;
+		int components = gltfImage.component;
+		const vk::DeviceSize imageSize =gltfImage.bits==16? width * height * 4 * 2 : width * height * 4;
+		//if (gltfImage.bits == 16) {
+		//	imageSize *= 2; // Each channel is 2 bytes instead of 1
+		//}
+		std::vector<unsigned char> expandedData;
+		if (components == 3) {
+			expandedData.resize(width * height * 4);
+			for (int i = 0; i < width * height; ++i) {
+				expandedData[i * 4 + 0] = dataPtr[i * 3 + 0]; // R
+				expandedData[i * 4 + 1] = dataPtr[i * 3 + 1]; // G
+				expandedData[i * 4 + 2] = dataPtr[i * 3 + 2]; // B
+				expandedData[i * 4 + 3] = 255;                 // A (fully opaque)
+			}
+			dataPtr = expandedData.data();
+		}
+		else if (components != 4) {
+			std::cerr << "Unexpected component count: " << components << std::endl;
+			// or handle grayscale etc.
+		}
+		//Check bits when selecting before using this function
+		//if (image.bits == 16) {
+		//	// Convert 16-bit channels down to 8-bit
+		//	expandedData.resize(width * height * 4);
+		//	const uint16_t* src = reinterpret_cast<const uint16_t*>(dataPtr);
+		//	for (int i = 0; i < width * height * 4; ++i) {
+		//		expandedData[i] = static_cast<unsigned char>(src[i] >> 8); // take high byte
+		//	}
+		//	dataPtr = expandedData.data();
+
+		//}
+		vk::Buffer stagingBuffer = vk::Buffer{};
+		VmaAllocation stagingAllocation = VmaAllocation{};
+		createBuffer(imageSize, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingAllocation);
+		void* mapped = nullptr;
+		int centerPixel = (height / 2 * width + width / 2);
+		int offset = centerPixel * (components == 3 ? 3 : 4);
+		vmaMapMemory(vulkanCore.allocator, stagingAllocation, &mapped);
+		std::memcpy(mapped, dataPtr, static_cast<size_t>(imageSize));
+		vmaUnmapMemory(vulkanCore.allocator, stagingAllocation);
+		vk::Image textureImage{};
+		VmaAllocation textureAllocation{};
+		uint32_t mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
+
+		createImage(width, height, mipLevels, format, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, textureImage, textureAllocation);
+		vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
+		transitionImageLayout(commandBuffer,
+			textureImage,
+			vk::ImageLayout::eUndefined,
+			vk::ImageLayout::eTransferDstOptimal,
+			{},
+			vk::AccessFlagBits2::eTransferWrite,
+			vk::PipelineStageFlagBits2::eTopOfPipe,
+			vk::PipelineStageFlagBits2::eTransfer,
+			vk::ImageAspectFlagBits::eColor,
+			mipLevels
+		);
+		endSingleTimeCommands(commandBuffer);
+		copyBufferToImage(stagingBuffer, textureImage, width, height);
+		generateMipmaps(textureImage, format, width, height, mipLevels);
+		vmaDestroyBuffer(vulkanCore.allocator, static_cast<VkBuffer>(stagingBuffer), stagingAllocation);
+
+		//transitionImageLayout(textureImage, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, 1);
+		vk::ImageView textureview = createImageView(textureImage, format, vk::ImageAspectFlagBits::eColor, mipLevels);
+		image = textureImage;
+		imageView = textureview;
+		allocation = textureAllocation;
+		/*else {
+			std::cerr << "Unsupported texture format: " << image.mimeType << std::endl;
+		}*/
+	
+	}
+
 
 	void VulkanRenderer::loadCubemap(std::vector<std::string> faces, vk::Image& cubemapImage, VmaAllocation& cubemapAllocation, vk::ImageView& cubemapImageView) 
 	{

@@ -51,6 +51,14 @@ namespace JD
 			}
 			return surface;
 		}
+
+		float linearize(float c) {
+			return c <= 0.04045f
+				? c / 12.92f
+				: powf((c + 0.055f) / 1.055f, 2.4f);
+		}
+
+
 		static std::vector<char> readFile(const std::string& filename) {
 			std::cout << "Reading shader file: " << filename << std::endl;
 			std::ifstream file(filename, std::ios::ate | std::ios::binary);
@@ -99,7 +107,10 @@ namespace JD
 		void endSingleTimeCommands(vk::CommandBuffer& commandBuffer);
 		void copyBuffer(const vk::Buffer& srcBuffer, vk::Buffer& dstBuffer, vk::DeviceSize size);
 		uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
-		void createTextureImage(vk::Image image, std::string filePath);
+
+
+		//void createTextureImage(vk::Image image, std::string filePath);
+		void createVkImageFromGLTFImage(vk::Image& image, vk::ImageView& imageView ,VmaAllocation& allocation, tinygltf::Image& gltfImage, vk::Format format);
 		void createVertexBuffer(std::vector<Vertex>& verticies, vk::Buffer& buffer, VmaAllocation& allocation);
 		void createIndexBuffer(std::vector<uint32_t>& indicies, vk::Buffer& buffer, VmaAllocation& allocation);
 		void createTextureSampler();
@@ -151,7 +162,7 @@ namespace JD
 		void drawGBufferPass(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
 		void drawFinalOutputPass(uint32_t imageIndex);
 
-		void recordCommandBuffer(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
+		//void recordCommandBuffer(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
 		void BuildInstanceBatches(
 			const std::vector<RenderTransmition>& renderables,
 			std::vector<MeshInstanceBatch>& outBatches,
