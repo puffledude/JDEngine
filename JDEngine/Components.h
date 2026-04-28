@@ -130,6 +130,13 @@ namespace JD {
 		glm::mat4 modelMatrix;
 	};
 
+	struct lightTransmition {
+		glm::vec3 position;
+		glm::vec3 direction;
+		glm::vec3 colour;
+		float luminosity;
+	};
+
 	struct lightComponent {
 		float luminosity = 1.0f;
 	};
