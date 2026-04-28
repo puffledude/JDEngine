@@ -4,6 +4,7 @@
 #include <Jolt/Physics/Body/Body.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
+#include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 
 using namespace JD;
@@ -40,6 +41,12 @@ void GameScene::addLights() {
 
 entt::entity* GameScene::addLight(glm::vec3 position, glm::vec3 color, glm::vec3 direction, float intensity) {
     entt::entity* lightEntity = gameWorld->CreateEntity();
+	JPH::SphereShapeSettings ball = JPH::SphereShapeSettings(0.1f);
+	JPH::ShapeSettings::ShapeResult Result = ball.Create();
+	JPH::BodyCreationSettings bodySettings(Result.Get(), JPH::RVec3(position.x, position.y, position.z), JPH::Quat::sIdentity(), JPH::EMotionType::Static, 0);
+	JPH::Body* body = gameWorld->GetPhysicsSystem()->GetBodyInterface().CreateBody(bodySettings);
+	gameWorld->GetPhysicsSystem()->GetBodyInterface().AddBody(body->GetID(), JPH::EActivation::Activate);
+	gameWorld->GetRegistry()->emplace<JD::JoltComponent>(*lightEntity, body->GetID());
     gameWorld->GetRegistry()->emplace<JD::colourComponent>(*lightEntity, color);
     gameWorld->GetRegistry()->emplace<JD::directionComponent>(*lightEntity, direction);
     gameWorld->GetRegistry()->emplace<JD::lightComponent>(*lightEntity, intensity);
