@@ -19,6 +19,22 @@ namespace JD
 		return camera->GetViewMatrix();
 	}
 
+	glm::mat4 Gameworld::getSunView() {
+		//Need to calculate the front and up for the viewdir.
+		lightTransmition* sun = getSun();
+		sun->direction = glm::normalize(sun->direction);
+		
+		glm::vec3 worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
+		// If the light's direction is nearly parallel to world up, switch the up vector
+		if (std::abs(glm::dot(sun->direction, worldUp)) > 0.999f) {
+			worldUp = glm::vec3(0.0f, 0.0f, 1.0f);
+		}
+
+		glm::vec3 Right = glm::normalize(glm::cross(sun->direction, worldUp)); //Right = front x worldup
+		glm::vec3 Up = glm::normalize(glm::cross(Right, sun->direction)); //Up = Right x front
+		return glm::lookAt(sun->position, sun->position + sun->direction, Up);
+	}
+
 	Gameworld::~Gameworld() {		
 		delete registry;
 	}
