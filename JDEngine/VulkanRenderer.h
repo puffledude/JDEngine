@@ -117,6 +117,8 @@ namespace JD
 		void generateMipmaps(vk::Image& image, vk::Format imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels, uint32_t layerCount = 1);
 		void createGraphicsPipelines();
 		void createGBufferPipeline();
+		void createGBufferImages();
+
 		void createCameraBuffers();
 		void createSkyboxPipeline();
 
@@ -125,16 +127,17 @@ namespace JD
 		void loadSkybox();
 		void createSkyboxDescriptorSetLayout();
 		void createShadowPipeline();
+		void createOutputDescriptorSetLayout();
+		void createOutputDescriptorSets();
+		void createOutputPipelineLayout();
 		void createOutputPipeline();
+
+
 		void createQueues();
-		void createAlbedoPipeline();
 		void createLightingPipeline();
-		void createFinalImagePipeline();
 		void createCommandPool();
 		void createCommandBuffers();
 		void createSyncObjects();
-		void updateUniformBuffers();
-		void updatePushConstants();
 		void DestroyMesh(std::vector<MeshComponent>& mesh) override;
 		void DestroyAllRenderables();
 
@@ -146,6 +149,8 @@ namespace JD
 		void drawFrame();
 		void drawSkyboxPass(uint32_t imageIndex);
 		void drawGBufferPass(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
+		void drawFinalOutputPass(uint32_t imageIndex);
+
 		void recordCommandBuffer(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
 		void BuildInstanceBatches(
 			const std::vector<RenderTransmition>& renderables,
@@ -189,8 +194,6 @@ namespace JD
 		std::vector<vk::Buffer> cameraBuffers;
 		std::vector<VmaAllocation> cameraBufferAllocations;
 
-		vk::PipelineLayout gbufferPipelineLayout;
-		vk::Pipeline gBufferPipeline;
 		vk::Image depthImage;
 		vk::Format depthImageFormat;
 		vk::ImageView depthImageView;
@@ -198,6 +201,8 @@ namespace JD
 
 		vk::DescriptorPool descriptorPool;
 		Skybox skybox{};
+		GBuffer gBuffer{};
+		FinalOutput finalOutput{};
 		std::vector<RenderTransmition>* currentRenderTransmition = nullptr;
 		MeshComponent quad;
 #ifdef NDEBUG
