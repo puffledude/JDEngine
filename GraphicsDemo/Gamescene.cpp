@@ -28,7 +28,7 @@ void GameScene::loadEnvironment() {
     JPH::BoxShapeSettings test = JPH::BoxShapeSettings(JPH::Vec3(10.0f, 10.0f, 10.0f));
     JPH::ShapeSettings::ShapeResult Result = test.Create();
     JPH::ShapeRefC boxShape = Result.Get();
-    JPH::BodyCreationSettings bodySettings(boxShape, JPH::RVec3(0.0f, 0.0f, 0.0f), JPH::Quat::sIdentity(), JPH::EMotionType::Static, 0);
+    JPH::BodyCreationSettings bodySettings(boxShape, JPH::RVec3(0.0f, -10.0f, 0.0f), JPH::Quat::sIdentity(), JPH::EMotionType::Static, 0);
     JPH::Body* body = gameWorld->GetPhysicsSystem()->GetBodyInterface().CreateBody(bodySettings);
     gameWorld->GetPhysicsSystem()->GetBodyInterface().AddBody(body->GetID(), JPH::EActivation::Activate);
     gameWorld->GetRegistry()->emplace<JD::JoltComponent>(*environmentEntity, body->GetID());
