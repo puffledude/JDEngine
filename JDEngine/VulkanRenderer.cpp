@@ -57,6 +57,13 @@ namespace JD
 			skybox.skyboxImageView = nullptr;
 			skybox.skyboxRenderOutputView = nullptr;
 		}
+		if (gBuffer.gbufferImage) {
+			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(gBuffer.gbufferImage), gBuffer.gbufferAllocation);
+			vulkanCore.device.destroyImageView(gBuffer.gbufferImageView);
+			gBuffer.gbufferImage = nullptr;
+			gBuffer.gbufferAllocation = nullptr;
+			gBuffer.gbufferImageView = nullptr;
+		}
 
 		// 1) Sync objects
 		for (auto& frame : vulkanCore.perFrame) {
@@ -69,18 +76,20 @@ namespace JD
 		vulkanCore.renderSemaphores.clear();
 
 		// 2) Pipeline & layout
-		if (gBufferPipeline) { vulkanCore.device.destroyPipeline(gBufferPipeline);             gBufferPipeline = nullptr; }
-		if (gbufferPipelineLayout) { vulkanCore.device.destroyPipelineLayout(gbufferPipelineLayout); gbufferPipelineLayout = nullptr; }
+		if (gBuffer.gBufferPipeline) { vulkanCore.device.destroyPipeline(gBuffer.gBufferPipeline);             gBuffer.gBufferPipeline = nullptr; }
+		if (gBuffer.gbufferPipelineLayout) { vulkanCore.device.destroyPipelineLayout(gBuffer.gbufferPipelineLayout); gBuffer.gbufferPipelineLayout = nullptr; }
 
 		if (skybox.skyboxPipeline) { vulkanCore.device.destroyPipeline(skybox.skyboxPipeline); skybox.skyboxPipeline = nullptr; }
 		if (skybox.skyboxPipelineLayout) { vulkanCore.device.destroyPipelineLayout(skybox.skyboxPipelineLayout); skybox.skyboxPipelineLayout = nullptr; }
 		
+		if (finalOutput.finalOutputPipeline) { vulkanCore.device.destroyPipeline(finalOutput.finalOutputPipeline); finalOutput.finalOutputPipeline = nullptr; }
+		if (finalOutput.finalOutputPipelineLayout) { vulkanCore.device.destroyPipelineLayout(finalOutput.finalOutputPipelineLayout); finalOutput.finalOutputPipelineLayout = nullptr; }
 
 		// 3) Descriptor pool (implicitly frees all descriptor sets), then layout
 		if (descriptorPool) { vulkanCore.device.destroyDescriptorPool(descriptorPool);                descriptorPool = nullptr; }
 		if (objectDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(objectDescriptorSetLayout); objectDescriptorSetLayout = nullptr; }
 		if (skybox.skyboxDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(skybox.skyboxDescriptorSetLayout); skybox.skyboxDescriptorSetLayout = nullptr; }
-
+		if (finalOutput.finalOutputDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(finalOutput.finalOutputDescriptorSetLayout); finalOutput.finalOutputDescriptorSetLayout = nullptr; }
 		// 4) Sampler
 		if (vulkanCore.textureSampler) { vulkanCore.device.destroySampler(vulkanCore.textureSampler); vulkanCore.textureSampler = nullptr; }
 
