@@ -212,6 +212,7 @@ namespace JD
 
 		vk::DescriptorPool descriptorPool;
 		Skybox skybox{};
+		Shadows shadows{};
 		GBuffer gBuffer{};
 		FinalOutput finalOutput{};
 		std::vector<RenderTransmition>* currentRenderTransmition = nullptr;
