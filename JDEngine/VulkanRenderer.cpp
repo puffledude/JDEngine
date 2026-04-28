@@ -71,6 +71,13 @@ namespace JD
 			gBuffer.gbufferNormalAllocation = nullptr;
 			gBuffer.gbufferNormalImageView = nullptr;
 		}
+		if (shadows.shadowImage) {
+			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(shadows.shadowImage), shadows.shadowAllocation);
+			vulkanCore.device.destroyImageView(shadows.shadowImageView);
+			shadows.shadowImage = nullptr;
+			shadows.shadowAllocation = nullptr;
+			shadows.shadowImageView = nullptr;
+		}
 
 		// 1) Sync objects
 		for (auto& frame : vulkanCore.perFrame) {
@@ -92,11 +99,15 @@ namespace JD
 		if (finalOutput.finalOutputPipeline) { vulkanCore.device.destroyPipeline(finalOutput.finalOutputPipeline); finalOutput.finalOutputPipeline = nullptr; }
 		if (finalOutput.finalOutputPipelineLayout) { vulkanCore.device.destroyPipelineLayout(finalOutput.finalOutputPipelineLayout); finalOutput.finalOutputPipelineLayout = nullptr; }
 
+		if (shadows.shadowPipeline) { vulkanCore.device.destroyPipeline(shadows.shadowPipeline); shadows.shadowPipeline = nullptr; }
+		if (shadows.shadowPipelineLayout) { vulkanCore.device.destroyPipelineLayout(shadows.shadowPipelineLayout); shadows.shadowPipelineLayout = nullptr; }
+
 		// 3) Descriptor pool (implicitly frees all descriptor sets), then layout
 		if (descriptorPool) { vulkanCore.device.destroyDescriptorPool(descriptorPool);                descriptorPool = nullptr; }
 		if (objectDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(objectDescriptorSetLayout); objectDescriptorSetLayout = nullptr; }
 		if (skybox.skyboxDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(skybox.skyboxDescriptorSetLayout); skybox.skyboxDescriptorSetLayout = nullptr; }
 		if (finalOutput.finalOutputDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(finalOutput.finalOutputDescriptorSetLayout); finalOutput.finalOutputDescriptorSetLayout = nullptr; }
+		if (shadows.shadowDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(shadows.shadowDescriptorSetLayout); shadows.shadowDescriptorSetLayout = nullptr; }
 		// 4) Sampler
 		if (vulkanCore.textureSampler) { vulkanCore.device.destroySampler(vulkanCore.textureSampler); vulkanCore.textureSampler = nullptr; }
 
@@ -229,6 +240,7 @@ namespace JD
 			createCommandBuffers();
 			createSyncObjects();
 			createGBufferImages();
+			createShadowDescriptorSets();
 			createOutputDescriptorSets();
 			std::cout << "Vulkan initialized successfully!" << std::endl;
 
@@ -867,13 +879,8 @@ namespace JD
 		}
 		shadows.shadowPipeline = pipelineResult.value;
 		vulkanCore.device.destroyShaderModule(shaderModule);
-
-
-
 	}
 	
-
-
 	void VulkanRenderer::createCubeMapTextureImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation) {
 		vk::ImageCreateInfo imageInfo{ .imageType = vk::ImageType::e2D, .format = format,
 			.extent = {width, height, 1}, .mipLevels = mipLevels, .arrayLayers = 6,
@@ -1039,9 +1046,6 @@ namespace JD
 		//Suggstion from tutorial. Load materials and textures first so they can be referenced when loading meshes.
 		//Reference from here https://docs.vulkan.org/tutorial/latest/Building_a_Simple_Engine/Loading_Models/04_loading_gltf.html
 		meshComponents.clear();
-		/*std::unordered_map<int, vk::Image> textures;
-		std::unordered_map<int, vk::ImageView> textureImageViews;
-		std::unordered_map<int, VmaAllocation> textureAllocations;*/
 		std::vector<tinygltf::Image> images;
 		std::vector<Material> materials;
 		for (size_t i = 0; i < model.textures.size(); i++) {
@@ -1057,15 +1061,6 @@ namespace JD
 		}
 		for (const auto& material : model.materials) {
 			Material mat;
-
-		/*	const auto& texture = model.textures[material.pbrMetallicRoughness.baseColorTexture.index];
-			std::cout << "baseColor texture.source = " << texture.source << std::endl;
-			std::cout << "baseColorTextureView handle = "
-				<< (VkImageView)textureImageViews[texture.source] << std::endl;
-			std::cout << "normalTextureView handle = "
-				<< (VkImageView)textureImageViews[model.textures[material.normalTexture.index].source] << std::endl;*/
-
-
 			if (material.pbrMetallicRoughness.baseColorFactor.size() == 4) {
 				mat.baseColorFactor.r = material.pbrMetallicRoughness.baseColorFactor[0];
 				mat.baseColorFactor.g = material.pbrMetallicRoughness.baseColorFactor[1];
@@ -1125,8 +1120,7 @@ namespace JD
 				vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
 				vk::DescriptorImageInfo baseColorImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = mat.baseColorTextureView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 				vk::DescriptorImageInfo normalImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = mat.normalTextureView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
-				//std::cout << "baseColorTextureView: " << (VkImageView)mat.baseColorTextureView << std::endl;
-				//std::cout << "normalTextureView:    " << (VkImageView)mat.normalTextureView << std::endl;
+				
 				std::array<vk::WriteDescriptorSet, 4> descriptorWrites = {
 						vk::WriteDescriptorSet {
 							.dstSet = mat.descriptorSets[i],
@@ -1163,12 +1157,8 @@ namespace JD
 									};
 				vulkanCore.device.updateDescriptorSets(descriptorWrites, {});
 			}
-
-
-
 			materials.push_back(mat);
 		}
-
 
 		for (const auto& mesh : model.meshes) {
 			std::vector<Vertex> vertices;
@@ -1508,6 +1498,43 @@ namespace JD
 		finalOutput.finalOutputPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
 		createOutputPipeline();
 	}
+
+	void VulkanRenderer::createShadowDescriptorSets() {
+		std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, shadows.shadowDescriptorSetLayout);
+		vk::DescriptorSetAllocateInfo allocInfo{
+			.descriptorPool = descriptorPool,
+			.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
+			.pSetLayouts = layouts.data()
+		};
+		shadows.shadowDescriptorSets.clear();
+		shadows.shadowDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			vk::DescriptorBufferInfo bufferInfo{ .buffer = storageBuffers[i], .offset = 0, .range = sizeof(GPUObjectData) * MAX_OBJECTS };
+			vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
+			std::array<vk::WriteDescriptorSet, 2> descriptorWrites = {
+				vk::WriteDescriptorSet{
+					.dstSet= shadows.shadowDescriptorSets[i],
+					.dstBinding = 0,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eStorageBuffer,
+					.pBufferInfo = &bufferInfo},
+
+
+				vk::WriteDescriptorSet {
+					.dstSet = shadows.shadowDescriptorSets[i],
+					.dstBinding = 1,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eUniformBuffer,
+					.pBufferInfo = &cameraBufferInfo
+				}
+			};
+			vulkanCore.device.updateDescriptorSets(descriptorWrites, {});
+		}
+
+	}
+
 
 	void VulkanRenderer::createOutputPipeline() {
 		vk::ShaderModule shaderModule = createShaderModule(readFile(SHADERDIR"/finalOut.slang.spv"));

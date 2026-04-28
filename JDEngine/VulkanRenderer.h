@@ -120,8 +120,8 @@ namespace JD
 		void createDescriptorPool();
 		void createDepthResources();
 		void createObjectDescriptorSetLayouts();
-		/*void createDescriptorSets();
-		void createGbufferDescriptorSets();*/
+		
+
 		void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, VmaAllocation& allocation);
 		void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation);
 
@@ -146,6 +146,7 @@ namespace JD
 
 		void createShadowDescriptorSetLayout();
 		void createShadowDescriptorSets();
+		void createShadowPipelineLayout();
 		void createShadowPipeline();
 
 
