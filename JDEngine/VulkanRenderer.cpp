@@ -57,12 +57,19 @@ namespace JD
 			skybox.skyboxImageView = nullptr;
 			skybox.skyboxRenderOutputView = nullptr;
 		}
-		if (gBuffer.gbufferImage) {
-			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(gBuffer.gbufferImage), gBuffer.gbufferAllocation);
-			vulkanCore.device.destroyImageView(gBuffer.gbufferImageView);
-			gBuffer.gbufferImage = nullptr;
-			gBuffer.gbufferAllocation = nullptr;
-			gBuffer.gbufferImageView = nullptr;
+		if (gBuffer.gbufferColourImage) {
+			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(gBuffer.gbufferColourImage), gBuffer.gbufferColourAllocation);
+			vulkanCore.device.destroyImageView(gBuffer.gbufferColourImageView);
+			gBuffer.gbufferColourImage = nullptr;
+			gBuffer.gbufferColourAllocation = nullptr;
+			gBuffer.gbufferColourImageView = nullptr;
+		}
+		if (gBuffer.gbufferNormalImage) {
+			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(gBuffer.gbufferNormalImage), gBuffer.gbufferNormalAllocation);
+			vulkanCore.device.destroyImageView(gBuffer.gbufferNormalImageView);
+			gBuffer.gbufferNormalImage = nullptr;
+			gBuffer.gbufferNormalAllocation = nullptr;
+			gBuffer.gbufferNormalImageView = nullptr;
 		}
 
 		// 1) Sync objects
@@ -1368,8 +1375,10 @@ namespace JD
 
 	void VulkanRenderer::createGBufferImages() {
 		vk::Format gbufferFormat = vk::Format::eB8G8R8A8Srgb;
-		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, gbufferFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, gBuffer.gbufferImage, gBuffer.gbufferAllocation);
-		gBuffer.gbufferImageView = createImageView(gBuffer.gbufferImage, gbufferFormat, vk::ImageAspectFlagBits::eColor, 1);
+		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, gbufferFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, gBuffer.gbufferColourImage, gBuffer.gbufferColourAllocation);
+		gBuffer.gbufferColourImageView = createImageView(gBuffer.gbufferColourImage, gbufferFormat, vk::ImageAspectFlagBits::eColor, 1);
+		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, gbufferFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, gBuffer.gbufferNormalImage, gBuffer.gbufferNormalAllocation);
+		gBuffer.gbufferNormalImageView = createImageView(gBuffer.gbufferNormalImage, gbufferFormat, vk::ImageAspectFlagBits::eColor, 1);
 	}
 
 
@@ -1384,7 +1393,7 @@ namespace JD
 		finalOutput.finalOutputDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
 		{
-			vk::DescriptorImageInfo deferredImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = gBuffer.gbufferImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo deferredImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = gBuffer.gbufferColourImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 			vk::DescriptorImageInfo skyboxImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = skybox.skyboxRenderOutputView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 			std::array<vk::WriteDescriptorSet, 2> descriptorWrites = {
 				vk::WriteDescriptorSet{
@@ -1695,7 +1704,7 @@ namespace JD
 		// We have to specify mipLevels, default is 1 since we're writing to the swapchain colour attachment directly here
 		uint32_t mipLevels = 1;
 		transitionImageLayout(*commandBuffer,
-			gBuffer.gbufferImage,
+			gBuffer.gbufferColourImage,
 			vk::ImageLayout::eUndefined,
 			vk::ImageLayout::eColorAttachmentOptimal,
 			{},
@@ -1729,7 +1738,7 @@ namespace JD
 		};
 
 		vk::RenderingAttachmentInfo colorAttachment{
-			.imageView = gBuffer.gbufferImageView,
+			.imageView = gBuffer.gbufferColourImageView,
 			.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
 			.loadOp = vk::AttachmentLoadOp::eClear,
 			.storeOp = vk::AttachmentStoreOp::eStore,
@@ -1776,7 +1785,7 @@ namespace JD
 
 		commandBuffer->endRendering();
 		transitionImageLayout(*commandBuffer,
-			gBuffer.gbufferImage,
+			gBuffer.gbufferColourImage,
 			vk::ImageLayout::eColorAttachmentOptimal,
 			vk::ImageLayout::eShaderReadOnlyOptimal,
 			vk::AccessFlagBits2::eColorAttachmentWrite,              // srcAccessMask

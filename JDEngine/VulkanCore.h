@@ -68,9 +68,15 @@ namespace JD
 	};
 
 	struct GBuffer {
-		vk::Image gbufferImage = nullptr;
-		vk::ImageView gbufferImageView = nullptr;
-		VmaAllocation gbufferAllocation = nullptr;
+		vk::Image gbufferColourImage = nullptr;
+		vk::ImageView gbufferColourImageView = nullptr;
+		VmaAllocation gbufferColourAllocation = nullptr;
+
+
+		vk::Image gbufferNormalImage = nullptr;
+		vk::ImageView gbufferNormalImageView = nullptr;
+		VmaAllocation gbufferNormalAllocation = nullptr;
+
 		vk::PipelineLayout gbufferPipelineLayout;
 		vk::Pipeline gBufferPipeline;
 	};
