@@ -678,7 +678,7 @@ namespace JD
 			.pSetLayouts = &objectDescriptorSetLayout,
 			.pushConstantRangeCount = 1,
 			.pPushConstantRanges = &pushConstantRange };
-		gbufferPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
+		gBuffer.gbufferPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
 
 		vk::PipelineDepthStencilStateCreateInfo depthStencil{
 		.depthTestEnable = VK_TRUE,
@@ -699,7 +699,7 @@ namespace JD
 		.pDepthStencilState = &depthStencil,
 		.pColorBlendState = &colorBlending,
 		.pDynamicState = &dynamicState,
-		.layout = gbufferPipelineLayout,
+		.layout = gBuffer.gbufferPipelineLayout,
 		.renderPass = nullptr},
 		{.colorAttachmentCount = 1, .pColorAttachmentFormats = &colorAttachmentFormat, .depthAttachmentFormat = depthImageFormat} };
 		
@@ -708,7 +708,7 @@ namespace JD
 		if (pipelineResult.result != vk::Result::eSuccess) {
 			throw std::runtime_error("Failed to create gbuffer pipeline!");
 		}
-		gBufferPipeline = pipelineResult.value;
+		gBuffer.gBufferPipeline = pipelineResult.value;
 		vulkanCore.device.destroyShaderModule(shaderModule);
 		
 	}
