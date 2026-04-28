@@ -40,13 +40,26 @@ namespace JD {
 		}
 		glm::mat4 getCameraView();
 		
+		lightTransmition* getSun() {
+			const JPH::BodyLockInterface& lock_interface = physicsSystem->GetBodyLockInterface(); // Or GetBodyLockInterfaceNoLock
+			auto view = registry->view<sunComponent, colourComponent, directionComponent, lightComponent, JoltComponent>();
+			for (auto [sun, colour, direction, light, jolt] : view.each()) {
+				JPH::BodyLockRead lock(lock_interface, jolt.bodyID);
+				if (lock.Succeeded()) { // body_id may no longer be valid
+					lightTransmition* sunTransmition = new lightTransmition();
+					const JPH::Body& body = lock.GetBody();
+					JPH::RVec3 position = body.GetPosition();
+					sunTransmition->position = glm::vec3(position.GetX(), position.GetY(), position.GetZ());
+					sunTransmition->direction = direction.direction;
+					sunTransmition->colour = colour.colour;
+					sunTransmition->luminosity = light.luminosity;
+					return sunTransmition;
+				}
 
-		/*CameraInfo* getCameraInfo() {
-			CameraInfo* cameraInfo = new CameraInfo();
-			cameraInfo->view = glm::mat4(1.0f);
-			cameraInfo->projection = glm::mat4(1.0f);
-			return cameraInfo;
-		}*/
+			}
+			return nullptr;
+		}
+		
 
 		JPH::PhysicsSystem* GetPhysicsSystem() {
 			return physicsSystem;
