@@ -1020,7 +1020,7 @@ namespace JD
 				tinygltf::Image image = model.images[texture.source];
 				vk::Format format = vk::Format::eR8G8B8A8Unorm; // Assuming the image is in RGBA8 format. In a real implementation, you'd want to check the actual format of the image data.
 				if (image.bits == 16) {
-					format = vk::Format::eR16G16B16A16Sfloat; // If the image has 16 bits per channel, use a 16-bit format
+					format = vk::Format::eR16G16B16A16Unorm; // If the image has 16 bits per channel, use a 16-bit format
 					std::cout << "Image " << texture.source << " has 16 bits per channel, using R16G16B16A16Unorm format." << std::endl;
 				}
 				createVkImageFromGLTFImage(mat.normalTexture, mat.normalTextureView, mat.normalTextureAllocation, image, format);
