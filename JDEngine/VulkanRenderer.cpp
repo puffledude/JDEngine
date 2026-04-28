@@ -789,8 +789,8 @@ namespace JD
 		
 	}
 
-	void VulkanRenderer::createSkyboxPipeline() {
-		vk::ShaderModule shaderModule = createShaderModule(readFile(SHADERDIR"/skybox.slang.spv"));
+	void VulkanRenderer::createShadowPipeline() {
+		vk::ShaderModule shaderModule = createShaderModule(readFile(SHADERDIR"/directionalShadow.slang.spv"));
 		vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule,  .pName = "vertMain" };
 		vk::PipelineShaderStageCreateInfo fragShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eFragment, .module = shaderModule, .pName = "fragMain" };
 		vk::PipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
@@ -800,9 +800,10 @@ namespace JD
 		vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
 			.vertexBindingDescriptionCount = 1,
 			.pVertexBindingDescriptions = &bindingDescription,
-			.vertexAttributeDescriptionCount = 1, //Apparently optimised out the other two unused variables
+			.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
 			.pVertexAttributeDescriptions = attributeDescriptions.data()
 		};
+
 		vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
 		.topology = vk::PrimitiveTopology::eTriangleList,
 		};
@@ -819,7 +820,7 @@ namespace JD
 		.depthClampEnable = VK_FALSE,
 		.rasterizerDiscardEnable = VK_FALSE,
 		.polygonMode = vk::PolygonMode::eFill,
-		.cullMode = vk::CullModeFlagBits::eNone,
+		.cullMode = vk::CullModeFlagBits::eBack,
 		.frontFace = vk::FrontFace::eCounterClockwise,
 		.depthBiasEnable = VK_FALSE,
 		.lineWidth = 1.0f,
@@ -834,9 +835,18 @@ namespace JD
 			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = 1, .pAttachments = &colorBlendAttachment 
 		};
 
+		vk::PushConstantRange pushConstantRange{
+		.stageFlags = vk::ShaderStageFlagBits::eVertex,
+		.offset = 0,
+		.size = sizeof(uint32_t)
+		};
+
+
 		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1,
-		.pSetLayouts = &skybox.skyboxDescriptorSetLayout };
-		skybox.skyboxPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
+			.pSetLayouts = &shadows.shadowDescriptorSetLayout,
+			.pushConstantRangeCount = 1,
+			.pPushConstantRanges = &pushConstantRange };
+		shadows.shadowPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
 		vk::Format colorAttachmentFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
 
 		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
@@ -849,7 +859,7 @@ namespace JD
 		 .pMultisampleState = &multisampling,
 		 .pColorBlendState = &colorBlending,
 		 .pDynamicState = &dynamicState,
-		 .layout = skybox.skyboxPipelineLayout,
+		 .layout = shadows.shadowPipelineLayout,
 		 .renderPass = nullptr},
 		{.colorAttachmentCount = 1, .pColorAttachmentFormats = &colorAttachmentFormat} };
 
@@ -857,10 +867,13 @@ namespace JD
 		if (pipelineResult.result != vk::Result::eSuccess) {
 			throw std::runtime_error("Failed to create skybox pipeline!");
 		}
-		skybox.skyboxPipeline = pipelineResult.value;
+		shadows.shadowPipeline = pipelineResult.value;
 		vulkanCore.device.destroyShaderModule(shaderModule);
 
+
+
 	}
+
 
 
 	void VulkanRenderer::createCubeMapTextureImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation) {
