@@ -221,7 +221,8 @@ namespace JD
 			//createDescriptorSets();
 			createCommandBuffers();
 			createSyncObjects();
-
+			createGBufferImages();
+			createOutputDescriptorSets();
 			std::cout << "Vulkan initialized successfully!" << std::endl;
 
 		}
