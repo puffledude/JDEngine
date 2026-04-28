@@ -9,13 +9,15 @@ struct VSInput {
 
 struct VSOutput
 {
+    float4 pos : SV_Position;
     float2 texCoord;
-
+    
 };
 
 [Shader("vertex")]
 VSOutput vertMain(VSInput input) {
     VSOutput output;
+    output.pos = float4(input.inPos, 1.0);
     output.texCoord = input.inTexCoord;
     return output;
 }
