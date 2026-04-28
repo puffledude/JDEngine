@@ -14,9 +14,16 @@ public:
 
 	void Update(float dt);
 private:
+
+	void loadEnvironment();
+	void addLights();
+	entt::entity* addLight(glm::vec3 position, glm::vec3 color, glm::vec3 direction, float intensity);
+
     JD::Gameworld* gameWorld;
     JD::Renderer* renderer;
 
 	std::vector<JD::MeshComponent> Environment;
 	entt::entity* environmentEntity;
+	entt::entity* sun;
+
 };

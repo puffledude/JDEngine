@@ -8,24 +8,51 @@
 
 using namespace JD;
 GameScene::GameScene(JD::Gameworld* gameWorld, JD::Renderer* renderer) : gameWorld(gameWorld), renderer(renderer){
-    environmentEntity = gameWorld->CreateEntity();
-    scaleComponent scale{};
-	scale.scale = glm::vec3(10.0f);
-	renderer->loadGLTF(Environment, GLTFDIR "/Environment/CourseWorkProject.gltf");
-    gameWorld->GetRegistry()->emplace<JD::RenderableComponent>(*environmentEntity, &Environment);
-	gameWorld->GetRegistry()->emplace<JD::scaleComponent>(*environmentEntity, scale);
-    JPH::BoxShapeSettings test  = JPH::BoxShapeSettings(JPH::Vec3(10.0f, 10.0f, 10.0f));
-    JPH::ShapeSettings::ShapeResult Result = test.Create();
-    JPH::ShapeRefC boxShape = Result.Get();
-	JPH::BodyCreationSettings bodySettings(boxShape, JPH::RVec3(0.0f, 0.0f, 0.0f), JPH::Quat::sIdentity(), JPH::EMotionType::Static, 0);
-	JPH::Body* body = gameWorld->GetPhysicsSystem()->GetBodyInterface().CreateBody(bodySettings);
-	gameWorld->GetPhysicsSystem()->GetBodyInterface().AddBody(body->GetID(), JPH::EActivation::Activate);
-	gameWorld->GetRegistry()->emplace<JD::JoltComponent>(*environmentEntity, body->GetID());
+	loadEnvironment();
+    addLights();
 }
 
 GameScene::~GameScene() {
 	renderer->DestroyMesh(Environment);
 }
+
+
+void GameScene::loadEnvironment() {
+    environmentEntity = gameWorld->CreateEntity();
+    scaleComponent scale{};
+    scale.scale = glm::vec3(10.0f);
+    renderer->loadGLTF(Environment, GLTFDIR "/Environment/CourseWorkProject.gltf");
+    gameWorld->GetRegistry()->emplace<JD::RenderableComponent>(*environmentEntity, &Environment);
+    gameWorld->GetRegistry()->emplace<JD::scaleComponent>(*environmentEntity, scale);
+    JPH::BoxShapeSettings test = JPH::BoxShapeSettings(JPH::Vec3(10.0f, 10.0f, 10.0f));
+    JPH::ShapeSettings::ShapeResult Result = test.Create();
+    JPH::ShapeRefC boxShape = Result.Get();
+    JPH::BodyCreationSettings bodySettings(boxShape, JPH::RVec3(0.0f, 0.0f, 0.0f), JPH::Quat::sIdentity(), JPH::EMotionType::Static, 0);
+    JPH::Body* body = gameWorld->GetPhysicsSystem()->GetBodyInterface().CreateBody(bodySettings);
+    gameWorld->GetPhysicsSystem()->GetBodyInterface().AddBody(body->GetID(), JPH::EActivation::Activate);
+    gameWorld->GetRegistry()->emplace<JD::JoltComponent>(*environmentEntity, body->GetID());
+}
+
+void GameScene::addLights() {
+    sun = addLight(glm::vec3(0.0f, 10.0f, 0.0f), glm::vec3(1.0f), glm::vec3(0.0f, -1.0f, 0.0f), 5.0f);
+    gameWorld->GetRegistry()->emplace<JD::sunComponent>(*sun);
+}
+
+entt::entity* GameScene::addLight(glm::vec3 position, glm::vec3 color, glm::vec3 direction, float intensity) {
+    entt::entity* lightEntity = gameWorld->CreateEntity();
+    gameWorld->GetRegistry()->emplace<JD::colourComponent>(*lightEntity, color);
+    gameWorld->GetRegistry()->emplace<JD::directionComponent>(*lightEntity, direction);
+    gameWorld->GetRegistry()->emplace<JD::lightComponent>(*lightEntity, intensity);
+    return lightEntity;
+
+}
+
+
+
+
+
+
+
 
 void GameScene::Update(float dt) {
     //In the update loop, only update things we want such as game objects know wil be active.

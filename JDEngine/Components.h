@@ -17,23 +17,14 @@ namespace JD {
 		glm::vec3 scale;
 		TransformComponent() : position(0.0f), rotation(1.0f, 0.0f, 0.0f, 0.0f), scale(1.0f) {}
 		TransformComponent* parent = nullptr;
-		// Trivially destructible
 	};
 
-	struct BasicShapeComponent {
-		std::vector<Vertex> vertices;
-		std::vector<uint32_t> indices;
-		// std::vector cleans up its own memory automatically.
-	};
+	
 
 	struct scaleComponent {
 		glm::vec3 scale;
 	};
 
-	enum class RenderableType {
-		GLTF,
-		BasicShape
-	};
 
 	using VertexBuffer = vk::Buffer;
 	using IndexBuffer = vk::Buffer;
@@ -138,6 +129,17 @@ namespace JD {
 		std::vector<MeshComponent>* mesh = nullptr;
 		glm::mat4 modelMatrix;
 	};
+
+	struct lightComponent {
+		float luminosity = 1.0f;
+	};
+	struct colourComponent {
+		glm::vec3 colour = glm::vec3(1.0f);
+	};
+	struct directionComponent {
+		glm::vec3 direction = glm::vec3(0.0f, -1.0f, 0.0f);
+	};
+	struct sunComponent { }; //Empty. Just a tag to indentify our main sun 
 
 }
 
