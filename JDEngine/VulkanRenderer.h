@@ -127,8 +127,9 @@ namespace JD
 
 		void copyBufferToImage(const vk::Buffer& buffer, vk::Image& image, uint32_t width, uint32_t height, uint32_t layerCount = 1);
 		void generateMipmaps(vk::Image& image, vk::Format imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels, uint32_t layerCount = 1);
-		void createCameraBuffers();
 
+		void createCameraBuffers();
+		void createSunBuffers();
 		
 		
 		void createGraphicsPipelines();
@@ -169,6 +170,7 @@ namespace JD
 			currentRenderTransmition = renderTransmition;
 		}
 		void updateCameraBuffer(uint32_t frameIndex);
+		void updateSunData(uint32_t frameIndex);
 		void drawFrame();
 		void drawShadowPass(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
 		void drawSkyboxPass(uint32_t imageIndex);
@@ -217,6 +219,9 @@ namespace JD
 
 		std::vector<vk::Buffer> cameraBuffers;
 		std::vector<VmaAllocation> cameraBufferAllocations;
+
+		std::vector<vk::Buffer> sunBuffers;
+		std::vector<VmaAllocation> sunBufferAllocations;
 
 		vk::Image depthImage;
 		vk::Format depthImageFormat;

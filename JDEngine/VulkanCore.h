@@ -61,6 +61,12 @@ namespace JD
 		vk::Image shadowImage = nullptr;
 		VmaAllocation shadowAllocation = nullptr;
 		vk::ImageView shadowImageView = nullptr;
+
+		vk::Image shadowDepthImage = nullptr;
+		VmaAllocation shadowDepthAllocation = nullptr;
+		vk::ImageView shadowDepthImageView = nullptr;
+
+
 	};
 
 	struct Skybox {

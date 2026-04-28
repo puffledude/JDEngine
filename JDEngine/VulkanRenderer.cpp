@@ -78,6 +78,13 @@ namespace JD
 			shadows.shadowAllocation = nullptr;
 			shadows.shadowImageView = nullptr;
 		}
+		if (shadows.shadowDepthImage) {
+			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(shadows.shadowDepthImage), shadows.shadowDepthAllocation);
+			vulkanCore.device.destroyImageView(shadows.shadowDepthImageView);
+			shadows.shadowDepthImage = nullptr;
+			shadows.shadowDepthAllocation = nullptr;
+			shadows.shadowDepthImageView = nullptr;
+		}
 
 		// 1) Sync objects
 		for (auto& frame : vulkanCore.perFrame) {
@@ -117,6 +124,10 @@ namespace JD
 		}
 		cameraBuffers.clear();
 		cameraBufferAllocations.clear();
+		for (size_t i=0; i< sunBuffers.size(); ++i) {
+			if (sunBuffers[i]) vmaDestroyBuffer(vulkanCore.allocator, static_cast<VkBuffer>(sunBuffers[i]), sunBufferAllocations[i]);
+		}
+
 
 		for (size_t i = 0; i < storageBuffers.size(); ++i) {
 			if (storageBuffers[i]) vmaDestroyBuffer(vulkanCore.allocator, static_cast<VkBuffer>(storageBuffers[i]), storageBufferAllocations[i]);
@@ -232,6 +243,7 @@ namespace JD
 			createTextureSampler();
 			createGraphicsPipelines();
 			createCameraBuffers();
+			createSunBuffers();
 			createCommandPool();
 			createQuad();
 			loadSkybox();
@@ -436,12 +448,7 @@ namespace JD
 
 	void VulkanRenderer::createQuad() {
 		quad = {};
-		/*std::vector<Vertex> vertices = {
-			{{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
-			{{ 1.0f, -1.0f, 0.0f}, {1.0f, 0.0f}},
-			{{ 1.0f,  1.0f, 0.0f}, {1.0f, 1.0f}},
-			{{-1.0f,  1.0f, 0.0f}, {0.0f, 1.0f}}
-		};*/
+
 		std::vector<Vertex> vertices = {
 		Vertex{{-1.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
 		Vertex{{ 1.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
@@ -466,6 +473,18 @@ namespace JD
 			createBuffer(sizeof(CameraInfo), vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer, allocation);
 			cameraBuffers.push_back(buffer);
 			cameraBufferAllocations.push_back(allocation);
+		}
+	}
+
+	void VulkanRenderer::createSunBuffers() {
+		sunBuffers.clear();
+		sunBufferAllocations.clear();
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			vk::Buffer buffer;
+			VmaAllocation allocation;
+			createBuffer(sizeof(CameraInfo), vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer, allocation);
+			sunBuffers.push_back(buffer);
+			sunBufferAllocations.push_back(allocation);
 		}
 	}
 
@@ -844,6 +863,13 @@ namespace JD
 		vk::PipelineColorBlendStateCreateInfo colorBlending{
 			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = 1, .pAttachments = &colorBlendAttachment
 		};
+		vk::PipelineDepthStencilStateCreateInfo depthStencil{
+		.depthTestEnable = VK_TRUE,
+		.depthWriteEnable = VK_TRUE,
+		.depthCompareOp = vk::CompareOp::eLess,
+		.depthBoundsTestEnable = VK_FALSE,
+		.stencilTestEnable = VK_FALSE
+		};
 
 		vk::PushConstantRange pushConstantRange{
 		.stageFlags = vk::ShaderStageFlagBits::eVertex,
@@ -867,11 +893,12 @@ namespace JD
 		 .pViewportState = &viewportState,
 		 .pRasterizationState = &rasterizer,
 		 .pMultisampleState = &multisampling,
+		 .pDepthStencilState = &depthStencil,
 		 .pColorBlendState = &colorBlending,
 		 .pDynamicState = &dynamicState,
 		 .layout = shadows.shadowPipelineLayout,
 		 .renderPass = nullptr},
-		{.colorAttachmentCount = 1, .pColorAttachmentFormats = &colorAttachmentFormat} };
+		{.colorAttachmentCount = 1, .pColorAttachmentFormats = &colorAttachmentFormat, .depthAttachmentFormat = depthImageFormat} };
 
 		auto pipelineResult = vulkanCore.device.createGraphicsPipeline(nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
 		if (pipelineResult.result != vk::Result::eSuccess) {
@@ -879,6 +906,14 @@ namespace JD
 		}
 		shadows.shadowPipeline = pipelineResult.value;
 		vulkanCore.device.destroyShaderModule(shaderModule);
+
+		vk::Format swapchainFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
+
+		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, swapchainFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, shadows.shadowImage, shadows.shadowAllocation);
+		shadows.shadowImageView = createImageView(shadows.shadowImage, swapchainFormat, vk::ImageAspectFlagBits::eColor, 1);
+		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, depthImageFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal, shadows.shadowDepthImage, shadows.shadowDepthAllocation);
+		shadows.shadowDepthImageView = createImageView(shadows.shadowDepthImage, depthImageFormat, vk::ImageAspectFlagBits::eDepth, 1);
+
 	}
 	
 	void VulkanRenderer::createCubeMapTextureImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation) {
@@ -1510,7 +1545,7 @@ namespace JD
 		shadows.shadowDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 			vk::DescriptorBufferInfo bufferInfo{ .buffer = storageBuffers[i], .offset = 0, .range = sizeof(GPUObjectData) * MAX_OBJECTS };
-			vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
+			vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = sunBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };  //Use a different buffer for the sun camera cause sun has its own view matrix.
 			std::array<vk::WriteDescriptorSet, 2> descriptorWrites = {
 				vk::WriteDescriptorSet{
 					.dstSet= shadows.shadowDescriptorSets[i],
@@ -1644,10 +1679,22 @@ namespace JD
 		std::memcpy(data, cameraInfo, sizeof(CameraInfo));
 		vmaUnmapMemory(vulkanCore.allocator, cameraBufferAllocations[frameIndex]);
 
-		// Free the temporary CameraInfo returned by Gameworld
 		delete cameraInfo;
 		cameraInfo = nullptr;
 	}
+
+	void VulkanRenderer::updateSunData(uint32_t frameIndex) {
+		glm::mat4 sunView = gameworld.getSunView();
+		glm::mat4 sunProjection = getProjMatrix();
+		CameraInfo* sunInfo = new CameraInfo{ .view = sunView, .projection = sunProjection };
+		void* data;
+		vmaMapMemory(vulkanCore.allocator, sunBufferAllocations[frameIndex], &data);
+		std::memcpy(data, sunInfo, sizeof(CameraInfo));
+		vmaUnmapMemory(vulkanCore.allocator, sunBufferAllocations[frameIndex]);
+		delete sunInfo;
+		sunInfo = nullptr;
+	}
+
 
 	struct PushConstants {
 		uint32_t instanceBaseOffset;
@@ -1677,7 +1724,9 @@ namespace JD
 		BuildInstanceBatches(*renderTransmissions, meshInstanceBatches, mappedData);
 		vmaUnmapMemory(vulkanCore.allocator, storageBufferAllocations[currentFrame]);
 		updateCameraBuffer(currentFrame);
+		updateSunData(currentFrame);
 		drawSkyboxPass(imageIndex);
+		drawShadowPass(imageIndex, meshInstanceBatches);
 		drawGBufferPass(imageIndex, meshInstanceBatches); // Fixed imageIndex being passed
 		drawFinalOutputPass(imageIndex);
 
@@ -1783,24 +1832,108 @@ namespace JD
 			vk::PipelineStageFlagBits2::eFragmentShader,             // dstStage
 			vk::ImageAspectFlagBits::eColor,
 			1);
-		 /*transitionImageLayout(commandBuffer,
-			skybox.skyboxRenderOutputImage,
-			vk::ImageLayout::eColorAttachmentOptimal,
-			vk::ImageLayout::eShaderReadOnlyOptimal,
-			{},
-			vk::AccessFlagBits2::eColorAttachmentWrite,
-			vk::AccessFlagBits2::eShaderRead,
-			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-			vk::PipelineStageFlagBits2::eFragmentShader,
-			vk::ImageAspectFlagBits::eColor,
-			1
-		 );*/
-
-		//commandBuffer.end();
 	}
 
 
+	void VulkanRenderer::drawShadowPass(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches) {
+		vk::CommandBuffer commandBuffer = vulkanCore.commandBuffers[currentFrame];
+		/*vk::CommandBufferBeginInfo beginInfo{};
+		commandBuffer.begin(beginInfo);*/
+		uint32_t mipLevels = 1;
+		transitionImageLayout(commandBuffer,
+			shadows.shadowImage,
+			vk::ImageLayout::eUndefined,
+			vk::ImageLayout::eColorAttachmentOptimal,
+			{},
+			vk::AccessFlagBits2::eColorAttachmentWrite,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::ImageAspectFlagBits::eColor,
+			mipLevels
+		);
 
+		transitionImageLayout(commandBuffer,
+			shadows.shadowDepthImage,
+			vk::ImageLayout::eUndefined,
+			vk::ImageLayout::eDepthStencilAttachmentOptimal,
+			vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
+			vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
+			vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests,
+			vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests,
+			vk::ImageAspectFlagBits::eDepth,
+			1
+		);
+
+		int width = vulkanCore.vkbInstances.swapChain.extent.width;
+		int height = vulkanCore.vkbInstances.swapChain.extent.height;
+		vk::Extent2D extent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
+		vk::RenderPassBeginInfo renderPassInfo{
+			.renderPass = nullptr,
+			.framebuffer = nullptr,
+			.renderArea = vk::Rect2D({0, 0}, extent),
+			.clearValueCount = 0,
+			.pClearValues = nullptr
+		};
+
+		vk::RenderingAttachmentInfo colorAttachment{
+			.imageView = shadows.shadowImageView,
+			.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+			.loadOp = vk::AttachmentLoadOp::eClear,
+			.storeOp = vk::AttachmentStoreOp::eStore,
+			.clearValue = { std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f} }
+		};
+
+		vk::RenderingAttachmentInfo depthAttachment{
+			.imageView = shadows.shadowDepthImageView,
+			.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+			.loadOp = vk::AttachmentLoadOp::eClear,
+			.storeOp = vk::AttachmentStoreOp::eStore,
+			.clearValue = { vk::ClearDepthStencilValue{ 1.0f, 0 } }
+		};
+
+
+		vk::RenderingInfo renderingInfo{
+			.renderArea = vk::Rect2D({ 0, 0 }, extent),
+			.layerCount = 1,
+			.viewMask = 0,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &colorAttachment,
+			.pDepthAttachment = &depthAttachment,
+			.pStencilAttachment = nullptr
+		};
+		commandBuffer.beginRendering(renderingInfo);
+		commandBuffer.setViewport(0, vk::Viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width), static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f });
+		commandBuffer.setScissor(0, vk::Rect2D({ 0, 0 }, extent));
+		commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, shadows.shadowPipeline); // Fix typo: gBufferPipeline
+
+		for (const auto& batch : meshInstanceBatches) {
+			if (batch.instanceCount == 0) continue;
+
+			// Push the instanceBaseOffset using push constants
+			PushConstants pc{ .instanceBaseOffset = batch.ssboBaseOffset };
+			commandBuffer.pushConstants(shadows.shadowPipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &pc);
+
+			for (MeshComponent* piece : batch.pieces) {
+				commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, shadows.shadowPipelineLayout, 0, shadows.shadowDescriptorSets[currentFrame], {});
+
+				commandBuffer.bindVertexBuffers(0, piece->vertexBuffer, { 0 });
+				commandBuffer.bindIndexBuffer(piece->indexBuffer, 0, vk::IndexType::eUint32);
+				commandBuffer.drawIndexed(static_cast<uint32_t>(piece->indices.size()), batch.instanceCount, 0, 0, 0);
+			}
+		}
+
+		commandBuffer.endRendering();
+		transitionImageLayout(commandBuffer,
+			shadows.shadowImage,
+			vk::ImageLayout::eColorAttachmentOptimal,
+			vk::ImageLayout::eShaderReadOnlyOptimal,
+			vk::AccessFlagBits2::eColorAttachmentWrite,              // srcAccessMask
+			vk::AccessFlagBits2::eShaderRead,                        // dstAccessMask
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,      // srcStage
+			vk::PipelineStageFlagBits2::eFragmentShader,             // dstStage
+			vk::ImageAspectFlagBits::eColor,
+			1);
+	}
 	void VulkanRenderer::drawGBufferPass(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches) {
 		// Use currentFrame, not frameIndex
 		vk::CommandBuffer* commandBuffer = &vulkanCore.commandBuffers[currentFrame];
