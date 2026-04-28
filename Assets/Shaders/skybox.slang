@@ -30,10 +30,12 @@ VSOutput vertMain(VSInput input) {
     output.pos = float4(input.inPos, 1.0);
 
     float3 pos = input.inPos;
+    float4x4 projection = cameraData.projection;
+    projection[1][1] *= -1; // Flip Y for Vulkan's coordinate system
 
     // Apply the diagonal inverse of the projection matrix equivalent
-    float invProjX = 1.0 / cameraData.projection[0][0];
-    float invProjY = 1.0 / cameraData.projection[1][1];
+    float invProjX = 1.0 / projection[0][0];
+    float invProjY = 1.0 / projection[1][1];
 
     pos.x *= invProjX;
     pos.y *= invProjY;
