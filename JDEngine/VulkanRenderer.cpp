@@ -533,6 +533,7 @@ namespace JD
 		}
 		createSkyboxDescriptorSetLayout();
 		createObjectDescriptorSetLayouts();
+		createShadowDescriptorSetLayout();
 		createOutputDescriptorSetLayout();
 	}
 
@@ -558,6 +559,15 @@ namespace JD
 		objectDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
 	}
 
+	void VulkanRenderer::createShadowDescriptorSetLayout() {
+		std::array bindings = {
+			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  //Model matrix buffer
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  // view projection buffer
+		};
+		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
+		shadows.shadowDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
+	}
+
 	void VulkanRenderer::createOutputDescriptorSetLayout() 
 	{
 		std::array bindings = {
@@ -580,24 +590,6 @@ namespace JD
 		descriptorPool = vulkanCore.device.createDescriptorPool(poolInfo);
 	}
 	
-	/*void VulkanRenderer::createDescriptorSets() {
-		createGbufferDescriptorSets();
-
-	}*/
-
-	/*void VulkanRenderer::createGbufferDescriptorSets() {
-		std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, gbufferDescriptorSetLayout);
-		vk::DescriptorSetAllocateInfo allocInfo{
-			.descriptorPool = descriptorPool,
-			.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
-			.pSetLayouts = layouts.data()
-		};
-
-		gbufferDescriptorSets.clear();
-		gbufferDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
-		
-	}*/
-
 	void VulkanRenderer::createDepthResources() {
 		std::vector<vk::Format> candidates = {
 			vk::Format::eD32Sfloat,
