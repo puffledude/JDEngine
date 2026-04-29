@@ -102,6 +102,16 @@ namespace JD
 			shadows.shadowDepthImageView = nullptr;
 		}
 
+		/*if (lighting.lightingDiffuseImage) {
+			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(lighting.lightingDiffuseImage), lighting.lightingDiffuseAllocation);
+			vulkanCore.device.destroyImageView(lighting.lightingDiffuseImageView);
+			lighting.lightingDiffuseImage = nullptr;
+			lighting.lightingDiffuseAllocation = nullptr;
+			lighting.lightingDiffuseImageView = nullptr;
+		}*/
+
+
+
 		// 1) Sync objects
 		for (auto& frame : vulkanCore.perFrame) {
 			if (frame.renderFence) { vulkanCore.device.destroyFence(frame.renderFence);          frame.renderFence = nullptr; }
@@ -125,12 +135,16 @@ namespace JD
 		if (shadows.shadowPipeline) { vulkanCore.device.destroyPipeline(shadows.shadowPipeline); shadows.shadowPipeline = nullptr; }
 		if (shadows.shadowPipelineLayout) { vulkanCore.device.destroyPipelineLayout(shadows.shadowPipelineLayout); shadows.shadowPipelineLayout = nullptr; }
 
+		if (lighting.lightingPipeline) { vulkanCore.device.destroyPipeline(lighting.lightingPipeline); lighting.lightingPipeline = nullptr; }
+		if (lighting.lightingPipelineLayout) { vulkanCore.device.destroyPipelineLayout(lighting.lightingPipelineLayout); lighting.lightingPipelineLayout = nullptr; }
+
 		// 3) Descriptor pool (implicitly frees all descriptor sets), then layout
 		if (descriptorPool) { vulkanCore.device.destroyDescriptorPool(descriptorPool);                descriptorPool = nullptr; }
 		if (objectDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(objectDescriptorSetLayout); objectDescriptorSetLayout = nullptr; }
 		if (skybox.skyboxDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(skybox.skyboxDescriptorSetLayout); skybox.skyboxDescriptorSetLayout = nullptr; }
 		if (finalOutput.finalOutputDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(finalOutput.finalOutputDescriptorSetLayout); finalOutput.finalOutputDescriptorSetLayout = nullptr; }
 		if (shadows.shadowDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(shadows.shadowDescriptorSetLayout); shadows.shadowDescriptorSetLayout = nullptr; }
+		if (lighting.lightingDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(lighting.lightingDescriptorSetLayout); lighting.lightingDescriptorSetLayout = nullptr; }
 		// 4) Sampler
 		if (vulkanCore.textureSampler) { vulkanCore.device.destroySampler(vulkanCore.textureSampler); vulkanCore.textureSampler = nullptr; }
 
@@ -143,7 +157,9 @@ namespace JD
 		for (size_t i=0; i< sunBuffers.size(); ++i) {
 			if (sunBuffers[i]) vmaDestroyBuffer(vulkanCore.allocator, static_cast<VkBuffer>(sunBuffers[i]), sunBufferAllocations[i]);
 		}
-
+		for (size_t i = 0; i < lighting.lightingStorageBuffers.size(); ++i) {
+			if (lighting.lightingStorageBuffers[i]) vmaDestroyBuffer(vulkanCore.allocator, static_cast<VkBuffer>(lighting.lightingStorageBuffers[i]), lighting.lightingStorageBufferAllocations[i]);
+		}
 
 		for (size_t i = 0; i < storageBuffers.size(); ++i) {
 			if (storageBuffers[i]) vmaDestroyBuffer(vulkanCore.allocator, static_cast<VkBuffer>(storageBuffers[i]), storageBufferAllocations[i]);
@@ -686,6 +702,7 @@ namespace JD
 		createSkyboxPipeline();
 		createGBufferPipeline();
 		createShadowPipeline();
+		createLightingPipeline();
 		createOutputPipeline();
 	}
 	void VulkanRenderer::createSkyboxPipeline() {
@@ -1718,6 +1735,79 @@ namespace JD
 			};
 			vulkanCore.device.updateDescriptorSets(descriptorWrites, {});
 		}
+
+	}
+
+	void VulkanRenderer::createLightingPipeline() {
+		vk::ShaderModule shaderModule = createShaderModule(readFile(SHADERDIR"/lighting.slang.spv"));
+		vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule,  .pName = "vertMain" };
+		vk::PipelineShaderStageCreateInfo fragShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eFragment, .module = shaderModule, .pName = "fragMain" };
+		vk::PipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+
+		auto bindingDescription = Vertex::getBindingDescription();
+		auto attributeDescriptions = Vertex::getAttributeDescriptions();
+		vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
+			.vertexBindingDescriptionCount = 1,
+			.pVertexBindingDescriptions = &bindingDescription,
+			.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()), //Apparently optimised out the other two unused variables
+			.pVertexAttributeDescriptions = attributeDescriptions.data()
+		};
+		vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
+		.topology = vk::PrimitiveTopology::eTriangleList,
+		};
+
+		vk::Viewport viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width),
+		static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f };
+
+		std::vector<vk::DynamicState> dynamicStates = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
+
+		vk::PipelineDynamicStateCreateInfo dynamicState{ .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()), .pDynamicStates = dynamicStates.data() };
+
+		vk::PipelineViewportStateCreateInfo viewportState{ .viewportCount = 1, .scissorCount = 1 };
+		vk::PipelineRasterizationStateCreateInfo rasterizer{
+		.depthClampEnable = VK_FALSE,
+		.rasterizerDiscardEnable = VK_FALSE,
+		.polygonMode = vk::PolygonMode::eFill,
+		.cullMode = vk::CullModeFlagBits::eNone,
+		.frontFace = vk::FrontFace::eCounterClockwise,
+		.depthBiasEnable = VK_FALSE,
+		.lineWidth = 1.0f,
+		};
+
+		vk::PipelineMultisampleStateCreateInfo multisampling{ .rasterizationSamples = vk::SampleCountFlagBits::e1, .sampleShadingEnable = VK_FALSE };
+		vk::PipelineColorBlendAttachmentState colorBlendAttachment{
+		.blendEnable = VK_FALSE,
+		.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
+		};
+		vk::PipelineColorBlendStateCreateInfo colorBlending{
+			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = 1, .pAttachments = &colorBlendAttachment
+		};
+
+		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1,
+		.pSetLayouts = &finalOutput.finalOutputDescriptorSetLayout };
+		lighting.lightingPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
+		vk::Format colorAttachmentFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
+
+		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
+		{.stageCount = 2,
+		 .pStages = shaderStages,
+		 .pVertexInputState = &vertexInputInfo,
+		 .pInputAssemblyState = &inputAssembly,
+		 .pViewportState = &viewportState,
+		 .pRasterizationState = &rasterizer,
+		 .pMultisampleState = &multisampling,
+		 .pColorBlendState = &colorBlending,
+		 .pDynamicState = &dynamicState,
+		 .layout = lighting.lightingPipelineLayout,
+		 .renderPass = nullptr},
+		{.colorAttachmentCount = 1, .pColorAttachmentFormats = &colorAttachmentFormat} };
+
+		auto pipelineResult = vulkanCore.device.createGraphicsPipeline(nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
+		if (pipelineResult.result != vk::Result::eSuccess) {
+			throw std::runtime_error("Failed to create final output pipeline!");
+		}
+		lighting.lightingPipeline = pipelineResult.value;
+		vulkanCore.device.destroyShaderModule(shaderModule);
 
 	}
 
