@@ -147,8 +147,11 @@ namespace JD
 
 		void createShadowDescriptorSetLayout();
 		void createShadowDescriptorSets();
-		void createShadowPipelineLayout();
 		void createShadowPipeline();
+
+		void createLightingDescriptorSetLayout();
+		void createLightingDescriptorSets();
+		void createLightingPipeline();
 
 
 		void createOutputDescriptorSetLayout();
@@ -158,7 +161,6 @@ namespace JD
 
 
 
-		void createLightingPipeline();
 		void createCommandPool();
 		void createCommandBuffers();
 		void createSyncObjects();

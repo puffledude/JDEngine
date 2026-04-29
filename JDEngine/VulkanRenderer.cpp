@@ -259,6 +259,7 @@ namespace JD
 			createCommandBuffers();
 			createSyncObjects();
 			createGBufferImages();
+			//createLightingDescriptorSets();
 			createShadowDescriptorSets();
 			createOutputDescriptorSets();
 			std::cout << "Vulkan initialized successfully!" << std::endl;
@@ -660,6 +661,7 @@ namespace JD
 		createSkyboxPipeline();
 		createGBufferPipeline();
 		createShadowPipeline();
+		createOutputPipeline();
 	}
 	void VulkanRenderer::createSkyboxPipeline() {
 		vk::ShaderModule shaderModule = createShaderModule(readFile(SHADERDIR"/skybox.slang.spv"));
@@ -1560,19 +1562,19 @@ namespace JD
 			};
 			vulkanCore.device.updateDescriptorSets(descriptorWrites, {});
 		}
-		createOutputPipelineLayout();
+		//createOutputPipelineLayout();
 	}
 
-	void VulkanRenderer::createOutputPipelineLayout() {
-		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{
-			.setLayoutCount = 1,
-			.pSetLayouts = &finalOutput.finalOutputDescriptorSetLayout,
-			.pushConstantRangeCount = 0,
-			.pPushConstantRanges = nullptr
-		};
-		finalOutput.finalOutputPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
-		createOutputPipeline();
-	}
+	//void VulkanRenderer::createOutputPipelineLayout() {
+	//	vk::PipelineLayoutCreateInfo pipelineLayoutInfo{
+	//		.setLayoutCount = 1,
+	//		.pSetLayouts = &finalOutput.finalOutputDescriptorSetLayout,
+	//		.pushConstantRangeCount = 0,
+	//		.pPushConstantRanges = nullptr
+	//	};
+	//	finalOutput.finalOutputPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
+	//	//createOutputPipeline();
+	//}
 
 	void VulkanRenderer::createShadowDescriptorSets() {
 		std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, shadows.shadowDescriptorSetLayout);
