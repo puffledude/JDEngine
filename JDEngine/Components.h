@@ -25,6 +25,11 @@ namespace JD {
 		glm::vec3 scale;
 	};
 
+	struct MaterialData {
+		float roughness;
+		float metallic;
+	};
+
 
 	using VertexBuffer = vk::Buffer;
 	using IndexBuffer = vk::Buffer;
@@ -33,8 +38,9 @@ namespace JD {
 	using TextureView = vk::ImageView;
 
 	struct Material {
-		float metallicFactor = 0;
-		float roughnessFactor = 0;
+		MaterialData materialData;
+		UniformBuffer materialBuffer;
+		VmaAllocation materialBufferAllocation = VK_NULL_HANDLE;
 		glm::vec4 baseColorFactor = glm::vec4(1.0f);
 		
 		Texture baseColorTexture;
@@ -66,6 +72,12 @@ namespace JD {
 				vmaDestroyImage(allocator, normalTexture, normalTextureAllocation);
 				normalTexture = nullptr;
 				normalTextureAllocation = VK_NULL_HANDLE;
+			}
+
+			if (materialBuffer && materialBufferAllocation) {
+				vmaDestroyBuffer(allocator, materialBuffer, materialBufferAllocation);
+				materialBuffer = nullptr;
+				materialBufferAllocation = VK_NULL_HANDLE;
 			}
 
 		}
@@ -100,6 +112,8 @@ namespace JD {
 				indexBuffer = nullptr;
 				indexBufferAllocation = VK_NULL_HANDLE;
 			}
+			
+
 		}
 	};
 

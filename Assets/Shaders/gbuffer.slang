@@ -63,10 +63,18 @@ VSOutput vertMain(VSInput input) {
     return output;
 }
 
+struct MaterialData {
+    float roughness;
+    float metallic;
+};
+
 [[vk::binding(2, 0)]]
-Sampler2D colourTexure;
+ConstantBuffer<MaterialData> materialData;
 
 [[vk::binding(3, 0)]]
+Sampler2D colourTexure;
+
+[[vk::binding(4, 0)]]
 Sampler2D normalTexture;
 
 struct FragOutput {

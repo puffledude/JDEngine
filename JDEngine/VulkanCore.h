@@ -53,6 +53,9 @@ namespace JD
 		std::vector<MeshComponent*> pieces; // all pieces that belong to this mesh
 	};
 
+	
+
+
 	struct Shadows {
 		vk::DescriptorSetLayout shadowDescriptorSetLayout = nullptr;
 		std::vector<vk::DescriptorSet> shadowDescriptorSets;

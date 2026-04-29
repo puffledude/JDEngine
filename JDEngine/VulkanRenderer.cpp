@@ -582,9 +582,10 @@ namespace JD
 	{
 		std::array bindings = {
 			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  //Model matrix buffer
-			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  // view projection buffer
-			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Color texture
-			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr)  // Normal texture
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),
+			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Roughness metallic buffer.
+			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Color texture
+			vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr)  // Normal texture
 		};
 		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
 		objectDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
@@ -614,7 +615,7 @@ namespace JD
 			std::array poolSizes = {
 			vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, static_cast<uint32_t>(storageBuffers.size())),
 			vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 100),  // Arbitrary large number for now
-			vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 100)  // Arbitrary large number for now
+			vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 100),  // Arbitrary large number for now
 		};
 		vk::DescriptorPoolCreateInfo poolInfo{ .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,  .maxSets = 100,
 		.poolSizeCount = static_cast<uint32_t>(poolSizes.size()),.pPoolSizes = poolSizes.data(),  };  // Arbitrary large number for now
@@ -1103,8 +1104,25 @@ namespace JD
 				mat.baseColorFactor.a = material.pbrMetallicRoughness.baseColorFactor[3];
 			}
 
-			mat.metallicFactor = material.pbrMetallicRoughness.metallicFactor;
-			mat.roughnessFactor = material.pbrMetallicRoughness.roughnessFactor;
+			/*mat.metallicFactor = material.pbrMetallicRoughness.metallicFactor;
+			mat.roughnessFactor = material.pbrMetallicRoughness.roughnessFactor;*/
+			if (material.pbrMetallicRoughness.metallicFactor >= 0.0f) {
+				mat.materialData.metallic = material.pbrMetallicRoughness.metallicFactor;
+			} else {
+				mat.materialData.metallic = 0.0f; // Default to fully metallic if not specified
+			}
+			if (material.pbrMetallicRoughness.roughnessFactor >= 0.0f) {
+				mat.materialData.roughness = material.pbrMetallicRoughness.roughnessFactor;
+			} else {
+				mat.materialData.roughness = 0.6f; // Default to fully rough if not specified
+			}
+			mat.materialData.metallic = material.pbrMetallicRoughness.metallicFactor;
+			mat.materialData.roughness = material.pbrMetallicRoughness.roughnessFactor;
+			createBuffer(sizeof(MaterialData), vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,mat.materialBuffer, mat.materialBufferAllocation);
+			void* data;
+			vmaMapMemory(vulkanCore.allocator, mat.materialBufferAllocation, &data);
+			memcpy(data, &mat.materialData, sizeof(MaterialData));
+			vmaUnmapMemory(vulkanCore.allocator, mat.materialBufferAllocation);
 
 			if (material.pbrMetallicRoughness.baseColorTexture.index >= 0) {
 				const auto& texture = model.textures[material.pbrMetallicRoughness.baseColorTexture.index];
@@ -1153,10 +1171,11 @@ namespace JD
 			for (size_t i=0; i<MAX_FRAMES_IN_FLIGHT; i++) {
 				vk::DescriptorBufferInfo bufferInfo{ .buffer = storageBuffers[i], .offset = 0, .range = sizeof(GPUObjectData) * MAX_OBJECTS };
 				vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
+				vk::DescriptorBufferInfo materialBufferInfo{ .buffer = mat.materialBuffer, .offset = 0, .range = sizeof(MaterialData) };
 				vk::DescriptorImageInfo baseColorImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = mat.baseColorTextureView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 				vk::DescriptorImageInfo normalImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = mat.normalTextureView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 				
-				std::array<vk::WriteDescriptorSet, 4> descriptorWrites = {
+				std::array<vk::WriteDescriptorSet, 5> descriptorWrites = {
 						vk::WriteDescriptorSet {
 							.dstSet = mat.descriptorSets[i],
 							.dstBinding = 0,
@@ -1178,12 +1197,20 @@ namespace JD
 							.dstBinding = 2,
 							.dstArrayElement = 0,
 							.descriptorCount = 1,
+							.descriptorType = vk::DescriptorType::eUniformBuffer,
+							.pBufferInfo = &materialBufferInfo
+						},
+						vk::WriteDescriptorSet {
+							.dstSet = mat.descriptorSets[i],
+							.dstBinding = 3,
+							.dstArrayElement = 0,
+							.descriptorCount = 1,
 							.descriptorType = vk::DescriptorType::eCombinedImageSampler,
 							.pImageInfo = &baseColorImageInfo
 						},
 						vk::WriteDescriptorSet {
 							.dstSet = mat.descriptorSets[i],
-							.dstBinding = 3,
+							.dstBinding = 4,
 							.dstArrayElement = 0,
 							.descriptorCount = 1,
 							.descriptorType = vk::DescriptorType::eCombinedImageSampler,
