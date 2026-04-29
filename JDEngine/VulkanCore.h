@@ -117,7 +117,7 @@ namespace JD
 
 	};
 
-	struct combineStep {
+	struct CombineStep {
 		vk::DescriptorSetLayout combineDescriptorSetLayout = nullptr;
 		std::vector<vk::DescriptorSet> combineDescriptorSets;
 		vk::Pipeline combinePipeline = nullptr;

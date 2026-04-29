@@ -232,6 +232,9 @@ namespace JD
 		Skybox skybox{};
 		Shadows shadows{};
 		GBuffer gBuffer{};
+		Lighting lighting{};
+		CombineStep combineStep{};
+
 		FinalOutput finalOutput{};
 		std::vector<RenderTransmition>* currentRenderTransmition = nullptr;
 		MeshComponent quad;
