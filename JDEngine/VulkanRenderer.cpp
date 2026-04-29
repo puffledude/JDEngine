@@ -259,7 +259,7 @@ namespace JD
 			createCommandBuffers();
 			createSyncObjects();
 			createGBufferImages();
-			//createLightingDescriptorSets();
+			createLightingDescriptorSets();
 			createShadowDescriptorSets();
 			createOutputDescriptorSets();
 			std::cout << "Vulkan initialized successfully!" << std::endl;
@@ -616,6 +616,16 @@ namespace JD
 		};
 		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
 		finalOutput.finalOutputDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
+	}
+
+	void VulkanRenderer::createLightingDescriptorSetLayout() {
+		std::array bindings = {
+			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Shadow map
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Gbuffer Colour texture
+			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // gbuffer normal texture
+			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // gbuffer roughness/metallic texture
+		};
+	
 	}
 
 
