@@ -80,7 +80,7 @@ Sampler2D normalTexture;
 struct FragOutput {
     float4 colour : SV_Target0;
     float4 normal : SV_Target1;
-
+    float4 material : SV_Target2;
 };
 
 
@@ -88,10 +88,11 @@ struct FragOutput {
 FragOutput fragMain(VSOutput vertIn)
 {    float4 col = colourTexure.Sample(vertIn.texCoord);
     float4 norm = normalTexture.Sample(vertIn.texCoord);
-
+    float4 mat = float4(materialData.roughness, materialData.metallic, 0.0, 1.0);
     // Optionally multiply by vertIn.color if your GLTF models have vertex colors!
     FragOutput output;
     output.colour = col;
     output.normal = norm;
+    output.material = mat;
     return output;
 }

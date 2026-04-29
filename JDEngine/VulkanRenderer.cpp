@@ -71,6 +71,13 @@ namespace JD
 			gBuffer.gbufferNormalAllocation = nullptr;
 			gBuffer.gbufferNormalImageView = nullptr;
 		}
+		if (gBuffer.gbufferMaterialImage) {
+			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(gBuffer.gbufferMaterialImage), gBuffer.gbufferMaterialAllocation);
+			vulkanCore.device.destroyImageView(gBuffer.gbufferMaterialImageView);
+			gBuffer.gbufferMaterialImage = nullptr;
+			gBuffer.gbufferMaterialAllocation = nullptr;
+			gBuffer.gbufferMaterialImageView = nullptr;
+		}
 		if (shadows.shadowImage) {
 			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(shadows.shadowImage), shadows.shadowAllocation);
 			vulkanCore.device.destroyImageView(shadows.shadowImageView);
@@ -769,7 +776,7 @@ namespace JD
 		.blendEnable = VK_FALSE,
 		.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
 		};
-		std::array blendAttachments = { colorBlendAttachment, colorBlendAttachment };
+		std::array blendAttachments = { colorBlendAttachment, colorBlendAttachment,  colorBlendAttachment};
 
 		vk::PipelineColorBlendStateCreateInfo colorBlending{
 			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = static_cast<uint32_t>(blendAttachments.size()), .pAttachments = blendAttachments.data() };
@@ -795,7 +802,9 @@ namespace JD
 		.stencilTestEnable = VK_FALSE
 		};
 		const vk::Format gbufferColourFormat = vk::Format::eB8G8R8A8Srgb;
-		std::array<vk::Format, 2> colorAttachmentFormats = { gbufferColourFormat, gbufferColourFormat };
+		const vk::Format gbufferNormalFormat = vk::Format::eR8G8B8A8Unorm;
+		const vk::Format gbufferMaterialFormat = vk::Format::eR8G8B8A8Unorm;
+		std::array<vk::Format, 3> colorAttachmentFormats = { gbufferColourFormat, gbufferNormalFormat, gbufferMaterialFormat };
 		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
 		{.stageCount = 2,
 		.pStages = shaderStages,
@@ -1507,10 +1516,14 @@ namespace JD
 
 	void VulkanRenderer::createGBufferImages() {
 		vk::Format gbufferFormat = vk::Format::eB8G8R8A8Srgb;
+		const vk::Format gbufferNormalFormat = vk::Format::eR8G8B8A8Unorm;
+		const vk::Format gbufferMaterialFormat = vk::Format::eR8G8B8A8Unorm;
 		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, gbufferFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, gBuffer.gbufferColourImage, gBuffer.gbufferColourAllocation);
 		gBuffer.gbufferColourImageView = createImageView(gBuffer.gbufferColourImage, gbufferFormat, vk::ImageAspectFlagBits::eColor, 1);
-		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, gbufferFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, gBuffer.gbufferNormalImage, gBuffer.gbufferNormalAllocation);
-		gBuffer.gbufferNormalImageView = createImageView(gBuffer.gbufferNormalImage, gbufferFormat, vk::ImageAspectFlagBits::eColor, 1);
+		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, gbufferNormalFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, gBuffer.gbufferNormalImage, gBuffer.gbufferNormalAllocation);
+		gBuffer.gbufferNormalImageView = createImageView(gBuffer.gbufferNormalImage, gbufferNormalFormat, vk::ImageAspectFlagBits::eColor, 1);
+		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, gbufferMaterialFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, gBuffer.gbufferMaterialImage, gBuffer.gbufferMaterialAllocation);
+		gBuffer.gbufferMaterialImageView = createImageView(gBuffer.gbufferMaterialImage, gbufferMaterialFormat, vk::ImageAspectFlagBits::eColor, 1);
 	}
 
 
@@ -1963,14 +1976,14 @@ namespace JD
 	}
 	void VulkanRenderer::drawGBufferPass(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches) {
 		// Use currentFrame, not frameIndex
-		vk::CommandBuffer* commandBuffer = &vulkanCore.commandBuffers[currentFrame];
+		vk::CommandBuffer commandBuffer = vulkanCore.commandBuffers[currentFrame];
 		//commandBuffer->reset(vk::CommandBufferResetFlagBits::eReleaseResources);
 
 		vk::CommandBufferBeginInfo beginInfo{};
 		//commandBuffer->begin(beginInfo);
 		// We have to specify mipLevels, default is 1 since we're writing to the swapchain colour attachment directly here
 		uint32_t mipLevels = 1;
-		transitionImageLayout(*commandBuffer,
+		transitionImageLayout(commandBuffer,
 			gBuffer.gbufferColourImage,
 			vk::ImageLayout::eUndefined,
 			vk::ImageLayout::eColorAttachmentOptimal,
@@ -1981,7 +1994,7 @@ namespace JD
 			vk::ImageAspectFlagBits::eColor,
 			mipLevels
 		);
-		transitionImageLayout(*commandBuffer,
+		transitionImageLayout(commandBuffer,
 			gBuffer.gbufferNormalImage,
 			vk::ImageLayout::eUndefined,
 			vk::ImageLayout::eColorAttachmentOptimal,
@@ -1992,8 +2005,19 @@ namespace JD
 			vk::ImageAspectFlagBits::eColor,
 			mipLevels
 		);
+		transitionImageLayout(commandBuffer,
+			gBuffer.gbufferMaterialImage,
+			vk::ImageLayout::eUndefined,
+			vk::ImageLayout::eColorAttachmentOptimal,
+			{},
+			vk::AccessFlagBits2::eColorAttachmentWrite,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::ImageAspectFlagBits::eColor,
+			mipLevels
+		);
 
-		transitionImageLayout(*commandBuffer,
+		transitionImageLayout(commandBuffer,
 			depthImage,
 			vk::ImageLayout::eUndefined,
 			vk::ImageLayout::eDepthStencilAttachmentOptimal,
@@ -2032,7 +2056,13 @@ namespace JD
 			.clearValue = { std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f} }
 		};
 
-		
+		vk::RenderingAttachmentInfo materialAttachment{
+			.imageView = gBuffer.gbufferMaterialImageView,
+			.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+			.loadOp = vk::AttachmentLoadOp::eClear,
+			.storeOp = vk::AttachmentStoreOp::eStore,
+			.clearValue = { std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f} }
+		};
 
 		vk::RenderingAttachmentInfo depthAttachment{
 			.imageView = depthImageView,
@@ -2041,39 +2071,39 @@ namespace JD
 			.storeOp = vk::AttachmentStoreOp::eDontCare,
 			.clearValue = { vk::ClearDepthStencilValue{ 1.0f, 0 } }
 		};
-		const std::array<vk::RenderingAttachmentInfo, 2> colorAttachments = { colorAttachment,	normalAttachment };
+		const std::array<vk::RenderingAttachmentInfo, 3> colorAttachments = { colorAttachment,	normalAttachment, materialAttachment };
 		vk::RenderingInfo renderingInfo{
 			.renderArea = vk::Rect2D({ 0, 0 }, extent),
 			.layerCount = 1,
 			.viewMask = 0,
-			.colorAttachmentCount = 2,
+			.colorAttachmentCount = 3,
 			.pColorAttachments = colorAttachments.data(),
 			.pDepthAttachment = &depthAttachment,
 			.pStencilAttachment = nullptr
 		};
-		commandBuffer->beginRendering(renderingInfo);
-		commandBuffer->setViewport(0, vk::Viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width), static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f });
-		commandBuffer->setScissor(0, vk::Rect2D({ 0, 0 }, extent));
-		commandBuffer->bindPipeline(vk::PipelineBindPoint::eGraphics, gBuffer.gBufferPipeline); // Fix typo: gBufferPipeline
+		commandBuffer.beginRendering(renderingInfo);
+		commandBuffer.setViewport(0, vk::Viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width), static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f });
+		commandBuffer.setScissor(0, vk::Rect2D({ 0, 0 }, extent));
+		commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, gBuffer.gBufferPipeline); // Fix typo: gBufferPipeline
 
 		for (const auto& batch : meshInstanceBatches) {
 			if (batch.instanceCount == 0) continue;
 
 			// Push the instanceBaseOffset using push constants
 			PushConstants pc{ .instanceBaseOffset = batch.ssboBaseOffset };
-			commandBuffer->pushConstants(gBuffer.gbufferPipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &pc);
+			commandBuffer.pushConstants(gBuffer.gbufferPipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &pc);
 
 			for (MeshComponent* piece : batch.pieces) {
-				commandBuffer->bindDescriptorSets(vk::PipelineBindPoint::eGraphics, gBuffer.gbufferPipelineLayout, 0, piece->material.descriptorSets[currentFrame], {});
+				commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, gBuffer.gbufferPipelineLayout, 0, piece->material.descriptorSets[currentFrame], {});
 
-				commandBuffer->bindVertexBuffers(0, piece->vertexBuffer, { 0 });
-				commandBuffer->bindIndexBuffer(piece->indexBuffer, 0, vk::IndexType::eUint32);
-				commandBuffer->drawIndexed(static_cast<uint32_t>(piece->indices.size()), batch.instanceCount, 0, 0, 0);
+				commandBuffer.bindVertexBuffers(0, piece->vertexBuffer, { 0 });
+				commandBuffer.bindIndexBuffer(piece->indexBuffer, 0, vk::IndexType::eUint32);
+				commandBuffer.drawIndexed(static_cast<uint32_t>(piece->indices.size()), batch.instanceCount, 0, 0, 0);
 			}
 		}
 
-		commandBuffer->endRendering();
-		transitionImageLayout(*commandBuffer,
+		commandBuffer.endRendering();
+		transitionImageLayout(commandBuffer,
 			gBuffer.gbufferColourImage,
 			vk::ImageLayout::eColorAttachmentOptimal,
 			vk::ImageLayout::eShaderReadOnlyOptimal,
@@ -2083,6 +2113,28 @@ namespace JD
 			vk::PipelineStageFlagBits2::eFragmentShader,             // dstStage
 			vk::ImageAspectFlagBits::eColor,
 			1);
+		transitionImageLayout(commandBuffer,
+			gBuffer.gbufferNormalImage,
+			vk::ImageLayout::eColorAttachmentOptimal,
+			vk::ImageLayout::eShaderReadOnlyOptimal,
+			vk::AccessFlagBits2::eColorAttachmentWrite,              // srcAccessMask
+			vk::AccessFlagBits2::eShaderRead,                        // dstAccessMask
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,      // srcStage
+			vk::PipelineStageFlagBits2::eFragmentShader,             // dstStage
+			vk::ImageAspectFlagBits::eColor,
+			1);
+		transitionImageLayout(commandBuffer,
+			gBuffer.gbufferMaterialImage,
+			vk::ImageLayout::eColorAttachmentOptimal,
+			vk::ImageLayout::eShaderReadOnlyOptimal,
+			vk::AccessFlagBits2::eColorAttachmentWrite,              // srcAccessMask
+			vk::AccessFlagBits2::eShaderRead,                        // dstAccessMask
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,      // srcStage
+			vk::PipelineStageFlagBits2::eFragmentShader,             // dstStage
+			vk::ImageAspectFlagBits::eColor,
+			1);
+
+
 		//commandBuffer->end();
 	}
 	void VulkanRenderer::drawFinalOutputPass(uint32_t imageIndex) 
