@@ -4,6 +4,8 @@
 namespace JD
 {
 	const int MAX_FRAMES_IN_FLIGHT = 2;
+	const int MAX_LIGHTS = 20;
+
 
 	struct PerFrame {
 		vk::Fence renderFence;
@@ -112,6 +114,10 @@ namespace JD
 	struct Lighting {
 		vk::DescriptorSetLayout lightingDescriptorSetLayout = nullptr;
 		std::vector<vk::DescriptorSet> lightingDescriptorSets;
+		
+		std::vector<vk::Buffer> lightingStorageBuffers;
+		std::vector<VmaAllocation> lightingStorageBufferAllocations;
+
 		vk::Pipeline lightingPipeline = nullptr;
 		vk::PipelineLayout lightingPipelineLayout = nullptr;
 
