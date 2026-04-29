@@ -19,6 +19,18 @@ namespace JD
 		return camera->GetViewMatrix();
 	}
 
+	glm::vec3 Gameworld::getCameraPosition() {
+		return camera->GetPosition();
+	}
+
+	glm::vec3 Gameworld::getSunPosition() {
+		lightTransmition* sun = getSun();
+		if (sun) {
+			return sun->position;
+		}
+		return glm::vec3(0.0f); // Default position if no sun found
+	}
+
 	glm::mat4 Gameworld::getSunView() {
 		//Need to calculate the front and up for the viewdir.
 		lightTransmition* sun = getSun();

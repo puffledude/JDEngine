@@ -1,8 +1,8 @@
 
 // Referenced from https://github.com/SaschaWillems/Vulkan/blob/master/shaders/slang/texturecubemap/skybox.slang
 
-
 struct CameraInfo {
+    float4 position;
     float4x4 view;
     float4x4 projection;
 };

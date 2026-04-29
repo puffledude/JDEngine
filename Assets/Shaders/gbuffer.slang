@@ -4,6 +4,7 @@ struct GPUObjectData {
 };
 
 struct CameraInfo {
+    float4 position;
     float4x4 view;
     float4x4 projection;
 };

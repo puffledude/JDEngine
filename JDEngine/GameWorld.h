@@ -38,9 +38,10 @@ namespace JD {
 			}
 			return renderableComponents;
 		}
+		glm::vec3 getCameraPosition();
 		glm::mat4 getCameraView();
 		glm::mat4 getSunView();
-
+		glm::vec3 getSunPosition();
 
 		lightTransmition* getSun() {
 			const JPH::BodyLockInterface& lock_interface = physicsSystem->GetBodyLockInterface(); // Or GetBodyLockInterfaceNoLock

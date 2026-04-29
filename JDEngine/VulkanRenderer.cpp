@@ -629,10 +629,13 @@ namespace JD
 
 	void VulkanRenderer::createLightingDescriptorSetLayout() {
 		std::array bindings = {
-			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Shadow map
-			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Gbuffer Colour texture
-			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // gbuffer normal texture
-			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // gbuffer roughness/metallic texture
+			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  // Light storage buffer
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  // view projection buffer
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Shadow map
+			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Gbuffer Colour texture
+			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // gbuffer normal texture
+			vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // gbuffer roughness/metallic texture
+			vk::DescriptorSetLayoutBinding(5, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Geometry position texure.
 		};
 	
 	}
@@ -1738,8 +1741,9 @@ namespace JD
 
 	void VulkanRenderer::updateCameraBuffer(uint32_t frameIndex) {
 		glm::mat4 cameraView = gameworld.getCameraView();
+		glm::vec4 cameraPos = glm::vec4(gameworld.getCameraPosition(), 1.0f);
 		glm::mat4 cameraProjection = getProjMatrix();
-		CameraInfo* cameraInfo = new CameraInfo{ .view = cameraView, .projection = cameraProjection };
+		CameraInfo* cameraInfo = new CameraInfo{.position = cameraPos, .view = cameraView, .projection = cameraProjection };
 		void* data;
 		vmaMapMemory(vulkanCore.allocator, cameraBufferAllocations[frameIndex], &data);
 		std::memcpy(data, cameraInfo, sizeof(CameraInfo));
@@ -1750,9 +1754,10 @@ namespace JD
 	}
 
 	void VulkanRenderer::updateSunData(uint32_t frameIndex) {
+		glm::vec4 sunPos = glm::vec4(gameworld.getSunPosition(), 1.0f);
 		glm::mat4 sunView = gameworld.getSunView();
 		glm::mat4 sunProjection = getProjMatrix();
-		CameraInfo* sunInfo = new CameraInfo{ .view = sunView, .projection = sunProjection };
+		CameraInfo* sunInfo = new CameraInfo{.position = sunPos, .view = sunView, .projection = sunProjection };
 		void* data;
 		vmaMapMemory(vulkanCore.allocator, sunBufferAllocations[frameIndex], &data);
 		std::memcpy(data, sunInfo, sizeof(CameraInfo));
