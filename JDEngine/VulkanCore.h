@@ -100,6 +100,10 @@ namespace JD
 		vk::ImageView gbufferMaterialImageView = nullptr;
 		VmaAllocation gbufferMaterialAllocation = nullptr;
 
+		vk::Image gbufferPositionImage = nullptr;
+		vk::ImageView gbufferPositionImageView = nullptr;
+		VmaAllocation gbufferPositionAllocation = nullptr;
+
 
 		vk::PipelineLayout gbufferPipelineLayout;
 		vk::Pipeline gBufferPipeline;

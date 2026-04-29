@@ -32,6 +32,7 @@ struct VSInput {
 struct VSOutput
 {
     float4 pos : SV_Position;
+    float3 viewPos;
     float3 color;
     float2 texCoord;
 };
@@ -55,8 +56,9 @@ VSOutput vertMain(VSInput input) {
     float4x4 projection = cameraData.projection;
     projection[1][1] *= -1; // Flip Y for Vulkan's coordinate system
     // Pass through vertex colors and UVs
-    output.pos = mul(projection, mul(cameraData.view, mul(modelMatrix, float4(input.inPos, 1.0))));
-
+    float4 pos = mul(projection, mul(cameraData.view, mul(modelMatrix, float4(input.inPos, 1.0))));
+    output.pos = pos;
+    output.viewPos = pos.xyz;
     output.color = input.inColor;
     output.texCoord = input.inTexCoord;
 
@@ -81,6 +83,7 @@ struct FragOutput {
     float4 colour : SV_Target0;
     float4 normal : SV_Target1;
     float4 material : SV_Target2;
+    float4 pos : SV_Target3;
 };
 
 
@@ -94,5 +97,7 @@ FragOutput fragMain(VSOutput vertIn)
     output.colour = col;
     output.normal = norm;
     output.material = mat;
+    output.pos = float4(vertIn.viewPos, 1.0);
+
     return output;
 }
