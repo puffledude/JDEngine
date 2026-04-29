@@ -111,8 +111,11 @@ namespace JD
 		vk::Pipeline lightingPipeline = nullptr;
 		vk::PipelineLayout lightingPipelineLayout = nullptr;
 
-		vk::Image lightingOutputImage = nullptr;
-		VmaAllocation lightingOutputAllocation = nullptr;
+		vk::Image lightingDiffuseImage = nullptr;
+		VmaAllocation lightingDiffuseAllocation = nullptr;
+
+		vk::Image lightingSpecularImage = nullptr;
+		VmaAllocation lightingSpecularAllocation = nullptr;
 
 
 	};
