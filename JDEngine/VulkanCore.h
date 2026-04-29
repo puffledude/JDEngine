@@ -105,6 +105,28 @@ namespace JD
 		vk::Pipeline gBufferPipeline;
 	};
 
+	struct Lighting {
+		vk::DescriptorSetLayout lightingDescriptorSetLayout = nullptr;
+		std::vector<vk::DescriptorSet> lightingDescriptorSets;
+		vk::Pipeline lightingPipeline = nullptr;
+		vk::PipelineLayout lightingPipelineLayout = nullptr;
+
+		vk::Image lightingOutputImage = nullptr;
+		VmaAllocation lightingOutputAllocation = nullptr;
+
+
+	};
+
+	struct combineStep {
+		vk::DescriptorSetLayout combineDescriptorSetLayout = nullptr;
+		std::vector<vk::DescriptorSet> combineDescriptorSets;
+		vk::Pipeline combinePipeline = nullptr;
+		vk::PipelineLayout combinePipelineLayout = nullptr;
+
+		vk::Image combineOutputImage = nullptr;
+		VmaAllocation combineOutputAllocation = nullptr;
+	};
+
 
 	struct FinalOutput {
 		vk::DescriptorSetLayout finalOutputDescriptorSetLayout = nullptr;
