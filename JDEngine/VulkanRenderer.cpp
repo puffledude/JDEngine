@@ -654,12 +654,15 @@ namespace JD
 
 	void VulkanRenderer::createLightingDescriptorSetLayout() {
 		std::array bindings = {
-			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Light storage buffer
-			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  // view projection buffer
-			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Shadow map
-			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Gbuffer Colour texture
-			vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // gbuffer normal texture
-			vk::DescriptorSetLayoutBinding(5, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // gbuffer roughness/metallic texture
+			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  // view projection buffer
+
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Light storage buffer
+			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // sun view projection buffer
+
+			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Shadow map
+			vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Gbuffer Colour texture
+			vk::DescriptorSetLayoutBinding(5, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // gbuffer normal texture
+			vk::DescriptorSetLayoutBinding(6, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // gbuffer roughness/metallic texture
 			vk::DescriptorSetLayoutBinding(6, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Geometry position texure.
 		};
 		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
@@ -1729,12 +1732,13 @@ namespace JD
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 			vk::DescriptorBufferInfo lightBufferInfo{ .buffer = lighting.lightingStorageBuffers[i], .offset = 0, .range = sizeof(lightTransmition) * MAX_LIGHTS };
 			vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
+			vk::DescriptorBufferInfo lightPerspectiveBufferInfo{ .buffer = sunBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
 			vk::DescriptorImageInfo shadowMapInfo{ .sampler = vulkanCore.textureSampler, .imageView = shadows.shadowImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 			vk::DescriptorImageInfo colourImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = gBuffer.gbufferColourImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 			vk::DescriptorImageInfo normalImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = gBuffer.gbufferNormalImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 			vk::DescriptorImageInfo materialImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = gBuffer.gbufferMaterialImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 			vk::DescriptorImageInfo positionImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = gBuffer.gbufferPositionImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
-			std::array<vk::WriteDescriptorSet, 7> descriptorWrites = {
+			std::array<vk::WriteDescriptorSet, 8> descriptorWrites = {
 				vk::WriteDescriptorSet{
 					.dstSet = lighting.lightingDescriptorSets[i],
 					.dstBinding = 0,
@@ -1756,8 +1760,8 @@ namespace JD
 					.dstBinding = 2,
 					.dstArrayElement = 0,
 					.descriptorCount = 1,
-					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
-					.pImageInfo = &shadowMapInfo
+					.descriptorType = vk::DescriptorType::eUniformBuffer,
+					.pBufferInfo = &lightPerspectiveBufferInfo
 				},
 				vk::WriteDescriptorSet{
 					.dstSet = lighting.lightingDescriptorSets[i],
@@ -1765,7 +1769,7 @@ namespace JD
 					.dstArrayElement = 0,
 					.descriptorCount = 1,
 					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
-					.pImageInfo = &colourImageInfo
+					.pImageInfo = &shadowMapInfo
 				},
 				vk::WriteDescriptorSet{
 					.dstSet = lighting.lightingDescriptorSets[i],
@@ -1773,7 +1777,7 @@ namespace JD
 					.dstArrayElement = 0,
 					.descriptorCount = 1,
 					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
-					.pImageInfo = &normalImageInfo
+					.pImageInfo = &colourImageInfo
 				},
 				vk::WriteDescriptorSet{
 					.dstSet = lighting.lightingDescriptorSets[i],
@@ -1781,11 +1785,19 @@ namespace JD
 					.dstArrayElement = 0,
 					.descriptorCount = 1,
 					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
-					.pImageInfo = &materialImageInfo
+					.pImageInfo = &normalImageInfo
 				},
 				vk::WriteDescriptorSet{
 					.dstSet = lighting.lightingDescriptorSets[i],
 					.dstBinding = 6,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
+					.pImageInfo = &materialImageInfo
+				},
+				vk::WriteDescriptorSet{
+					.dstSet = lighting.lightingDescriptorSets[i],
+					.dstBinding = 7,
 					.dstArrayElement = 0,
 					.descriptorCount = 1,
 					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
