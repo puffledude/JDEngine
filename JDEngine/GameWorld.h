@@ -29,6 +29,8 @@ namespace JD {
 			return renderObjects;
 		}
 		std::vector<RenderTransmition>* getRenderTransmitions();
+		std::vector<lightTransmition>* getLighTransmitions();
+
 
 		std::vector<RenderableComponent>* getallRenderableComponents() {
 			std::vector<RenderableComponent>* renderableComponents = new std::vector<RenderableComponent>();
@@ -52,10 +54,10 @@ namespace JD {
 					lightTransmition* sunTransmition = new lightTransmition();
 					const JPH::Body& body = lock.GetBody();
 					JPH::RVec3 position = body.GetPosition();
-					sunTransmition->position = glm::vec3(position.GetX(), position.GetY(), position.GetZ());
-					sunTransmition->direction = direction.direction;
-					sunTransmition->colour = colour.colour;
-					sunTransmition->luminosity = light.luminosity;
+					sunTransmition->position = glm::vec4(position.GetX(), position.GetY(), position.GetZ(), 1);
+					sunTransmition->direction = glm::vec4(direction.direction, 0.0f);
+					sunTransmition->colour = glm::vec4(colour.colour, 1.0f);
+					//sunTransmition->luminosity = light.luminosity;
 					return sunTransmition;
 				}
 

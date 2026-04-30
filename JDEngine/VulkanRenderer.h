@@ -156,7 +156,6 @@ namespace JD
 
 		void createOutputDescriptorSetLayout();
 		void createOutputDescriptorSets();
-		void createOutputPipelineLayout();
 		void createOutputPipeline();
 
 
@@ -174,9 +173,10 @@ namespace JD
 		void updateCameraBuffer(uint32_t frameIndex);
 		void updateSunData(uint32_t frameIndex);
 		void drawFrame();
-		void drawShadowPass(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
-		void drawSkyboxPass(uint32_t imageIndex);
-		void drawGBufferPass(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
+		void drawShadowPass(const std::vector<MeshInstanceBatch>& meshInstanceBatches);
+		void drawSkyboxPass();
+		void drawGBufferPass(const std::vector<MeshInstanceBatch>& meshInstanceBatches);
+		void drawLightPass(std::vector<lightTransmition>* lightTransmitions);
 		void drawFinalOutputPass(uint32_t imageIndex);
 
 		//void recordCommandBuffer(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
@@ -185,6 +185,9 @@ namespace JD
 			std::vector<MeshInstanceBatch>& outBatches,
 			void* ssboMapped);
 		
+		void updateLightBuffer(uint32_t frameIndex, std::vector<lightTransmition>* lightTransmitions);
+
+
 		void cleanupVulkan();
 		void cleanupSwapChain();
 

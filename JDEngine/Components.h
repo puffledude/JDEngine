@@ -145,11 +145,15 @@ namespace JD {
 		glm::mat4 modelMatrix;
 	};
 
-	struct lightTransmition {
-		glm::vec3 position;
-		glm::vec3 direction;
-		glm::vec3 colour;
-		float luminosity;
+
+	/// <summary>
+	/// Light transmition vector
+	/// </summary>
+	struct lightTransmition {  //All vec4s for packing
+		glm::vec4 position;
+		glm::vec4 direction;
+		glm::vec4	 colour;
+		//glm::vec4 luminosity;
 	};
 
 	struct lightComponent {

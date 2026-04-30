@@ -102,6 +102,14 @@ namespace JD
 			shadows.shadowDepthImageView = nullptr;
 		}
 
+		if (lighting.lightingOutputImage) {
+			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(lighting.lightingOutputImage), lighting.lightingOutputAllocation);
+			vulkanCore.device.destroyImageView(lighting.lightingOutputImageView);
+			lighting.lightingOutputImage = nullptr;
+			lighting.lightingOutputAllocation = nullptr;
+			lighting.lightingOutputImageView = nullptr;
+		}
+
 		/*if (lighting.lightingDiffuseImage) {
 			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(lighting.lightingDiffuseImage), lighting.lightingDiffuseAllocation);
 			vulkanCore.device.destroyImageView(lighting.lightingDiffuseImageView);
@@ -646,7 +654,7 @@ namespace JD
 
 	void VulkanRenderer::createLightingDescriptorSetLayout() {
 		std::array bindings = {
-			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  // Light storage buffer
+			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Light storage buffer
 			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  // view projection buffer
 			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Shadow map
 			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Gbuffer Colour texture
@@ -865,7 +873,6 @@ namespace JD
 		.renderPass = nullptr},
 		{.colorAttachmentCount = static_cast<uint32_t>(colorAttachmentFormats.size()), .pColorAttachmentFormats = colorAttachmentFormats.data(), .depthAttachmentFormat = depthImageFormat} };
 		
-		// --- Fix missing pipeline assignment ---
 		auto pipelineResult = vulkanCore.device.createGraphicsPipeline(nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
 		if (pipelineResult.result != vk::Result::eSuccess) {
 			throw std::runtime_error("Failed to create gbuffer pipeline!");
@@ -970,6 +977,90 @@ namespace JD
 		shadows.shadowDepthImageView = createImageView(shadows.shadowDepthImage, depthImageFormat, vk::ImageAspectFlagBits::eDepth, 1);
 
 	}
+
+
+	void VulkanRenderer::createLightingPipeline() {
+		vk::ShaderModule shaderModule = createShaderModule(readFile(SHADERDIR"/lighting.slang.spv"));
+		vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule,  .pName = "vertMain" };
+		vk::PipelineShaderStageCreateInfo fragShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eFragment, .module = shaderModule, .pName = "fragMain" };
+		vk::PipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+
+		auto bindingDescription = Vertex::getBindingDescription();
+		auto attributeDescriptions = Vertex::getAttributeDescriptions();
+		vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
+			.vertexBindingDescriptionCount = 1,
+			.pVertexBindingDescriptions = &bindingDescription,
+			.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()), //Apparently optimised out the other two unused variables
+			.pVertexAttributeDescriptions = attributeDescriptions.data()
+		};
+		vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
+		.topology = vk::PrimitiveTopology::eTriangleList,
+		};
+
+		vk::Viewport viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width),
+		static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f };
+
+		std::vector<vk::DynamicState> dynamicStates = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
+
+		vk::PipelineDynamicStateCreateInfo dynamicState{ .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()), .pDynamicStates = dynamicStates.data() };
+
+		vk::PipelineViewportStateCreateInfo viewportState{ .viewportCount = 1, .scissorCount = 1 };
+		vk::PipelineRasterizationStateCreateInfo rasterizer{
+		.depthClampEnable = VK_FALSE,
+		.rasterizerDiscardEnable = VK_FALSE,
+		.polygonMode = vk::PolygonMode::eFill,
+		.cullMode = vk::CullModeFlagBits::eNone,
+		.frontFace = vk::FrontFace::eCounterClockwise,
+		.depthBiasEnable = VK_FALSE,
+		.lineWidth = 1.0f,
+		};
+
+		vk::PipelineMultisampleStateCreateInfo multisampling{ .rasterizationSamples = vk::SampleCountFlagBits::e1, .sampleShadingEnable = VK_FALSE };
+		vk::PipelineColorBlendAttachmentState colorBlendAttachment{
+		.blendEnable = VK_FALSE,
+		.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
+		};
+		vk::PipelineColorBlendStateCreateInfo colorBlending{
+			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = 1, .pAttachments = &colorBlendAttachment
+		};
+
+		vk::PushConstantRange pushConstantRange{
+		.stageFlags = vk::ShaderStageFlagBits::eFragment,
+		.offset = 0,
+		.size = sizeof(uint32_t)
+		};
+
+		//Push constant number of lights
+		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1,
+		.pSetLayouts = &lighting.lightingDescriptorSetLayout,
+		.pushConstantRangeCount = 1,.pPushConstantRanges = &pushConstantRange};
+
+		lighting.lightingPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
+		vk::Format colorAttachmentFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
+
+		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
+		{.stageCount = 2,
+		 .pStages = shaderStages,
+		 .pVertexInputState = &vertexInputInfo,
+		 .pInputAssemblyState = &inputAssembly,
+		 .pViewportState = &viewportState,
+		 .pRasterizationState = &rasterizer,
+		 .pMultisampleState = &multisampling,
+		 .pColorBlendState = &colorBlending,
+		 .pDynamicState = &dynamicState,
+		 .layout = lighting.lightingPipelineLayout,
+		 .renderPass = nullptr},
+		{.colorAttachmentCount = 1, .pColorAttachmentFormats = &colorAttachmentFormat} };
+
+		auto pipelineResult = vulkanCore.device.createGraphicsPipeline(nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
+		if (pipelineResult.result != vk::Result::eSuccess) {
+			throw std::runtime_error("Failed to create final output pipeline!");
+		}
+		lighting.lightingPipeline = pipelineResult.value;
+		vulkanCore.device.destroyShaderModule(shaderModule);
+
+	}
+
 	
 	void VulkanRenderer::createCubeMapTextureImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation) {
 		vk::ImageCreateInfo imageInfo{ .imageType = vk::ImageType::e2D, .format = format,
@@ -1630,6 +1721,10 @@ namespace JD
 			createBuffer(sizeof(lightTransmition) * MAX_LIGHTS, vk::BufferUsageFlagBits::eStorageBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer, allocation);
 			lighting.lightingStorageBufferAllocations.push_back(allocation);
 		}
+		vk::Format gbufferFormat = vk::Format::eB8G8R8A8Srgb;
+		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, gbufferFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, lighting.lightingOutputImage, lighting.lightingOutputAllocation);
+		lighting.lightingOutputImageView = createImageView(lighting.lightingOutputImage, gbufferFormat, vk::ImageAspectFlagBits::eColor, 1);
+
 
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 			vk::DescriptorBufferInfo lightBufferInfo{ .buffer = lighting.lightingStorageBuffers[i], .offset = 0, .range = sizeof(lightTransmition) * MAX_LIGHTS };
@@ -1738,78 +1833,7 @@ namespace JD
 
 	}
 
-	void VulkanRenderer::createLightingPipeline() {
-		vk::ShaderModule shaderModule = createShaderModule(readFile(SHADERDIR"/lighting.slang.spv"));
-		vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule,  .pName = "vertMain" };
-		vk::PipelineShaderStageCreateInfo fragShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eFragment, .module = shaderModule, .pName = "fragMain" };
-		vk::PipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
-
-		auto bindingDescription = Vertex::getBindingDescription();
-		auto attributeDescriptions = Vertex::getAttributeDescriptions();
-		vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
-			.vertexBindingDescriptionCount = 1,
-			.pVertexBindingDescriptions = &bindingDescription,
-			.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()), //Apparently optimised out the other two unused variables
-			.pVertexAttributeDescriptions = attributeDescriptions.data()
-		};
-		vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
-		.topology = vk::PrimitiveTopology::eTriangleList,
-		};
-
-		vk::Viewport viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width),
-		static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f };
-
-		std::vector<vk::DynamicState> dynamicStates = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
-
-		vk::PipelineDynamicStateCreateInfo dynamicState{ .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()), .pDynamicStates = dynamicStates.data() };
-
-		vk::PipelineViewportStateCreateInfo viewportState{ .viewportCount = 1, .scissorCount = 1 };
-		vk::PipelineRasterizationStateCreateInfo rasterizer{
-		.depthClampEnable = VK_FALSE,
-		.rasterizerDiscardEnable = VK_FALSE,
-		.polygonMode = vk::PolygonMode::eFill,
-		.cullMode = vk::CullModeFlagBits::eNone,
-		.frontFace = vk::FrontFace::eCounterClockwise,
-		.depthBiasEnable = VK_FALSE,
-		.lineWidth = 1.0f,
-		};
-
-		vk::PipelineMultisampleStateCreateInfo multisampling{ .rasterizationSamples = vk::SampleCountFlagBits::e1, .sampleShadingEnable = VK_FALSE };
-		vk::PipelineColorBlendAttachmentState colorBlendAttachment{
-		.blendEnable = VK_FALSE,
-		.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
-		};
-		vk::PipelineColorBlendStateCreateInfo colorBlending{
-			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = 1, .pAttachments = &colorBlendAttachment
-		};
-
-		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1,
-		.pSetLayouts = &finalOutput.finalOutputDescriptorSetLayout };
-		lighting.lightingPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
-		vk::Format colorAttachmentFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
-
-		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
-		{.stageCount = 2,
-		 .pStages = shaderStages,
-		 .pVertexInputState = &vertexInputInfo,
-		 .pInputAssemblyState = &inputAssembly,
-		 .pViewportState = &viewportState,
-		 .pRasterizationState = &rasterizer,
-		 .pMultisampleState = &multisampling,
-		 .pColorBlendState = &colorBlending,
-		 .pDynamicState = &dynamicState,
-		 .layout = lighting.lightingPipelineLayout,
-		 .renderPass = nullptr},
-		{.colorAttachmentCount = 1, .pColorAttachmentFormats = &colorAttachmentFormat} };
-
-		auto pipelineResult = vulkanCore.device.createGraphicsPipeline(nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
-		if (pipelineResult.result != vk::Result::eSuccess) {
-			throw std::runtime_error("Failed to create final output pipeline!");
-		}
-		lighting.lightingPipeline = pipelineResult.value;
-		vulkanCore.device.destroyShaderModule(shaderModule);
-
-	}
+	
 
 
 	void VulkanRenderer::createOutputPipeline() {
@@ -1965,12 +1989,18 @@ namespace JD
 		void* mappedData;
 		vmaMapMemory(vulkanCore.allocator, storageBufferAllocations[currentFrame], &mappedData);
 		BuildInstanceBatches(*renderTransmissions, meshInstanceBatches, mappedData);
+
+
 		vmaUnmapMemory(vulkanCore.allocator, storageBufferAllocations[currentFrame]);
 		updateCameraBuffer(currentFrame);
 		updateSunData(currentFrame);
-		drawSkyboxPass(imageIndex);
-		drawShadowPass(imageIndex, meshInstanceBatches);
-		drawGBufferPass(imageIndex, meshInstanceBatches); // Fixed imageIndex being passed
+
+		std::vector<lightTransmition>* lightTransmissions = gameworld.getLighTransmitions();
+		updateLightBuffer(currentFrame, lightTransmissions);
+		drawSkyboxPass();
+		drawShadowPass(meshInstanceBatches);
+		drawGBufferPass(meshInstanceBatches);
+		drawLightPass(lightTransmissions);
 		drawFinalOutputPass(imageIndex);
 
 		vk::PipelineStageFlags waitDestinationStageMask = (vk::PipelineStageFlagBits::eColorAttachmentOutput);
@@ -2010,7 +2040,7 @@ namespace JD
 		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 	}
 
-	void VulkanRenderer::drawSkyboxPass(uint32_t imageIndex) {
+	void VulkanRenderer::drawSkyboxPass() {
 		vk::CommandBuffer commandBuffer = vulkanCore.commandBuffers[currentFrame];
 		vk::CommandBufferBeginInfo beginInfo{};
 		commandBuffer.begin(beginInfo);
@@ -2078,7 +2108,7 @@ namespace JD
 	}
 
 
-	void VulkanRenderer::drawShadowPass(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches) {
+	void VulkanRenderer::drawShadowPass(const std::vector<MeshInstanceBatch>& meshInstanceBatches) {
 		vk::CommandBuffer commandBuffer = vulkanCore.commandBuffers[currentFrame];
 		/*vk::CommandBufferBeginInfo beginInfo{};
 		commandBuffer.begin(beginInfo);*/
@@ -2177,7 +2207,7 @@ namespace JD
 			vk::ImageAspectFlagBits::eColor,
 			1);
 	}
-	void VulkanRenderer::drawGBufferPass(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches) {
+	void VulkanRenderer::drawGBufferPass(const std::vector<MeshInstanceBatch>& meshInstanceBatches) {
 		// Use currentFrame, not frameIndex
 		vk::CommandBuffer commandBuffer = vulkanCore.commandBuffers[currentFrame];
 		//commandBuffer->reset(vk::CommandBufferResetFlagBits::eReleaseResources);
@@ -2369,6 +2399,79 @@ namespace JD
 
 		//commandBuffer->end();
 	}
+
+	void VulkanRenderer::drawLightPass(std::vector<lightTransmition>* lightTransmitions) {
+		vk::CommandBuffer commandBuffer = vulkanCore.commandBuffers[currentFrame];
+		transitionImageLayout(commandBuffer,
+			lighting.lightingOutputImage,
+			vk::ImageLayout::eUndefined,
+			vk::ImageLayout::eColorAttachmentOptimal,
+			{},
+			vk::AccessFlagBits2::eColorAttachmentWrite,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::ImageAspectFlagBits::eColor,
+			1
+		);
+		int width = vulkanCore.vkbInstances.swapChain.extent.width;
+		int height = vulkanCore.vkbInstances.swapChain.extent.height;
+		vk::Extent2D extent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
+		
+
+		vk::RenderingAttachmentInfo colorAttachment{
+		.imageView = lighting.lightingOutputImageView,
+		.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+		.loadOp = vk::AttachmentLoadOp::eClear,
+		.storeOp = vk::AttachmentStoreOp::eStore,
+		.clearValue = { std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f} }
+		};
+
+		vk::RenderPassBeginInfo renderPassInfo{
+				.renderPass = nullptr,
+				.framebuffer = nullptr,
+				.renderArea = vk::Rect2D({0, 0}, extent),
+				.clearValueCount = 0,
+				.pClearValues = nullptr
+		};
+
+		vk::RenderingInfo renderingInfo{
+			.renderArea = vk::Rect2D({ 0, 0 }, extent),
+			.layerCount = 1,
+			.viewMask = 0,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &colorAttachment,
+			.pDepthAttachment = nullptr,
+			.pStencilAttachment = nullptr
+		};
+		commandBuffer.beginRendering(renderingInfo);
+		commandBuffer.setViewport(0, vk::Viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width), static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f });
+		commandBuffer.setScissor(0, vk::Rect2D({ 0, 0 }, extent));
+		commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, lighting.lightingPipeline);
+		PushConstants pc{ .instanceBaseOffset = static_cast<uint32_t>(lightTransmitions->size()) }; // Reusing instanceBaseOffset to pass light count since we don't have actual instances to draw here
+
+		commandBuffer.pushConstants(lighting.lightingPipelineLayout, vk::ShaderStageFlagBits::eFragment, 0, sizeof(PushConstants), &pc);
+		commandBuffer.bindVertexBuffers(0, quad.vertexBuffer, { 0 });
+		commandBuffer.bindIndexBuffer(quad.indexBuffer, 0, vk::IndexType::eUint32);
+		commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, lighting.lightingPipelineLayout, 0, lighting.lightingDescriptorSets[currentFrame], {});
+		commandBuffer.drawIndexed(static_cast<uint32_t>(quad.indices.size()), 1, 0, 0, 0);
+		commandBuffer.endRendering();
+
+		transitionImageLayout(commandBuffer,
+			lighting.lightingOutputImage,
+			vk::ImageLayout::eColorAttachmentOptimal,
+			vk::ImageLayout::eShaderReadOnlyOptimal,
+			vk::AccessFlagBits2::eColorAttachmentWrite,              // srcAccessMask
+			vk::AccessFlagBits2::eShaderRead,                        // dstAccessMask
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,      // srcStage
+			vk::PipelineStageFlagBits2::eFragmentShader,             // dstStage
+			vk::ImageAspectFlagBits::eColor,
+			1);
+
+	}
+
+
+
+
 	void VulkanRenderer::drawFinalOutputPass(uint32_t imageIndex) 
 	{
 		vk::CommandBuffer commandBuffer = vulkanCore.commandBuffers[currentFrame];
@@ -2469,6 +2572,19 @@ namespace JD
 			cursor += batch.instanceCount;
 			outBatches.push_back(std::move(batch));
 		}
+	}
+	void VulkanRenderer::updateLightBuffer(uint32_t frameIndex, std::vector<lightTransmition>* lightTransmitions) {
+	
+		//std::vector<lightTransmition>* lightTransmitions = gameworld.getLighTransmitions();
+		uint32_t cursor = 0;
+		void* mappedData;
+		vmaMapMemory(vulkanCore.allocator, lighting.lightingStorageBufferAllocations[frameIndex], &mappedData);
+		uint32_t lightCount = static_cast<uint32_t>(lightTransmitions->size());
+		for (const lightTransmition& light : *lightTransmitions) {
+			memcpy(static_cast<char*>(mappedData) + cursor, &light, sizeof(lightTransmition));
+			cursor += sizeof(lightTransmition);
+		}
+		vmaUnmapMemory(vulkanCore.allocator, lighting.lightingStorageBufferAllocations[frameIndex]);
 	}
 
 }
