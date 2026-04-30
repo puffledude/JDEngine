@@ -27,6 +27,8 @@ struct PushConstants {
 };
 
 
+
+
 [[vk::push_constant]]
 ConstantBuffer<PushConstants> lightNum;
 
@@ -41,9 +43,10 @@ struct VSOutput
 [shader("vertex")]
 VSOutput vertMain(VSInput input) {
     VSOutput output;
-    output.pos = mul(cameraData.projection, mul(cameraData.view, float4(input.inPos, 1.0)));
+    output.pos = float4(input.inPos, 1.0);
     output.color = input.inColor;
     output.texCoord = input.inTexCoord;
+
     return output;
 }
 
@@ -54,7 +57,7 @@ struct lightTransmition {
 };
 
 [[vk::binding(1, 0)]]
-ConstantBuffer<lightTransmition> lightTransmitions;
+StructuredBuffer<lightTransmition> lightTransmitions;
 
 [[vk::binding(2, 0)]]
 ConstantBuffer<CameraInfo> lightCameraData;
@@ -91,7 +94,7 @@ float shadowCalculation(float4 fragposLightSpace, float bias)
 float4 fragMain(VSOutput vertIn) : SV_Target
 {
     float4 colour = gColour.Sample(vertIn.texCoord);
-    float3 normal = normalize(gNormal.Sample(vertIn.texCoord).xyz);
+    float3 normal = normalize(gNormal.Sample(vertIn.texCoord).xyz * 2.0-1.0);
     float4 material = gMaterial.Sample(vertIn.texCoord);
     float4 fragPos = gPosition.Sample(vertIn.texCoord);
 
@@ -102,18 +105,32 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     float depth = shadowMap.Sample(vertIn.texCoord).r;
     // Discard or return black if hitting the background/sky (no geometry was rendered here)
     if (colour.a < 0.01) {
-        return float4(0.0, 0.0, 0.0, 1.0);
+        return float4(0.0, 0.0, 0.0, 0.0);
     }
     float3 viewDir = normalize(cameraData.position.xyz - fragPos.xyz);
-    float3 lightDir = normalize(lightTransmitions.position.xyz - fragPos.xyz);
-    float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
-    float3 halfDir = normalize(viewDir + lightDir);
-    float specular = pow(max(dot(normal, halfDir), 0.0), 16.0); // Simple Blinn-Phong specular term
-    float shadow = shadowCalculation(fragPos, bias);                  // Calculate shadow factor
+
     float4x4 lightSpaceMatrix = mul(lightCameraData.projection, lightCameraData.view);
+    float4 fragPosLightSpace = mul(lightSpaceMatrix, float4(fragPos.xyz, 1.0));
+    int numLights = lightNum.lightCount;
+    float3 totalLighting = albedo *0.1;
+    
+    for (uint i = 0; i < numLights; i++) {
+        lightTransmition light = lightTransmitions[i];
+        float3 lightDir = normalize(light.position.xyz - fragPos.xyz);
 
+        float diff = max(dot(normal, lightDir), 0.0);
+        float3 diffuse = diff * light.colour.rgb * albedo;
 
-    float3 lighting = albedo * 0.1; // Ambient term
-    return float4(lighting, 1.0);
+        float3 halfwayDir = normalize(lightDir + viewDir);
+        float spec = pow(max(dot(normal, halfwayDir), 0.0), 16.0);
+        float3 specular = spec * light.colour.rgb * (1.0 - roughness);
 
+        float shadow = 0.0;
+        if (i == 0) { // Shadow only cast for the first light.
+            float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
+            shadow = shadowCalculation(fragPosLightSpace, bias);
+        }
+        totalLighting += (1.0 - shadow) * (diffuse + specular);
+    }
+    return float4(totalLighting, 1.0);
 }

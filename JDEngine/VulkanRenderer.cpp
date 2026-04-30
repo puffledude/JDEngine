@@ -654,7 +654,7 @@ namespace JD
 
 	void VulkanRenderer::createLightingDescriptorSetLayout() {
 		std::array bindings = {
-			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  // view projection buffer
+			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex|vk::ShaderStageFlagBits::eFragment, nullptr),  // view projection buffer
 
 			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Light storage buffer
 			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // sun view projection buffer
@@ -663,7 +663,7 @@ namespace JD
 			vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Gbuffer Colour texture
 			vk::DescriptorSetLayoutBinding(5, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // gbuffer normal texture
 			vk::DescriptorSetLayoutBinding(6, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // gbuffer roughness/metallic texture
-			vk::DescriptorSetLayoutBinding(6, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Geometry position texure.
+			vk::DescriptorSetLayoutBinding(7, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Geometry position texure.
 		};
 		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
 		lighting.lightingDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
@@ -976,7 +976,7 @@ namespace JD
 
 		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, swapchainFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, shadows.shadowImage, shadows.shadowAllocation);
 		shadows.shadowImageView = createImageView(shadows.shadowImage, swapchainFormat, vk::ImageAspectFlagBits::eColor, 1);
-		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, depthImageFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal, shadows.shadowDepthImage, shadows.shadowDepthAllocation);
+		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, depthImageFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment| vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, shadows.shadowDepthImage, shadows.shadowDepthAllocation);
 		shadows.shadowDepthImageView = createImageView(shadows.shadowDepthImage, depthImageFormat, vk::ImageAspectFlagBits::eDepth, 1);
 
 	}
@@ -1245,12 +1245,12 @@ namespace JD
 		}
 		for (const auto& material : model.materials) {
 			Material mat;
-			if (material.pbrMetallicRoughness.baseColorFactor.size() == 4) {
+		/*	if (material.pbrMetallicRoughness.baseColorFactor.size() == 4) {
 				mat.baseColorFactor.r = material.pbrMetallicRoughness.baseColorFactor[0];
 				mat.baseColorFactor.g = material.pbrMetallicRoughness.baseColorFactor[1];
 				mat.baseColorFactor.b = material.pbrMetallicRoughness.baseColorFactor[2];
 				mat.baseColorFactor.a = material.pbrMetallicRoughness.baseColorFactor[3];
-			}
+			}*/
 
 			/*mat.metallicFactor = material.pbrMetallicRoughness.metallicFactor;
 			mat.roughnessFactor = material.pbrMetallicRoughness.roughnessFactor;*/
@@ -1681,7 +1681,7 @@ namespace JD
 		finalOutput.finalOutputDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
 		{
-			vk::DescriptorImageInfo deferredImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = gBuffer.gbufferColourImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo deferredImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = lighting.lightingOutputImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 			vk::DescriptorImageInfo skyboxImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = skybox.skyboxRenderOutputView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 			std::array<vk::WriteDescriptorSet, 2> descriptorWrites = {
 				vk::WriteDescriptorSet{
@@ -1744,17 +1744,18 @@ namespace JD
 					.dstBinding = 0,
 					.dstArrayElement = 0,
 					.descriptorCount = 1,
-					.descriptorType = vk::DescriptorType::eStorageBuffer,
-					.pBufferInfo = &lightBufferInfo
+					.descriptorType = vk::DescriptorType::eUniformBuffer,
+					.pBufferInfo = &cameraBufferInfo
 				},
-				vk::WriteDescriptorSet{
+					vk::WriteDescriptorSet{
 					.dstSet = lighting.lightingDescriptorSets[i],
 					.dstBinding = 1,
 					.dstArrayElement = 0,
 					.descriptorCount = 1,
-					.descriptorType = vk::DescriptorType::eUniformBuffer,
-					.pBufferInfo = &cameraBufferInfo
+					.descriptorType = vk::DescriptorType::eStorageBuffer,
+					.pBufferInfo = &lightBufferInfo
 				},
+
 				vk::WriteDescriptorSet{
 					.dstSet = lighting.lightingDescriptorSets[i],
 					.dstBinding = 2,
@@ -1945,6 +1946,10 @@ namespace JD
 
 	void VulkanRenderer::Update(float dt) {
 		drawFrame();
+		if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS) {
+			glm::vec3 pos = gameworld.getCameraPosition();
+			std::cout << "Camera Position: (" << pos.x << ", " << pos.y << ", " << pos.z << ")" << std::endl;
+		}
 	}
 
 	void VulkanRenderer::updateCameraBuffer(uint32_t frameIndex) {
@@ -2218,6 +2223,18 @@ namespace JD
 			vk::PipelineStageFlagBits2::eFragmentShader,             // dstStage
 			vk::ImageAspectFlagBits::eColor,
 			1);
+
+		transitionImageLayout(commandBuffer,
+			shadows.shadowDepthImage,
+			vk::ImageLayout::eDepthStencilAttachmentOptimal,
+			vk::ImageLayout::eDepthStencilReadOnlyOptimal,
+			vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
+			vk::AccessFlagBits2::eShaderRead,
+			vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests,
+			vk::PipelineStageFlagBits2::eFragmentShader,
+			vk::ImageAspectFlagBits::eDepth,
+			1
+		);
 	}
 	void VulkanRenderer::drawGBufferPass(const std::vector<MeshInstanceBatch>& meshInstanceBatches) {
 		// Use currentFrame, not frameIndex
@@ -2387,6 +2404,18 @@ namespace JD
 			vk::PipelineStageFlagBits2::eFragmentShader,             // dstStage
 			vk::ImageAspectFlagBits::eColor,
 			1);
+		transitionImageLayout(commandBuffer,
+			depthImage,
+			vk::ImageLayout::eDepthStencilAttachmentOptimal,
+			vk::ImageLayout::eDepthStencilReadOnlyOptimal,
+			vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
+			vk::AccessFlagBits2::eShaderRead,
+			vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests,
+			vk::PipelineStageFlagBits2::eFragmentShader,
+			vk::ImageAspectFlagBits::eDepth,
+			1
+		);
+
 		transitionImageLayout(commandBuffer,
 			gBuffer.gbufferMaterialImage,
 			vk::ImageLayout::eColorAttachmentOptimal,

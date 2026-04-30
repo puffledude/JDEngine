@@ -35,9 +35,9 @@ void GameScene::loadEnvironment() {
 }
 
 void GameScene::addLights() {
-
-    glm::vec3 viewDir = glm::normalize(glm::vec3(-8.0f, -10.0f, -5.0f) - glm::vec3(0.0f, 0.0f, 0.0f));
-    sun = addLight(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f), viewDir, 5.0f);
+	glm::vec3 lightPos = glm::vec3(8.86918f, -2.857519f, 4.66553f);
+    glm::vec3 viewDir = glm::normalize(glm::vec3(-2.16188, -5.90516, 4.87608) - lightPos);
+    sun = addLight(lightPos, glm::vec3(1.0f), viewDir, 5.0f);
     gameWorld->GetRegistry()->emplace<JD::sunComponent>(*sun);
 }
 

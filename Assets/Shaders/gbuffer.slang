@@ -33,7 +33,7 @@ struct VSInput {
 struct VSOutput
 {
     float4 pos : SV_Position;
-    float3 viewPos;
+    float3 worldPos;
     float3 color;
     float2 texCoord;
 };
@@ -59,7 +59,9 @@ VSOutput vertMain(VSInput input) {
     // Pass through vertex colors and UVs
     float4 pos = mul(projection, mul(cameraData.view, mul(modelMatrix, float4(input.inPos, 1.0))));
     output.pos = pos;
-    output.viewPos = pos.xyz;
+    float4 worldPos = mul(modelMatrix, float4(input.inPos, 1.0));
+    output.worldPos = worldPos.xyz; // Store World Pos!
+
     output.color = input.inColor;
     output.texCoord = input.inTexCoord;
 
@@ -90,7 +92,7 @@ struct FragOutput {
 
 [Shader("fragment")]
 FragOutput fragMain(VSOutput vertIn)
-{    float4 col = colourTexure.Sample(vertIn.texCoord);
+{   float4 col = colourTexure.Sample(vertIn.texCoord);
     float4 norm = normalTexture.Sample(vertIn.texCoord);
     float4 mat = float4(materialData.roughness, materialData.metallic, 0.0, 1.0);
     // Optionally multiply by vertIn.color if your GLTF models have vertex colors!
@@ -98,7 +100,7 @@ FragOutput fragMain(VSOutput vertIn)
     output.colour = col;
     output.normal = norm;
     output.material = mat;
-    output.pos = float4(vertIn.viewPos, 1.0);
+    output.pos = float4(vertIn.worldPos, 1.0);
 
     return output;
 }
