@@ -11,7 +11,8 @@ struct CameraInfo {
 
 struct PushConstants {
     uint instanceBaseOffset;
-    bool useTaa;
+    uint useTaa;
+    uint jitterIndex;
 };
 
 [[vk::binding(0, 0)]]
@@ -39,6 +40,24 @@ struct VSOutput
     float2 texCoord;
 };
 
+// Halton implementation based off of https://alextardif.com/TAA.html
+float Halton(uint index, uint base) {
+    float result = 0.0;
+    float i = index;
+    float f = 1.0;
+    while (i > 0) {
+        f = 1.0 / base;
+        result += f * (i % base);
+        i /= base;
+    }
+
+
+    return result;
+
+}
+
+
+
 [Shader("vertex")]
 VSOutput vertMain(VSInput input) {
     VSOutput output;
@@ -50,6 +69,12 @@ VSOutput vertMain(VSInput input) {
     float4x4 modelMatrix = objectBuffer[objectIndex].model;
 
     float4x4 projection = cameraData.projection;
+    if (pc.useTaa > 0) {
+        float haltonx = Halton(pc.jitterIndex,2);
+        float haltony = Halton(pc.jitterIndex,3);
+        
+    }
+
 
     projection[1][1] *= -1; // Flip Y for Vulkan's coordinate system
 
@@ -62,9 +87,7 @@ VSOutput vertMain(VSInput input) {
 
     output.color = input.inColor;
     output.texCoord = input.inTexCoord;
-    if (pc.useTaa>0) {
-        output.texCoord = float2(0, 1);
-    }
+    
 
     return output;
 }
