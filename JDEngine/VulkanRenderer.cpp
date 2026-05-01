@@ -8,6 +8,7 @@
 #include "stb_image.h"
 
 #include "RequiredFeatures.h"
+#include "PushConstants.h"
 
 namespace JD
 {
@@ -840,7 +841,7 @@ namespace JD
 		vk::PushConstantRange pushConstantRange{
 			.stageFlags = vk::ShaderStageFlagBits::eVertex,
 			.offset = 0,
-			.size = sizeof(uint32_t)
+			.size = sizeof(GbufferPushConstants)
 		};
 
 		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1,
@@ -1980,9 +1981,6 @@ namespace JD
 	}
 
 
-	struct PushConstants {
-		uint32_t instanceBaseOffset;
-	};
 
 	
 
@@ -2213,8 +2211,8 @@ namespace JD
 			if (batch.instanceCount == 0) continue;
 
 			// Push the instanceBaseOffset using push constants
-			PushConstants pc{ .instanceBaseOffset = batch.ssboBaseOffset };
-			commandBuffer.pushConstants(shadows.shadowPipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &pc);
+			ShadowPushConstants pc{ .instanceBaseOffset = batch.ssboBaseOffset };
+			commandBuffer.pushConstants(shadows.shadowPipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(ShadowPushConstants), &pc);
 
 			for (MeshComponent* piece : batch.pieces) {
 				commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, shadows.shadowPipelineLayout, 0, shadows.shadowDescriptorSets[currentFrame], {});
@@ -2249,6 +2247,8 @@ namespace JD
 			1
 		);
 	}
+
+
 	void VulkanRenderer::drawGBufferPass(const std::vector<MeshInstanceBatch>& meshInstanceBatches) {
 		// Use currentFrame, not frameIndex
 		vk::CommandBuffer commandBuffer = vulkanCore.commandBuffers[currentFrame];
