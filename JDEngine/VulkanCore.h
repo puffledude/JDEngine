@@ -126,16 +126,28 @@ namespace JD
 		vk::Image lightingOutputImage = nullptr;
 		vk::ImageView lightingOutputImageView = nullptr;
 		VmaAllocation lightingOutputAllocation = nullptr;
+	};
 
+	struct TaaStep {
+		vk::DescriptorSetLayout taaDescriptorSetLayout = nullptr;
+		std::vector<vk::DescriptorSet> taaDescriptorSets;
+		vk::Pipeline taaPipeline = nullptr;
+		vk::PipelineLayout taaPipelineLayout = nullptr;
 
-		//vk::Image lightingDiffuseImage = nullptr;
-		//VmaAllocation lightingDiffuseAllocation = nullptr;
+		vk::Image taaOutputImage = nullptr;
+		vk::ImageView taaOutputImageView = nullptr;
+		VmaAllocation taaOutputAllocation = nullptr;
 
-		//vk::Image lightingSpecularImage = nullptr;
-		//VmaAllocation lightingSpecularAllocation = nullptr;
+		vk::Image taaHistoryImage = nullptr;
+		vk::ImageView taaHistoryImageView = nullptr;
+		VmaAllocation taaHistoryAllocation = nullptr;
+
 
 
 	};
+
+
+
 
 	struct CombineStep {
 		vk::DescriptorSetLayout combineDescriptorSetLayout = nullptr;

@@ -246,6 +246,7 @@ namespace JD
 
 		FinalOutput finalOutput{};
 		std::vector<RenderTransmition>* currentRenderTransmition = nullptr;
+		uint32_t jitterIndex = 0;
 		MeshComponent quad;
 #ifdef NDEBUG
 		const bool enableValidationLayers = false;

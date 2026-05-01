@@ -10,17 +10,7 @@
 #include "vma/vk_mem_alloc.h"
 
 namespace JD {
-
-	struct TransformComponent {
-		glm::vec3 position;
-		glm::quat rotation;
-		glm::vec3 scale;
-		TransformComponent() : position(0.0f), rotation(1.0f, 0.0f, 0.0f, 0.0f), scale(1.0f) {}
-		TransformComponent* parent = nullptr;
-	};
-
 	
-
 	struct scaleComponent {
 		glm::vec3 scale;
 	};

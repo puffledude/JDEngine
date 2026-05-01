@@ -1966,6 +1966,7 @@ namespace JD
 		glm::vec4 cameraPos = glm::vec4(gameworld.getCameraPosition(), 1.0f);
 		glm::mat4 cameraProjection = getProjMatrix();
 		CameraInfo* cameraInfo = new CameraInfo{.position = cameraPos, .view = cameraView, .projection = cameraProjection };
+		CameraInfo info = *cameraInfo;
 		void* data;
 		vmaMapMemory(vulkanCore.allocator, cameraBufferAllocations[frameIndex], &data);
 		std::memcpy(data, cameraInfo, sizeof(CameraInfo));
@@ -2392,7 +2393,7 @@ namespace JD
 			if (batch.instanceCount == 0) continue;
 
 			// Push the instanceBaseOffset using push constants
-			GbufferPushConstants pc{ .instanceBaseOffset = batch.ssboBaseOffset, .useTaa = useTaa };
+			GbufferPushConstants pc{ .instanceBaseOffset = batch.ssboBaseOffset, .useTaa = useTaa, .jitterIndex = jitterIndex };
 			commandBuffer.pushConstants(gBuffer.gbufferPipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(GbufferPushConstants), &pc);
 
 			for (MeshComponent* piece : batch.pieces) {
@@ -2403,6 +2404,7 @@ namespace JD
 				commandBuffer.drawIndexed(static_cast<uint32_t>(piece->indices.size()), batch.instanceCount, 0, 0, 0);
 			}
 		}
+		jitterIndex = (jitterIndex + 1) % 8;
 
 		commandBuffer.endRendering();
 		transitionImageLayout(commandBuffer,
