@@ -2001,6 +2001,19 @@ namespace JD
 			vulkanCore.swapChain, UINT64_MAX, vulkanCore.perFrame[currentFrame].presentSemaphore, nullptr);
 		vulkanCore.device.resetFences(vulkanCore.perFrame[currentFrame].renderFence);
 
+		if (result == vk::Result::eErrorOutOfDateKHR)
+		{
+			std::cout << "Swap chain is out of date, recreating swap chain..." << std::endl;
+			recreateSwapChain();
+			return;
+		}
+		if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR)
+		{
+			assert(result == vk::Result::eTimeout || result == vk::Result::eNotReady);
+			throw std::runtime_error("failed to acquire swap chain image!");
+		}
+
+
 		std::vector<RenderTransmition>* renderTransmissions = gameworld.getRenderTransmitions();
 		std::vector<MeshInstanceBatch> meshInstanceBatches;
 		void* mappedData;
