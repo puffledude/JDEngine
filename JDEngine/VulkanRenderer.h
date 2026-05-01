@@ -210,6 +210,10 @@ namespace JD
 		
 		
 		bool framebufferResized = false;
+		uint32_t useTaa = true;
+		float cooldown = 0.0f;
+
+
 		VulkanCore vulkanCore;
 		GLFWwindow* window;
 		uint32_t latestMeshID = 0;

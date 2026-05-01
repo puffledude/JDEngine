@@ -10,6 +10,7 @@
 #include "RequiredFeatures.h"
 #include "PushConstants.h"
 
+
 namespace JD
 {
 	VulkanRenderer::VulkanRenderer(Gameworld& world) :Renderer(world) {
@@ -1947,10 +1948,17 @@ namespace JD
 
 	void VulkanRenderer::Update(float dt) {
 		drawFrame();
-		if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS) {
+		if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS && cooldown <= 0.0f) {
 			glm::vec3 pos = gameworld.getCameraPosition();
 			std::cout << "Camera Position: (" << pos.x << ", " << pos.y << ", " << pos.z << ")" << std::endl;
+			cooldown = 0.5f;
 		}
+		if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS && cooldown <= 0.0f) {
+			useTaa = useTaa == 0 ? 1 : 0;
+			cooldown = 0.5f;
+		}
+		cooldown -= dt;
+
 	}
 
 	void VulkanRenderer::updateCameraBuffer(uint32_t frameIndex) {
@@ -2384,8 +2392,8 @@ namespace JD
 			if (batch.instanceCount == 0) continue;
 
 			// Push the instanceBaseOffset using push constants
-			PushConstants pc{ .instanceBaseOffset = batch.ssboBaseOffset };
-			commandBuffer.pushConstants(gBuffer.gbufferPipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &pc);
+			GbufferPushConstants pc{ .instanceBaseOffset = batch.ssboBaseOffset, .useTaa = useTaa };
+			commandBuffer.pushConstants(gBuffer.gbufferPipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(GbufferPushConstants), &pc);
 
 			for (MeshComponent* piece : batch.pieces) {
 				commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, gBuffer.gbufferPipelineLayout, 0, piece->material.descriptorSets[currentFrame], {});
@@ -2454,6 +2462,8 @@ namespace JD
 		//commandBuffer->end();
 	}
 
+	
+
 	void VulkanRenderer::drawLightPass(std::vector<lightTransmition>* lightTransmitions) {
 		vk::CommandBuffer commandBuffer = vulkanCore.commandBuffers[currentFrame];
 		transitionImageLayout(commandBuffer,
@@ -2501,9 +2511,9 @@ namespace JD
 		commandBuffer.setViewport(0, vk::Viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width), static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f });
 		commandBuffer.setScissor(0, vk::Rect2D({ 0, 0 }, extent));
 		commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, lighting.lightingPipeline);
-		PushConstants pc{ .instanceBaseOffset = static_cast<uint32_t>(lightTransmitions->size()) }; // Reusing instanceBaseOffset to pass light count since we don't have actual instances to draw here
+		LightPushConstants pc{ .radius = static_cast<uint32_t>(lightTransmitions->size()) }; // Reusing instanceBaseOffset to pass light count since we don't have actual instances to draw here
 
-		commandBuffer.pushConstants(lighting.lightingPipelineLayout, vk::ShaderStageFlagBits::eFragment, 0, sizeof(PushConstants), &pc);
+		commandBuffer.pushConstants(lighting.lightingPipelineLayout, vk::ShaderStageFlagBits::eFragment, 0, sizeof(LightPushConstants), &pc);
 		commandBuffer.bindVertexBuffers(0, quad.vertexBuffer, { 0 });
 		commandBuffer.bindIndexBuffer(quad.indexBuffer, 0, vk::IndexType::eUint32);
 		commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, lighting.lightingPipelineLayout, 0, lighting.lightingDescriptorSets[currentFrame], {});

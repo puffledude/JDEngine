@@ -1,6 +1,7 @@
 	#include <vulkan/vulkan.hpp>
 #include <vma/vk_mem_alloc.h>
 #include <VkBootstrap.h>
+
 namespace JD
 {
 	const int MAX_FRAMES_IN_FLIGHT = 2;

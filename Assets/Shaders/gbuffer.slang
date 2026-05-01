@@ -11,6 +11,7 @@ struct CameraInfo {
 
 struct PushConstants {
     uint instanceBaseOffset;
+    bool useTaa;
 };
 
 [[vk::binding(0, 0)]]
@@ -61,6 +62,9 @@ VSOutput vertMain(VSInput input) {
 
     output.color = input.inColor;
     output.texCoord = input.inTexCoord;
+    if (pc.useTaa>0) {
+        output.texCoord = float2(0, 1);
+    }
 
     return output;
 }
