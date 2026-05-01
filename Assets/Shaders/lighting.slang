@@ -54,6 +54,7 @@ struct lightTransmition {
     float4 position;
     float4 direction;
     float4 colour;
+    float4 radius;
 };
 
 [[vk::binding(1, 0)]]
@@ -116,6 +117,14 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     
     for (uint i = 0; i < numLights; i++) {
         lightTransmition light = lightTransmitions[i];
+        light.radius = max(light.radius, 0.001); // Prevent division by zero
+        float distance = length(light.position.xyz - fragPos.xyz);
+        if (distance > light.radius.x) {
+            continue; // Skip lights that are too far away
+        }
+        float falloff = 1.0 - (distance / light.radius.x);
+
+
         float3 lightDir = normalize(light.position.xyz - fragPos.xyz);
 
         float diff = max(dot(normal, lightDir), 0.0);
@@ -130,7 +139,7 @@ float4 fragMain(VSOutput vertIn) : SV_Target
             float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
             shadow = shadowCalculation(fragPosLightSpace, bias);
         }
-        totalLighting += (1.0 - shadow) * (diffuse + specular);
+        totalLighting += (1.0 - shadow) * (diffuse + specular) * falloff;
     }
     return float4(totalLighting, 1.0);
 }

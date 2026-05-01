@@ -37,11 +37,12 @@ void GameScene::loadEnvironment() {
 void GameScene::addLights() {
 	glm::vec3 lightPos = glm::vec3(8.86918f, -2.857519f, 4.66553f);
     glm::vec3 viewDir = glm::normalize(glm::vec3(-2.16188, -5.90516, 4.87608) - lightPos);
-    sun = addLight(lightPos, glm::vec3(1.0f), viewDir, 5.0f);
+    sun = addLight(lightPos, glm::vec3(1.0f), viewDir, 50.0f);
     gameWorld->GetRegistry()->emplace<JD::sunComponent>(*sun);
+	//entt::entity* pointLight = addLight(glm::vec3(0.0f, -5.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f), 6.0f);
 }
 
-entt::entity* GameScene::addLight(glm::vec3 position, glm::vec3 color, glm::vec3 direction, float intensity) {
+entt::entity* GameScene::addLight(glm::vec3 position, glm::vec3 color, glm::vec3 direction, float range) {
     entt::entity* lightEntity = gameWorld->CreateEntity();
 	JPH::SphereShapeSettings ball = JPH::SphereShapeSettings(0.1f);
 	JPH::ShapeSettings::ShapeResult Result = ball.Create();
@@ -51,7 +52,7 @@ entt::entity* GameScene::addLight(glm::vec3 position, glm::vec3 color, glm::vec3
 	gameWorld->GetRegistry()->emplace<JD::JoltComponent>(*lightEntity, body->GetID());
     gameWorld->GetRegistry()->emplace<JD::colourComponent>(*lightEntity, color);
     gameWorld->GetRegistry()->emplace<JD::directionComponent>(*lightEntity, direction);
-    gameWorld->GetRegistry()->emplace<JD::lightComponent>(*lightEntity, intensity);
+    gameWorld->GetRegistry()->emplace<JD::lightComponent>(*lightEntity, range);
     return lightEntity;
 
 }

@@ -17,7 +17,7 @@ private:
 
 	void loadEnvironment();
 	void addLights();
-	entt::entity* addLight(glm::vec3 position, glm::vec3 color, glm::vec3 direction, float intensity);
+	entt::entity* addLight(glm::vec3 position, glm::vec3 color, glm::vec3 direction, float range);
 
     JD::Gameworld* gameWorld;
     JD::Renderer* renderer;

@@ -153,11 +153,12 @@ namespace JD {
 		glm::vec4 position;
 		glm::vec4 direction;
 		glm::vec4	 colour;
+		glm::vec4 radius;  //vec4 for packing.
 		//glm::vec4 luminosity;
 	};
 
 	struct lightComponent {
-		float luminosity = 1.0f;
+		float range = 1.0f;
 	};
 	struct colourComponent {
 		glm::vec3 colour = glm::vec3(1.0f);

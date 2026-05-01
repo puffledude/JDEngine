@@ -116,6 +116,13 @@ namespace JD
 			else {
 				transmition.direction = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f); // Default direction if no direction component found
 			}
+			if (light.range) {
+				transmition.radius = glm::vec4(light.range, 0.0f, 0.0f, 0.0f);
+			}
+			else {
+				transmition.radius = glm::vec4(1.0f); // Default radius if no range specified
+
+			}
 			lightTransmitions->push_back(transmition);
 		}
 		return lightTransmitions;
