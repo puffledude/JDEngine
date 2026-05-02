@@ -1,6 +1,6 @@
 #include <iostream>
 #include <chrono>
-#include "VulkanRenderer.h"
+#include "./VulkanRenderer/VulkanRenderer.h"
 #include "GameScene.h"
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>

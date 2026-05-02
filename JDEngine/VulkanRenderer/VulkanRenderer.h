@@ -1,9 +1,9 @@
 #pragma once
 #include <stdexcept>
 #include <cstdlib>
-#include "Renderer.h"
-#include "GameWorld.h"
-#include "VulkanCore.h"
+#include "./Renderer.h"
+#include "./GameWorld.h"
+#include "./VulkanCore.h"
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include "VkBootstrap.h"

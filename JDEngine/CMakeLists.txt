@@ -7,8 +7,8 @@ project ("JDEngine")
 # Add source to this project's executable.
 
 
-file (GLOB headers *.h)
-file (GLOB sourceFiles *.cpp)
+file (GLOB_RECURSE headers *.h)
+file (GLOB_RECURSE sourceFiles *.cpp)
 set(ALL_FILES ${headers} ${sourceFiles})
 add_library(${PROJECT_NAME} STATIC ${ALL_FILES})
 
