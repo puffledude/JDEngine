@@ -9,7 +9,7 @@
 
 #include "RequiredFeatures.h"
 #include "PushConstants.h"
-
+#include "Pipelines.h"
 
 namespace JD
 {
@@ -283,7 +283,8 @@ namespace JD
 			createDescriptorPool();
 			createDepthResources();
 			createTextureSampler();
-			createGraphicsPipelines();
+			vk::Format swapChainFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
+			createGraphicsPipelines(swapChainFormat, depthImageFormat, (float)vulkanCore.vkbInstances.swapChain.extent.width, (float)vulkanCore.vkbInstances.swapChain.extent.height);
 			createCameraBuffers();
 			createSunBuffers();
 			createCommandPool();
@@ -293,7 +294,7 @@ namespace JD
 			//createDescriptorSets();
 			createCommandBuffers();
 			createSyncObjects();
-			createGBufferImages();
+			createGBufferImages(swapChainFormat, depthImageFormat, (float)vulkanCore.vkbInstances.swapChain.extent.width, (float)vulkanCore.vkbInstances.swapChain.extent.height);
 			createLightingDescriptorSets();
 			createShadowDescriptorSets();
 			createOutputDescriptorSets();
@@ -711,358 +712,37 @@ namespace JD
 		depthImageView = createImageView(depthImage, depthImageFormat, vk::ImageAspectFlagBits::eDepth, 1);
 	}
 
-	void VulkanRenderer::createGraphicsPipelines() {
-		createSkyboxPipeline();
-		createGBufferPipeline();
-		createShadowPipeline();
-		createLightingPipeline();
-		createOutputPipeline();
+	void VulkanRenderer::createGraphicsPipelines(vk::Format swapChainFormat, vk::Format depthFormat, float width, float height) {
+		createSkyboxPipeline(swapChainFormat, width, height);
+		createGBufferPipeline(swapChainFormat, depthFormat, width, height);
+		createShadowPipeline(swapChainFormat, depthFormat, width, height);
+		createLightingPipeline(swapChainFormat, width, height);
+		createOutputPipeline(swapChainFormat, width, height);
 	}
-	void VulkanRenderer::createSkyboxPipeline() {
-		vk::ShaderModule shaderModule = createShaderModule(readFile(SHADERDIR"/skybox.slang.spv"));
-		vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule,  .pName = "vertMain" };
-		vk::PipelineShaderStageCreateInfo fragShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eFragment, .module = shaderModule, .pName = "fragMain" };
-		vk::PipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
-	
-		auto bindingDescription = Vertex::getBindingDescription();
-		auto attributeDescriptions = Vertex::getAttributeDescriptions();
-		vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
-			.vertexBindingDescriptionCount = 1,
-			.pVertexBindingDescriptions = &bindingDescription,
-			.vertexAttributeDescriptionCount = 1, //Apparently optimised out the other two unused variables
-			.pVertexAttributeDescriptions = attributeDescriptions.data()
-		};
-		vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
-		.topology = vk::PrimitiveTopology::eTriangleList,
-		};
-
-		vk::Viewport viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width),
-		static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f };
-
-		std::vector<vk::DynamicState> dynamicStates = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
-
-		vk::PipelineDynamicStateCreateInfo dynamicState{ .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()), .pDynamicStates = dynamicStates.data() };
-
-		vk::PipelineViewportStateCreateInfo viewportState{ .viewportCount = 1, .scissorCount = 1 };
-		vk::PipelineRasterizationStateCreateInfo rasterizer{
-		.depthClampEnable = VK_FALSE,
-		.rasterizerDiscardEnable = VK_FALSE,
-		.polygonMode = vk::PolygonMode::eFill,
-		.cullMode = vk::CullModeFlagBits::eNone,
-		.frontFace = vk::FrontFace::eCounterClockwise,
-		.depthBiasEnable = VK_FALSE,
-		.lineWidth = 1.0f,
-		};
-
-		vk::PipelineMultisampleStateCreateInfo multisampling{ .rasterizationSamples = vk::SampleCountFlagBits::e1, .sampleShadingEnable = VK_FALSE };
-		vk::PipelineColorBlendAttachmentState colorBlendAttachment{
-		.blendEnable = VK_FALSE,
-		.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
-		};
-		vk::PipelineColorBlendStateCreateInfo colorBlending{
-			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = 1, .pAttachments = &colorBlendAttachment 
-		};
-
-		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1,
-		.pSetLayouts = &skybox.skyboxDescriptorSetLayout };
-		skybox.skyboxPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
-		vk::Format colorAttachmentFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
-
-		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
-		{.stageCount = 2,
-		 .pStages = shaderStages,
-		 .pVertexInputState = &vertexInputInfo,
-		 .pInputAssemblyState = &inputAssembly,
-		 .pViewportState = &viewportState,
-		 .pRasterizationState = &rasterizer,
-		 .pMultisampleState = &multisampling,
-		 .pColorBlendState = &colorBlending,
-		 .pDynamicState = &dynamicState,
-		 .layout = skybox.skyboxPipelineLayout,
-		 .renderPass = nullptr},
-		{.colorAttachmentCount = 1, .pColorAttachmentFormats = &colorAttachmentFormat} };
-
-		auto pipelineResult = vulkanCore.device.createGraphicsPipeline(nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
-		if (pipelineResult.result != vk::Result::eSuccess) {
-			throw std::runtime_error("Failed to create skybox pipeline!");
-		}
-		skybox.skyboxPipeline = pipelineResult.value;
-		vulkanCore.device.destroyShaderModule(shaderModule);
+	void VulkanRenderer::createSkyboxPipeline(vk::Format swapChainFormat, float width, float height) {
+		createSkyboxPipelinefunc(skybox.skyboxPipeline, skybox.skyboxPipelineLayout, vulkanCore.device, skybox.skyboxDescriptorSetLayout, width, height, swapChainFormat);
 
 	}
 
 
-	void VulkanRenderer::createGBufferPipeline() {
-		vk::ShaderModule shaderModule = createShaderModule(readFile(SHADERDIR"/gbuffer.slang.spv"));
-		vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule,  .pName = "vertMain" };
-		vk::PipelineShaderStageCreateInfo fragShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eFragment, .module = shaderModule, .pName = "fragMain" };
-		vk::PipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+	void VulkanRenderer::createGBufferPipeline(vk::Format swapChainFormat, vk::Format depthFormat, float width, float height) {
+		createGBufferPipelinefunc(gBuffer.gBufferPipeline, gBuffer.gbufferPipelineLayout, vulkanCore.device, objectDescriptorSetLayout, width, height, swapChainFormat, depthFormat);
+	}
 
-		auto bindingDescription = Vertex::getBindingDescription();
-		auto attributeDescriptions = Vertex::getAttributeDescriptions();
-		vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
-			.vertexBindingDescriptionCount = 1,
-			.pVertexBindingDescriptions = &bindingDescription,
-			.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
-			.pVertexAttributeDescriptions = attributeDescriptions.data()
-		};
-
-		vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
-		.topology = vk::PrimitiveTopology::eTriangleList,
-		};
-		vk::Viewport viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width),
-			static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f };
-
-		std::vector<vk::DynamicState> dynamicStates = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
-
-		vk::PipelineDynamicStateCreateInfo dynamicState{ .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()), .pDynamicStates = dynamicStates.data() };
-
-		vk::PipelineViewportStateCreateInfo viewportState{ .viewportCount = 1, .scissorCount = 1 };
-		vk::PipelineRasterizationStateCreateInfo rasterizer{
-		.depthClampEnable = VK_FALSE,
-		.rasterizerDiscardEnable = VK_FALSE,
-		.polygonMode = vk::PolygonMode::eFill,
-		.cullMode = vk::CullModeFlagBits::eBack,
-		.frontFace = vk::FrontFace::eCounterClockwise,
-		.depthBiasEnable = VK_FALSE,
-		.lineWidth = 1.0f,
-		};
-
-		vk::PipelineMultisampleStateCreateInfo multisampling{ .rasterizationSamples = vk::SampleCountFlagBits::e1, .sampleShadingEnable = VK_FALSE };
-		vk::PipelineColorBlendAttachmentState colorBlendAttachment{
-		.blendEnable = VK_FALSE,
-		.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
-		};
-		std::array blendAttachments = { colorBlendAttachment, colorBlendAttachment,  colorBlendAttachment, colorBlendAttachment};
-
-		vk::PipelineColorBlendStateCreateInfo colorBlending{
-			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = static_cast<uint32_t>(blendAttachments.size()), .pAttachments = blendAttachments.data() };
-
-		// --- Push constant configuration added ---
-		vk::PushConstantRange pushConstantRange{
-			.stageFlags = vk::ShaderStageFlagBits::eVertex,
-			.offset = 0,
-			.size = sizeof(GbufferPushConstants)
-		};
-
-		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1,
-			.pSetLayouts = &objectDescriptorSetLayout,
-			.pushConstantRangeCount = 1,
-			.pPushConstantRanges = &pushConstantRange };
-		gBuffer.gbufferPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
-
-		vk::PipelineDepthStencilStateCreateInfo depthStencil{
-		.depthTestEnable = VK_TRUE,
-		.depthWriteEnable = VK_TRUE,
-		.depthCompareOp = vk::CompareOp::eLess,
-		.depthBoundsTestEnable = VK_FALSE,
-		.stencilTestEnable = VK_FALSE
-		};
-		const vk::Format gbufferColourFormat = vk::Format::eB8G8R8A8Srgb;
-		const vk::Format gbufferNormalFormat = vk::Format::eB8G8R8A8Unorm;
-		const vk::Format gbufferMaterialFormat = vk::Format::eB8G8R8A8Unorm;
-		const vk::Format positionFormat = vk::Format::eR16G16B16A16Sfloat;
-		std::array<vk::Format, 4> colorAttachmentFormats = { gbufferColourFormat, gbufferNormalFormat, gbufferMaterialFormat, positionFormat };
-		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
-		{.stageCount = 2,
-		.pStages = shaderStages,
-		.pVertexInputState = &vertexInputInfo,
-		.pInputAssemblyState = &inputAssembly,
-		.pViewportState = &viewportState,
-		.pRasterizationState = &rasterizer,
-		.pMultisampleState = &multisampling,
-		.pDepthStencilState = &depthStencil,
-		.pColorBlendState = &colorBlending,
-		.pDynamicState = &dynamicState,
-		.layout = gBuffer.gbufferPipelineLayout,
-		.renderPass = nullptr},
-		{.colorAttachmentCount = static_cast<uint32_t>(colorAttachmentFormats.size()), .pColorAttachmentFormats = colorAttachmentFormats.data(), .depthAttachmentFormat = depthImageFormat} };
+	void VulkanRenderer::createShadowPipeline(vk::Format swapChainFormat, vk::Format depthFormat, float width, float height) {
 		
-		auto pipelineResult = vulkanCore.device.createGraphicsPipeline(nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
-		if (pipelineResult.result != vk::Result::eSuccess) {
-			throw std::runtime_error("Failed to create gbuffer pipeline!");
-		}
-		gBuffer.gBufferPipeline = pipelineResult.value;
-		vulkanCore.device.destroyShaderModule(shaderModule);
-		
-	}
 
-	void VulkanRenderer::createShadowPipeline() {
-		vk::ShaderModule shaderModule = createShaderModule(readFile(SHADERDIR"/directionalShadow.slang.spv"));
-		vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule,  .pName = "vertMain" };
-		vk::PipelineShaderStageCreateInfo fragShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eFragment, .module = shaderModule, .pName = "fragMain" };
-		vk::PipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
-
-		auto bindingDescription = Vertex::getBindingDescription();
-		auto attributeDescriptions = Vertex::getAttributeDescriptions();
-		vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
-			.vertexBindingDescriptionCount = 1,
-			.pVertexBindingDescriptions = &bindingDescription,
-			.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
-			.pVertexAttributeDescriptions = attributeDescriptions.data()
-		};
-
-		vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
-		.topology = vk::PrimitiveTopology::eTriangleList,
-		};
-		vk::Viewport viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width),
-			static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f };
-
-		std::vector<vk::DynamicState> dynamicStates = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
-
-		vk::PipelineDynamicStateCreateInfo dynamicState{ .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()), .pDynamicStates = dynamicStates.data() };
-
-		vk::PipelineViewportStateCreateInfo viewportState{ .viewportCount = 1, .scissorCount = 1 };
-		vk::PipelineRasterizationStateCreateInfo rasterizer{
-		.depthClampEnable = VK_FALSE,
-		.rasterizerDiscardEnable = VK_FALSE,
-		.polygonMode = vk::PolygonMode::eFill,
-		.cullMode = vk::CullModeFlagBits::eBack,
-		.frontFace = vk::FrontFace::eCounterClockwise,
-		.depthBiasEnable = VK_FALSE,
-		.lineWidth = 1.0f,
-		};
-		vk::PipelineMultisampleStateCreateInfo multisampling{ .rasterizationSamples = vk::SampleCountFlagBits::e1, .sampleShadingEnable = VK_FALSE };
-		vk::PipelineColorBlendAttachmentState colorBlendAttachment{
-		.blendEnable = VK_FALSE,
-		.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
-		};
-		vk::PipelineColorBlendStateCreateInfo colorBlending{
-			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = 1, .pAttachments = &colorBlendAttachment
-		};
-		vk::PipelineDepthStencilStateCreateInfo depthStencil{
-		.depthTestEnable = VK_TRUE,
-		.depthWriteEnable = VK_TRUE,
-		.depthCompareOp = vk::CompareOp::eLess,
-		.depthBoundsTestEnable = VK_FALSE,
-		.stencilTestEnable = VK_FALSE
-		};
-
-		vk::PushConstantRange pushConstantRange{
-		.stageFlags = vk::ShaderStageFlagBits::eVertex,
-		.offset = 0,
-		.size = sizeof(uint32_t)
-		};
-
-
-		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1,
-			.pSetLayouts = &shadows.shadowDescriptorSetLayout,
-			.pushConstantRangeCount = 1,
-			.pPushConstantRanges = &pushConstantRange };
-		shadows.shadowPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
-		vk::Format colorAttachmentFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
-
-		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
-		{.stageCount = 2,
-		 .pStages = shaderStages,
-		 .pVertexInputState = &vertexInputInfo,
-		 .pInputAssemblyState = &inputAssembly,
-		 .pViewportState = &viewportState,
-		 .pRasterizationState = &rasterizer,
-		 .pMultisampleState = &multisampling,
-		 .pDepthStencilState = &depthStencil,
-		 .pColorBlendState = &colorBlending,
-		 .pDynamicState = &dynamicState,
-		 .layout = shadows.shadowPipelineLayout,
-		 .renderPass = nullptr},
-		{.colorAttachmentCount = 1, .pColorAttachmentFormats = &colorAttachmentFormat, .depthAttachmentFormat = depthImageFormat} };
-
-		auto pipelineResult = vulkanCore.device.createGraphicsPipeline(nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
-		if (pipelineResult.result != vk::Result::eSuccess) {
-			throw std::runtime_error("Failed to create skybox pipeline!");
-		}
-		shadows.shadowPipeline = pipelineResult.value;
-		vulkanCore.device.destroyShaderModule(shaderModule);
-
-		vk::Format swapchainFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
-
-		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, swapchainFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, shadows.shadowImage, shadows.shadowAllocation);
-		shadows.shadowImageView = createImageView(shadows.shadowImage, swapchainFormat, vk::ImageAspectFlagBits::eColor, 1);
-		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, depthImageFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment| vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, shadows.shadowDepthImage, shadows.shadowDepthAllocation);
-		shadows.shadowDepthImageView = createImageView(shadows.shadowDepthImage, depthImageFormat, vk::ImageAspectFlagBits::eDepth, 1);
+		createShadowPipelinefunc(shadows.shadowPipeline, shadows.shadowPipelineLayout, vulkanCore.device, shadows.shadowDescriptorSetLayout, width, height, swapChainFormat, depthFormat);
+		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, swapChainFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, shadows.shadowImage, shadows.shadowAllocation);
+		shadows.shadowImageView = createImageView(shadows.shadowImage, swapChainFormat, vk::ImageAspectFlagBits::eColor, 1);
+		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, depthFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment| vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, shadows.shadowDepthImage, shadows.shadowDepthAllocation);
+		shadows.shadowDepthImageView = createImageView(shadows.shadowDepthImage, depthFormat, vk::ImageAspectFlagBits::eDepth, 1);
 
 	}
 
 
-	void VulkanRenderer::createLightingPipeline() {
-		vk::ShaderModule shaderModule = createShaderModule(readFile(SHADERDIR"/lighting.slang.spv"));
-		vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule,  .pName = "vertMain" };
-		vk::PipelineShaderStageCreateInfo fragShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eFragment, .module = shaderModule, .pName = "fragMain" };
-		vk::PipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
-
-		auto bindingDescription = Vertex::getBindingDescription();
-		auto attributeDescriptions = Vertex::getAttributeDescriptions();
-		vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
-			.vertexBindingDescriptionCount = 1,
-			.pVertexBindingDescriptions = &bindingDescription,
-			.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()), //Apparently optimised out the other two unused variables
-			.pVertexAttributeDescriptions = attributeDescriptions.data()
-		};
-		vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
-		.topology = vk::PrimitiveTopology::eTriangleList,
-		};
-
-		vk::Viewport viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width),
-		static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f };
-
-		std::vector<vk::DynamicState> dynamicStates = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
-
-		vk::PipelineDynamicStateCreateInfo dynamicState{ .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()), .pDynamicStates = dynamicStates.data() };
-
-		vk::PipelineViewportStateCreateInfo viewportState{ .viewportCount = 1, .scissorCount = 1 };
-		vk::PipelineRasterizationStateCreateInfo rasterizer{
-		.depthClampEnable = VK_FALSE,
-		.rasterizerDiscardEnable = VK_FALSE,
-		.polygonMode = vk::PolygonMode::eFill,
-		.cullMode = vk::CullModeFlagBits::eNone,
-		.frontFace = vk::FrontFace::eCounterClockwise,
-		.depthBiasEnable = VK_FALSE,
-		.lineWidth = 1.0f,
-		};
-
-		vk::PipelineMultisampleStateCreateInfo multisampling{ .rasterizationSamples = vk::SampleCountFlagBits::e1, .sampleShadingEnable = VK_FALSE };
-		vk::PipelineColorBlendAttachmentState colorBlendAttachment{
-		.blendEnable = VK_FALSE,
-		.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
-		};
-		vk::PipelineColorBlendStateCreateInfo colorBlending{
-			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = 1, .pAttachments = &colorBlendAttachment
-		};
-
-		vk::PushConstantRange pushConstantRange{
-		.stageFlags = vk::ShaderStageFlagBits::eFragment,
-		.offset = 0,
-		.size = sizeof(uint32_t)
-		};
-
-		//Push constant number of lights
-		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1,
-		.pSetLayouts = &lighting.lightingDescriptorSetLayout,
-		.pushConstantRangeCount = 1,.pPushConstantRanges = &pushConstantRange};
-
-		lighting.lightingPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
-		vk::Format colorAttachmentFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
-
-		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
-		{.stageCount = 2,
-		 .pStages = shaderStages,
-		 .pVertexInputState = &vertexInputInfo,
-		 .pInputAssemblyState = &inputAssembly,
-		 .pViewportState = &viewportState,
-		 .pRasterizationState = &rasterizer,
-		 .pMultisampleState = &multisampling,
-		 .pColorBlendState = &colorBlending,
-		 .pDynamicState = &dynamicState,
-		 .layout = lighting.lightingPipelineLayout,
-		 .renderPass = nullptr},
-		{.colorAttachmentCount = 1, .pColorAttachmentFormats = &colorAttachmentFormat} };
-
-		auto pipelineResult = vulkanCore.device.createGraphicsPipeline(nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
-		if (pipelineResult.result != vk::Result::eSuccess) {
-			throw std::runtime_error("Failed to create final output pipeline!");
-		}
-		lighting.lightingPipeline = pipelineResult.value;
-		vulkanCore.device.destroyShaderModule(shaderModule);
+	void VulkanRenderer::createLightingPipeline(vk::Format swapChainFormat, float width, float height) {
+		createLightingPipelinefunc(lighting.lightingPipeline, lighting.lightingPipelineLayout, vulkanCore.device, lighting.lightingDescriptorSetLayout, width, height, swapChainFormat);
 
 	}
 
@@ -1655,18 +1335,18 @@ namespace JD
 
 	}
 
-	void VulkanRenderer::createGBufferImages() {
-		vk::Format gbufferFormat = vk::Format::eB8G8R8A8Srgb;
+	void VulkanRenderer::createGBufferImages(vk::Format swapChainFormat, vk::Format depthFormat, float width, float height) {
+		vk::Format gbufferFormat = swapChainFormat;
 		const vk::Format gbufferNormalFormat = vk::Format::eB8G8R8A8Unorm;
 		const vk::Format gbufferMaterialFormat = vk::Format::eB8G8R8A8Unorm;
 		const vk::Format gbufferPositionFormat = vk::Format::eR16G16B16A16Sfloat;
-		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, gbufferFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, gBuffer.gbufferColourImage, gBuffer.gbufferColourAllocation);
+		createImage(width, height, 1, gbufferFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, gBuffer.gbufferColourImage, gBuffer.gbufferColourAllocation);
 		gBuffer.gbufferColourImageView = createImageView(gBuffer.gbufferColourImage, gbufferFormat, vk::ImageAspectFlagBits::eColor, 1);
-		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, gbufferNormalFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, gBuffer.gbufferNormalImage, gBuffer.gbufferNormalAllocation);
+		createImage(width, height, 1, gbufferNormalFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, gBuffer.gbufferNormalImage, gBuffer.gbufferNormalAllocation);
 		gBuffer.gbufferNormalImageView = createImageView(gBuffer.gbufferNormalImage, gbufferNormalFormat, vk::ImageAspectFlagBits::eColor, 1);
-		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, gbufferMaterialFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, gBuffer.gbufferMaterialImage, gBuffer.gbufferMaterialAllocation);
+		createImage(width, height, 1, gbufferMaterialFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, gBuffer.gbufferMaterialImage, gBuffer.gbufferMaterialAllocation);
 		gBuffer.gbufferMaterialImageView = createImageView(gBuffer.gbufferMaterialImage, gbufferMaterialFormat, vk::ImageAspectFlagBits::eColor, 1);
-		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, gbufferPositionFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, gBuffer.gbufferPositionImage, gBuffer.gbufferPositionAllocation);
+		createImage(width, height, 1, gbufferPositionFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, gBuffer.gbufferPositionImage, gBuffer.gbufferPositionAllocation);
 		gBuffer.gbufferPositionImageView = createImageView(gBuffer.gbufferPositionImage, gbufferPositionFormat, vk::ImageAspectFlagBits::eColor, 1);
 
 	}
@@ -1851,76 +1531,8 @@ namespace JD
 	
 
 
-	void VulkanRenderer::createOutputPipeline() {
-		vk::ShaderModule shaderModule = createShaderModule(readFile(SHADERDIR"/finalOut.slang.spv"));
-		vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule,  .pName = "vertMain" };
-		vk::PipelineShaderStageCreateInfo fragShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eFragment, .module = shaderModule, .pName = "fragMain" };
-		vk::PipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
-
-		auto bindingDescription = Vertex::getBindingDescription();
-		auto attributeDescriptions = Vertex::getAttributeDescriptions();
-		vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
-			.vertexBindingDescriptionCount = 1,
-			.pVertexBindingDescriptions = &bindingDescription,
-			.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()), //Apparently optimised out the other two unused variables
-			.pVertexAttributeDescriptions = attributeDescriptions.data()
-		};
-		vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
-		.topology = vk::PrimitiveTopology::eTriangleList,
-		};
-
-		vk::Viewport viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width),
-		static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f };
-
-		std::vector<vk::DynamicState> dynamicStates = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
-
-		vk::PipelineDynamicStateCreateInfo dynamicState{ .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()), .pDynamicStates = dynamicStates.data() };
-
-		vk::PipelineViewportStateCreateInfo viewportState{ .viewportCount = 1, .scissorCount = 1 };
-		vk::PipelineRasterizationStateCreateInfo rasterizer{
-		.depthClampEnable = VK_FALSE,
-		.rasterizerDiscardEnable = VK_FALSE,
-		.polygonMode = vk::PolygonMode::eFill,
-		.cullMode = vk::CullModeFlagBits::eNone,
-		.frontFace = vk::FrontFace::eCounterClockwise,
-		.depthBiasEnable = VK_FALSE,
-		.lineWidth = 1.0f,
-		};
-
-		vk::PipelineMultisampleStateCreateInfo multisampling{ .rasterizationSamples = vk::SampleCountFlagBits::e1, .sampleShadingEnable = VK_FALSE };
-		vk::PipelineColorBlendAttachmentState colorBlendAttachment{
-		.blendEnable = VK_FALSE,
-		.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
-		};
-		vk::PipelineColorBlendStateCreateInfo colorBlending{
-			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = 1, .pAttachments = &colorBlendAttachment
-		};
-
-		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1,
-		.pSetLayouts = &finalOutput.finalOutputDescriptorSetLayout };
-		finalOutput.finalOutputPipelineLayout = vulkanCore.device.createPipelineLayout(pipelineLayoutInfo);
-		vk::Format colorAttachmentFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
-
-		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
-		{.stageCount = 2,
-		 .pStages = shaderStages,
-		 .pVertexInputState = &vertexInputInfo,
-		 .pInputAssemblyState = &inputAssembly,
-		 .pViewportState = &viewportState,
-		 .pRasterizationState = &rasterizer,
-		 .pMultisampleState = &multisampling,
-		 .pColorBlendState = &colorBlending,
-		 .pDynamicState = &dynamicState,
-		 .layout = finalOutput.finalOutputPipelineLayout,
-		 .renderPass = nullptr},
-		{.colorAttachmentCount = 1, .pColorAttachmentFormats = &colorAttachmentFormat} };
-
-		auto pipelineResult = vulkanCore.device.createGraphicsPipeline(nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
-		if (pipelineResult.result != vk::Result::eSuccess) {
-			throw std::runtime_error("Failed to create final output pipeline!");
-		}
-		finalOutput.finalOutputPipeline = pipelineResult.value;
-		vulkanCore.device.destroyShaderModule(shaderModule);
+	void VulkanRenderer::createOutputPipeline(vk::Format swapChainFormat, float width, float height) {
+		createFinalOutputPipelinefunc(finalOutput.finalOutputPipeline, finalOutput.finalOutputPipelineLayout, vulkanCore.device, finalOutput.finalOutputDescriptorSetLayout, width, height, swapChainFormat);
 	}
 
 	void VulkanRenderer::createCommandBuffers() {

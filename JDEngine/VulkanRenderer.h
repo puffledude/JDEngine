@@ -59,28 +59,8 @@ namespace JD
 		}
 
 
-		static std::vector<char> readFile(const std::string& filename) {
-			std::cout << "Reading shader file: " << filename << std::endl;
-			std::ifstream file(filename, std::ios::ate | std::ios::binary);
-			if (!file.is_open()) {
-				throw std::runtime_error("Failed to open file: " + filename);
-			}
+		
 
-			std::vector<char> buffer(file.tellg());
-			file.seekg(0, std::ios::beg);
-			file.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
-			file.close();
-			return buffer;
-		}
-
-
-		[[nodiscard]] vk::ShaderModule createShaderModule(const std::vector<char>& code) const
-		{
-			vk::ShaderModuleCreateInfo createInfo{ .codeSize = code.size() * sizeof(char), .pCode = reinterpret_cast<const uint32_t*>(code.data()) };
-			vk::ShaderModule shaderModule;
-			vulkanCore.device.createShaderModule(&createInfo, nullptr, &shaderModule);
-			return shaderModule;
-		}
 		glm::mat4& getProjMatrix() const {
 			static glm::mat4 proj = glm::perspective(glm::radians(45.0f), (float)vulkanCore.vkbInstances.swapChain.extent.width / (float)vulkanCore.vkbInstances.swapChain.extent.height, 0.1f, 100.0f);
 				//proj[1][1] *= -1; // Invert Y coordinate for Vulkan
@@ -132,31 +112,31 @@ namespace JD
 		void createSunBuffers();
 		
 		
-		void createGraphicsPipelines();
-		void createGBufferPipeline();
-		void createGBufferImages();
+		void createGraphicsPipelines(vk::Format swapChainFormat, vk::Format depthFormat, float width, float height);
+		void createGBufferPipeline(vk::Format swapChainFormat, vk::Format depthFormat, float width, float height);
+		void createGBufferImages(vk::Format swapChainFormat, vk::Format depthFormat, float width, float height);
 
 
 		void createCubeMapTextureImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation);
 		void loadCubemap(std::vector<std::string> faces, vk::Image& cubemapImage, VmaAllocation& cubemapAllocation, vk::ImageView& cubemapImageView);
 		void loadSkybox();
 		void createSkyboxDescriptorSetLayout();
-		void createSkyboxPipeline();
+		void createSkyboxPipeline(vk::Format swapChainFormat, float width, float height);
 
 
 
 		void createShadowDescriptorSetLayout();
 		void createShadowDescriptorSets();
-		void createShadowPipeline();
+		void createShadowPipeline(vk::Format swapChainFormat, vk::Format depthFormat, float width, float height);
 
 		void createLightingDescriptorSetLayout();
 		void createLightingDescriptorSets();
-		void createLightingPipeline();
+		void createLightingPipeline(vk::Format swapChainFormat, float width, float height);
 
 
 		void createOutputDescriptorSetLayout();
 		void createOutputDescriptorSets();
-		void createOutputPipeline();
+		void createOutputPipeline(vk::Format swapChainFormat, float width, float height);
 
 
 
