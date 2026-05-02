@@ -112,16 +112,6 @@ namespace JD
 			lighting.lightingOutputImageView = nullptr;
 		}
 
-		/*if (lighting.lightingDiffuseImage) {
-			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(lighting.lightingDiffuseImage), lighting.lightingDiffuseAllocation);
-			vulkanCore.device.destroyImageView(lighting.lightingDiffuseImageView);
-			lighting.lightingDiffuseImage = nullptr;
-			lighting.lightingDiffuseAllocation = nullptr;
-			lighting.lightingDiffuseImageView = nullptr;
-		}*/
-
-
-
 		// 1) Sync objects
 		for (auto& frame : vulkanCore.perFrame) {
 			if (frame.renderFence) { vulkanCore.device.destroyFence(frame.renderFence);          frame.renderFence = nullptr; }
@@ -290,7 +280,7 @@ namespace JD
 			createCommandPool();
 			createQuad();
 			loadSkybox();
-
+			//loadDefaultTexture();
 			//createDescriptorSets();
 			createCommandBuffers();
 			createSyncObjects();
@@ -610,6 +600,7 @@ namespace JD
 		createObjectDescriptorSetLayouts();
 		createShadowDescriptorSetLayout();
 		createLightingDescriptorSetLayout();
+		createTaaDescriptorSetLayout();
 		createOutputDescriptorSetLayout();
 	}
 
@@ -644,20 +635,10 @@ namespace JD
 		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
 		shadows.shadowDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
 	}
-
-	void VulkanRenderer::createOutputDescriptorSetLayout() 
-	{
-		std::array bindings = {
-			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // G-buffer color texture
-			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr)  // Skybox
-		};
-		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
-		finalOutput.finalOutputDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
-	}
-
+	
 	void VulkanRenderer::createLightingDescriptorSetLayout() {
 		std::array bindings = {
-			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex|vk::ShaderStageFlagBits::eFragment, nullptr),  // view projection buffer
+			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment, nullptr),  // view projection buffer
 
 			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Light storage buffer
 			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // sun view projection buffer
@@ -671,6 +652,29 @@ namespace JD
 		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
 		lighting.lightingDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
 
+	}
+
+	void VulkanRenderer::createTaaDescriptorSetLayout() {
+	
+		std::array bindings = {
+			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment, nullptr),  // view projection buffer
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Depth Buffer
+			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // New Frame
+			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Historical Frame
+		};
+		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
+		temporal.taaDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
+	}
+
+
+	void VulkanRenderer::createOutputDescriptorSetLayout() 
+	{
+		std::array bindings = {
+			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // G-buffer color texture
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr)  // Skybox
+		};
+		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
+		finalOutput.finalOutputDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
 	}
 
 
@@ -711,6 +715,12 @@ namespace JD
 		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, depthImageFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal, depthImage, depthImageAllocation);
 		depthImageView = createImageView(depthImage, depthImageFormat, vk::ImageAspectFlagBits::eDepth, 1);
 	}
+
+	/*void VulkanRenderer::loadDefaultTexture() {
+		
+	}*/
+
+
 
 	void VulkanRenderer::createGraphicsPipelines(vk::Format swapChainFormat, vk::Format depthFormat, float width, float height) {
 		createSkyboxPipeline(swapChainFormat, width, height);

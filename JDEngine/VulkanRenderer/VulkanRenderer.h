@@ -138,6 +138,9 @@ namespace JD
 		void createOutputDescriptorSets();
 		void createOutputPipeline(vk::Format swapChainFormat, float width, float height);
 
+		void createTaaDescriptorSetLayout();
+		void createTaaDescriptorSets();
+		void createTaaPipeline(vk::Format swapChainFormat, float width, float height);
 
 
 		void createCommandPool();
@@ -177,23 +180,6 @@ namespace JD
 
 		void cleanupVulkan();
 		void cleanupSwapChain();
-
-		
-		//tinygltf::Scene* makeGLTFScene(GLTFData data) override;
-	/*	void createInstance();
-		void setupDebugMessenger();
-		void createSurface();
-		void pickPhysicalDevice();
-		void createLogicalDevice();
-		
-		void createDescriptorSetLayout();
-		void createDescriptorPool();
-		void createDepthResources();
-		void createTextureSampler();
-		void createUniformBuffers();
-		void createDescriptorSets();
-		void createCommandBuffers();
-		void createSyncObjects();*/
 		
 		
 		bool framebufferResized = false;
@@ -206,11 +192,10 @@ namespace JD
 
 		std::vector<vk::Buffer> storageBuffers;
 		std::vector<VmaAllocation> storageBufferAllocations;
-		//uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+
 		uint32_t currentFrame = 0;
 		uint32_t MAX_OBJECTS = 1000;
 		vk::DescriptorSetLayout objectDescriptorSetLayout;
-		//std::vector<vk::DescriptorSet> gbufferDescriptorSets;
 
 		std::vector<vk::Buffer> cameraBuffers;
 		std::vector<VmaAllocation> cameraBufferAllocations;
@@ -223,12 +208,18 @@ namespace JD
 		vk::ImageView depthImageView;
 		VmaAllocation depthImageAllocation;
 
+		void loadDefaultTexture();
+		vk::Image defaultTex;
+		vk::ImageView defaultTexView;
+		VmaAllocation defaultTexAllocation;
+
 		vk::DescriptorPool descriptorPool;
 		Skybox skybox{};
 		Shadows shadows{};
 		GBuffer gBuffer{};
 		Lighting lighting{};
 		CombineStep combineStep{};
+		TAA temporal{};
 
 		FinalOutput finalOutput{};
 		std::vector<RenderTransmition>* currentRenderTransmition = nullptr;
