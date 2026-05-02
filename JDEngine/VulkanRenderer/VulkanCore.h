@@ -128,7 +128,7 @@ namespace JD
 		VmaAllocation lightingOutputAllocation = nullptr;
 	};
 
-	struct TaaStep {
+	struct TAA {
 		vk::DescriptorSetLayout taaDescriptorSetLayout = nullptr;
 		std::vector<vk::DescriptorSet> taaDescriptorSets;
 		vk::Pipeline taaPipeline = nullptr;
@@ -141,9 +141,6 @@ namespace JD
 		vk::Image taaHistoryImage = nullptr;
 		vk::ImageView taaHistoryImageView = nullptr;
 		VmaAllocation taaHistoryAllocation = nullptr;
-
-
-
 	};
 
 
