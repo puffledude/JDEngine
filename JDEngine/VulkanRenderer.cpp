@@ -677,9 +677,9 @@ namespace JD
 			std::array poolSizes = {
 			vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, static_cast<uint32_t>(storageBuffers.size())),
 			vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 100),  // Arbitrary large number for now
-			vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 100),  // Arbitrary large number for now
+			vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 1000),  // Arbitrary large number for now
 		};
-		vk::DescriptorPoolCreateInfo poolInfo{ .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,  .maxSets = 100,
+		vk::DescriptorPoolCreateInfo poolInfo{ .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,  .maxSets = 1000,
 		.poolSizeCount = static_cast<uint32_t>(poolSizes.size()),.pPoolSizes = poolSizes.data(),  };  // Arbitrary large number for now
 		descriptorPool = vulkanCore.device.createDescriptorPool(poolInfo);
 	}
