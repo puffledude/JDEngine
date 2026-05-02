@@ -1961,11 +1961,41 @@ namespace JD
 
 	}
 
+
+
+	float VulkanRenderer::HaltonSequence(int index, int base) {
+		float result = 0.0f;
+		float f = 1.0f;
+		int i = index;
+		while (i > 0) {
+			f /= base;
+			result += f * (i % base);
+			i /= base;
+		}
+		return result;
+	}
+
+	/// <summary>
+	/// Jittter Matrix using Halton [2,3] as suggested in Playdeads GDC talk.
+	/// </summary>
+	/// <param name="projection"></param>
+	void VulkanRenderer::JitterMatrix(glm::mat4& projection) {
+		float jitterX = (HaltonSequence(jitterIndex, 2) - 0.5f) * 2.0f / vulkanCore.vkbInstances.swapChain.extent.width;
+		float jitterY = (HaltonSequence(jitterIndex, 3) - 0.5f) * 2.0f / vulkanCore.vkbInstances.swapChain.extent.height;
+		jitterIndex = (jitterIndex + 1) % jitterSequenceLength; // Cycle through the first 8 values of the Halton sequence
+		projection[2][0] += jitterX;
+		projection[2][1] += jitterY;
+	}
+
 	void VulkanRenderer::updateCameraBuffer(uint32_t frameIndex) {
 		glm::mat4 cameraView = gameworld.getCameraView();
 		glm::vec4 cameraPos = glm::vec4(gameworld.getCameraPosition(), 1.0f);
 		glm::mat4 cameraProjection = getProjMatrix();
-		CameraInfo* cameraInfo = new CameraInfo{.position = cameraPos, .view = cameraView, .projection = cameraProjection };
+		glm::mat4 jittered = cameraProjection;
+		if (useTaa) {
+			JitterMatrix(jittered);
+		}
+		CameraInfo* cameraInfo = new CameraInfo{.position = cameraPos, .view = cameraView, .projection = cameraProjection, .jitteredProjection = jittered };
 		CameraInfo info = *cameraInfo;
 		void* data;
 		vmaMapMemory(vulkanCore.allocator, cameraBufferAllocations[frameIndex], &data);
@@ -2393,7 +2423,7 @@ namespace JD
 			if (batch.instanceCount == 0) continue;
 
 			// Push the instanceBaseOffset using push constants
-			GbufferPushConstants pc{ .instanceBaseOffset = batch.ssboBaseOffset, .useTaa = useTaa, .jitterIndex = jitterIndex };
+			GbufferPushConstants pc{ .instanceBaseOffset = batch.ssboBaseOffset, .useTaa = useTaa};
 			commandBuffer.pushConstants(gBuffer.gbufferPipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(GbufferPushConstants), &pc);
 
 			for (MeshComponent* piece : batch.pieces) {

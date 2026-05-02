@@ -122,6 +122,7 @@ namespace JD {
 		glm::vec4 position;
 		glm::mat4 view = glm::mat4(1.0f);
 		glm::mat4 projection = glm::mat4(1.0f);
+		glm::mat4 jitteredProjection = glm::mat4(1.0f);
 	};
 
 	struct RenderableComponent {

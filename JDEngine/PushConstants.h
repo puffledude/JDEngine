@@ -8,7 +8,6 @@ namespace JD {
 	struct GbufferPushConstants {
 		uint32_t instanceBaseOffset;
 		uint32_t useTaa;
-		uint32_t jitterIndex;
 	};
 
 

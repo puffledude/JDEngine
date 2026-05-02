@@ -7,12 +7,12 @@ struct CameraInfo {
     float4 position;
     float4x4 view;
     float4x4 projection;
+    float4x4 jitteredProjection;
 };
 
 struct PushConstants {
     uint instanceBaseOffset;
     uint useTaa;
-    uint jitterIndex;
 };
 
 [[vk::binding(0, 0)]]
@@ -68,15 +68,11 @@ VSOutput vertMain(VSInput input) {
     // 2. Fetch the specific model matrix for this object
     float4x4 modelMatrix = objectBuffer[objectIndex].model;
 
-    float4x4 projection = cameraData.projection;
-    if (pc.useTaa > 0) {
-        float haltonx = Halton(pc.jitterIndex,2);
-        float haltony = Halton(pc.jitterIndex,3);
-        
-    }
-
-
+    float4x4 projection = cameraData.jitteredProjection;
     projection[1][1] *= -1; // Flip Y for Vulkan's coordinate system
+
+
+
 
     // Pass through vertex colors and UVs
     float4 pos = mul(projection, mul(cameraData.view, mul(modelMatrix, float4(input.inPos, 1.0))));

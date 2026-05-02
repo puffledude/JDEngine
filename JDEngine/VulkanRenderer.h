@@ -187,6 +187,13 @@ namespace JD
 		
 		void updateLightBuffer(uint32_t frameIndex, std::vector<lightTransmition>* lightTransmitions);
 
+		float HaltonSequence(int index, int base);
+		void JitterMatrix(glm::mat4& matrix);
+		uint32_t useTaa = true;
+		uint32_t jitterIndex = 0;
+		uint32_t jitterSequenceLength = 8;
+
+
 
 		void cleanupVulkan();
 		void cleanupSwapChain();
@@ -210,7 +217,6 @@ namespace JD
 		
 		
 		bool framebufferResized = false;
-		uint32_t useTaa = true;
 		float cooldown = 0.0f;
 
 
@@ -246,7 +252,8 @@ namespace JD
 
 		FinalOutput finalOutput{};
 		std::vector<RenderTransmition>* currentRenderTransmition = nullptr;
-		uint32_t jitterIndex = 0;
+		
+	
 		MeshComponent quad;
 #ifdef NDEBUG
 		const bool enableValidationLayers = false;
