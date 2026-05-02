@@ -5,6 +5,7 @@ struct CameraInfo {
     float4 position;
     float4x4 view;
     float4x4 projection;
+    float4x4 jitteredProjection;
 };
 
 [[vk::binding(0, 0)]]

@@ -6,6 +6,7 @@ struct CameraInfo {
     float4 position;
     float4x4 view;
     float4x4 projection;
+    float4x4 jitteredProjection;
 };
 
 struct PushConstants {
@@ -42,7 +43,7 @@ VSOutput vertMain(VSInput input) {
 
     uint objectIndex = pc.instanceBaseOffset + input.instanceID;
     float4x4 modelMatrix = objectBuffer[objectIndex].model;
-    float4x4 projection = cameraData.projection;
+    float4x4 projection = cameraData.jitteredProjection;
     projection[1][1] *= -1;
 
     VSOutput output;

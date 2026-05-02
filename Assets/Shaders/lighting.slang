@@ -11,14 +11,13 @@ struct VSInput {
     float2 inTexCoord;
 };
 
-
-
-
 struct CameraInfo {
     float4 position;
     float4x4 view;
     float4x4 projection;
+    float4x4 jitteredProjection;
 };
+
 [[vk::binding(0, 0)]]
 ConstantBuffer<CameraInfo> cameraData;
 
@@ -110,7 +109,7 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     }
     float3 viewDir = normalize(cameraData.position.xyz - fragPos.xyz);
 
-    float4x4 lightSpaceMatrix = mul(lightCameraData.projection, lightCameraData.view);
+    float4x4 lightSpaceMatrix = mul(lightCameraData.jitteredProjection, lightCameraData.view);
     float4 fragPosLightSpace = mul(lightSpaceMatrix, float4(fragPos.xyz, 1.0));
     int numLights = lightNum.lightCount;
     float3 totalLighting = albedo *0.1;
