@@ -2414,7 +2414,7 @@ namespace JD
 		transitionImageLayout(commandBuffer,
 			temporal.taaHistoryImage,
 			vk::ImageLayout::eUndefined,
-			vk::ImageLayout::eColorAttachmentOptimal,
+			vk::ImageLayout::eShaderReadOnlyOptimal,
 			{},
 			vk::AccessFlagBits2::eColorAttachmentRead,
 			vk::PipelineStageFlagBits2::eColorAttachmentOutput,

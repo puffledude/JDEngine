@@ -53,5 +53,6 @@ Sampler2D historyDepth;
 [shader("fragment")]
 float4 fragMain(VSOutput vertIn) : SV_Target
 {
-    return newFrame.Sample(vertIn.texCoord);
+    float4 color = (historyFrame.Sample(vertIn.texCoord) + newFrame.Sample(vertIn.texCoord)) * 0.5;
+    return color;
 }
