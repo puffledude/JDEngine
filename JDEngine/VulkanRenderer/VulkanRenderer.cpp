@@ -87,8 +87,13 @@ namespace JD
 			gBuffer.gbufferPositionAllocation = nullptr;
 			gBuffer.gbufferPositionImageView = nullptr;
 		}
-
-
+		if (gBuffer.gbufferVelocityImage) {
+			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(gBuffer.gbufferVelocityImage), gBuffer.gbufferVelocityAllocation);
+			vulkanCore.device.destroyImageView(gBuffer.gbufferVelocityImageView);
+			gBuffer.gbufferVelocityImage = nullptr;
+			gBuffer.gbufferVelocityAllocation = nullptr;
+			gBuffer.gbufferVelocityImageView = nullptr;
+		}
 		if (shadows.shadowImage) {
 			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(shadows.shadowImage), shadows.shadowAllocation);
 			vulkanCore.device.destroyImageView(shadows.shadowImageView);
@@ -111,6 +116,37 @@ namespace JD
 			lighting.lightingOutputAllocation = nullptr;
 			lighting.lightingOutputImageView = nullptr;
 		}
+		if (temporal.taaOutputImage) {
+			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(temporal.taaOutputImage), temporal.taaOutputAllocation);
+			vulkanCore.device.destroyImageView(temporal.taaOutputImageView);
+			temporal.taaOutputImage = nullptr;
+			temporal.taaOutputAllocation = nullptr;
+			temporal.taaOutputImageView = nullptr;
+		}
+		if (temporal.taaHistoryImage) {
+			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(temporal.taaHistoryImage), temporal.taaHistoryAllocation);
+			vulkanCore.device.destroyImageView(temporal.taaHistoryImageView);
+			temporal.taaHistoryImage = nullptr;
+			temporal.taaHistoryAllocation = nullptr;
+			temporal.taaHistoryImageView = nullptr;
+		}
+		if (temporal.historyDepthImage) {
+			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(temporal.historyDepthImage), temporal.historyDepthAllocation);
+			vulkanCore.device.destroyImageView(temporal.historyDepthImageView);
+			temporal.historyDepthImage = nullptr;
+			temporal.historyDepthAllocation = nullptr;
+			temporal.historyDepthImageView = nullptr;
+		}
+
+		if (defaultTex) {
+			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(defaultTex), defaultTexAllocation);
+			vulkanCore.device.destroyImageView(defaultTexView);
+			defaultTex = nullptr;
+			defaultTexAllocation = nullptr;
+			defaultTexView = nullptr;
+		}
+		
+
 
 		// 1) Sync objects
 		for (auto& frame : vulkanCore.perFrame) {
@@ -138,6 +174,9 @@ namespace JD
 		if (lighting.lightingPipeline) { vulkanCore.device.destroyPipeline(lighting.lightingPipeline); lighting.lightingPipeline = nullptr; }
 		if (lighting.lightingPipelineLayout) { vulkanCore.device.destroyPipelineLayout(lighting.lightingPipelineLayout); lighting.lightingPipelineLayout = nullptr; }
 
+		if (temporal.taaPipeline) { vulkanCore.device.destroyPipeline(temporal.taaPipeline); temporal.taaPipeline = nullptr; }
+		if (temporal.taaPipelineLayout) { vulkanCore.device.destroyPipelineLayout(temporal.taaPipelineLayout); temporal.taaPipelineLayout = nullptr; }
+
 		// 3) Descriptor pool (implicitly frees all descriptor sets), then layout
 		if (descriptorPool) { vulkanCore.device.destroyDescriptorPool(descriptorPool);                descriptorPool = nullptr; }
 		if (objectDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(objectDescriptorSetLayout); objectDescriptorSetLayout = nullptr; }
@@ -145,6 +184,7 @@ namespace JD
 		if (finalOutput.finalOutputDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(finalOutput.finalOutputDescriptorSetLayout); finalOutput.finalOutputDescriptorSetLayout = nullptr; }
 		if (shadows.shadowDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(shadows.shadowDescriptorSetLayout); shadows.shadowDescriptorSetLayout = nullptr; }
 		if (lighting.lightingDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(lighting.lightingDescriptorSetLayout); lighting.lightingDescriptorSetLayout = nullptr; }
+		if (temporal.taaDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(temporal.taaDescriptorSetLayout); temporal.taaDescriptorSetLayout = nullptr; }
 		// 4) Sampler
 		if (vulkanCore.textureSampler) { vulkanCore.device.destroySampler(vulkanCore.textureSampler); vulkanCore.textureSampler = nullptr; }
 
@@ -160,7 +200,6 @@ namespace JD
 		for (size_t i = 0; i < lighting.lightingStorageBuffers.size(); ++i) {
 			if (lighting.lightingStorageBuffers[i]) vmaDestroyBuffer(vulkanCore.allocator, static_cast<VkBuffer>(lighting.lightingStorageBuffers[i]), lighting.lightingStorageBufferAllocations[i]);
 		}
-
 		for (size_t i = 0; i < storageBuffers.size(); ++i) {
 			if (storageBuffers[i]) vmaDestroyBuffer(vulkanCore.allocator, static_cast<VkBuffer>(storageBuffers[i]), storageBufferAllocations[i]);
 		}
@@ -287,6 +326,7 @@ namespace JD
 			createGBufferImages(swapChainFormat, depthImageFormat, (float)vulkanCore.vkbInstances.swapChain.extent.width, (float)vulkanCore.vkbInstances.swapChain.extent.height);
 			createLightingDescriptorSets();
 			createShadowDescriptorSets();
+			createTaaDescriptorSets();
 			createOutputDescriptorSets();
 			std::cout << "Vulkan initialized successfully!" << std::endl;
 
@@ -658,9 +698,11 @@ namespace JD
 	
 		std::array bindings = {
 			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment, nullptr),  // view projection buffer
-			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Depth Buffer
-			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // New Frame
-			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Historical Frame
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // New Frame
+			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // New Frame Depth Buffer
+			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Velocity Buffer
+			vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Historical Frame
+			vk::DescriptorSetLayoutBinding(5, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Historical depth buffer.
 		};
 		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
 		temporal.taaDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
@@ -712,7 +754,7 @@ namespace JD
 		}
 
 		std::cout << "Chosen depth format: " << vk::to_string(depthImageFormat) << std::endl;
-		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, depthImageFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal, depthImage, depthImageAllocation);
+		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, depthImageFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, depthImage, depthImageAllocation);
 		depthImageView = createImageView(depthImage, depthImageFormat, vk::ImageAspectFlagBits::eDepth, 1);
 	}
 
@@ -728,6 +770,7 @@ namespace JD
 		createShadowPipeline(swapChainFormat, depthFormat, width, height);
 		createLightingPipeline(swapChainFormat, width, height);
 		createOutputPipeline(swapChainFormat, width, height);
+		createTaaPipeline(swapChainFormat, width, height);
 	}
 	void VulkanRenderer::createSkyboxPipeline(vk::Format swapChainFormat, float width, float height) {
 		createSkyboxPipelinefunc(skybox.skyboxPipeline, skybox.skyboxPipelineLayout, vulkanCore.device, skybox.skyboxDescriptorSetLayout, width, height, swapChainFormat);
@@ -756,6 +799,16 @@ namespace JD
 
 	}
 
+	void VulkanRenderer::createTaaPipeline(vk::Format swapChainFormat, float width, float height) {
+		createImage(width, height, 1, swapChainFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, temporal.taaOutputImage, temporal.taaOutputAllocation);
+		temporal.taaOutputImageView = createImageView(temporal.taaOutputImage, swapChainFormat, vk::ImageAspectFlagBits::eColor, 1);
+		createImage(width, height, 1, swapChainFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, temporal.taaHistoryImage, temporal.taaHistoryAllocation);
+		temporal.taaHistoryImageView = createImageView(temporal.taaHistoryImage, swapChainFormat, vk::ImageAspectFlagBits::eColor, 1);
+		createImage(width, height, 1, depthImageFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, temporal.historyDepthImage, temporal.historyDepthAllocation);
+		temporal.historyDepthImageView = createImageView(temporal.historyDepthImage, depthImageFormat, vk::ImageAspectFlagBits::eDepth, 1);
+
+		createTaaPipelinefunc(temporal.taaPipeline, temporal.taaPipelineLayout, vulkanCore.device, temporal.taaDescriptorSetLayout, width, height, swapChainFormat);
+	}
 	
 	void VulkanRenderer::createCubeMapTextureImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation) {
 		vk::ImageCreateInfo imageInfo{ .imageType = vk::ImageType::e2D, .format = format,
@@ -1350,6 +1403,7 @@ namespace JD
 		const vk::Format gbufferNormalFormat = vk::Format::eB8G8R8A8Unorm;
 		const vk::Format gbufferMaterialFormat = vk::Format::eB8G8R8A8Unorm;
 		const vk::Format gbufferPositionFormat = vk::Format::eR16G16B16A16Sfloat;
+		const vk::Format gbufferVelocityFormat = vk::Format::eR16G16B16A16Sfloat;
 		createImage(width, height, 1, gbufferFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, gBuffer.gbufferColourImage, gBuffer.gbufferColourAllocation);
 		gBuffer.gbufferColourImageView = createImageView(gBuffer.gbufferColourImage, gbufferFormat, vk::ImageAspectFlagBits::eColor, 1);
 		createImage(width, height, 1, gbufferNormalFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, gBuffer.gbufferNormalImage, gBuffer.gbufferNormalAllocation);
@@ -1358,7 +1412,8 @@ namespace JD
 		gBuffer.gbufferMaterialImageView = createImageView(gBuffer.gbufferMaterialImage, gbufferMaterialFormat, vk::ImageAspectFlagBits::eColor, 1);
 		createImage(width, height, 1, gbufferPositionFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, gBuffer.gbufferPositionImage, gBuffer.gbufferPositionAllocation);
 		gBuffer.gbufferPositionImageView = createImageView(gBuffer.gbufferPositionImage, gbufferPositionFormat, vk::ImageAspectFlagBits::eColor, 1);
-
+		createImage(width, height, 1, gbufferVelocityFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, gBuffer.gbufferVelocityImage, gBuffer.gbufferVelocityAllocation);
+		gBuffer.gbufferVelocityImageView = createImageView(gBuffer.gbufferVelocityImage, gbufferVelocityFormat, vk::ImageAspectFlagBits::eColor, 1);
 	}
 
 
@@ -1531,6 +1586,77 @@ namespace JD
 					.descriptorCount = 1,
 					.descriptorType = vk::DescriptorType::eUniformBuffer,
 					.pBufferInfo = &cameraBufferInfo
+				}
+			};
+			vulkanCore.device.updateDescriptorSets(descriptorWrites, {});
+		}
+
+	}
+
+	void VulkanRenderer::createTaaDescriptorSets() {
+		std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, temporal.taaDescriptorSetLayout);
+		vk::DescriptorSetAllocateInfo allocInfo{
+			.descriptorPool = descriptorPool,
+			.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
+			.pSetLayouts = layouts.data()
+		};
+		temporal.taaDescriptorSets.clear();
+		temporal.taaDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
+			vk::DescriptorImageInfo currentFrameInfo{ .sampler = vulkanCore.textureSampler, .imageView = lighting.lightingOutputImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo currentDepthBuffer{ .sampler = vulkanCore.textureSampler, .imageView = depthImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal};
+			vk::DescriptorImageInfo velocityImageinfo{ .sampler = vulkanCore.textureSampler, .imageView = gBuffer.gbufferVelocityImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo previousFrameInfo{ .sampler = vulkanCore.textureSampler, .imageView = temporal.taaHistoryImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo previousDepthInfo{ .sampler = vulkanCore.textureSampler, .imageView = temporal.historyDepthImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			std::array<vk::WriteDescriptorSet, 6> descriptorWrites = {
+				vk::WriteDescriptorSet{
+					.dstSet = temporal.taaDescriptorSets[i],
+					.dstBinding = 0,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eUniformBuffer,
+					.pBufferInfo = &cameraBufferInfo
+				},
+				vk::WriteDescriptorSet{
+					.dstSet = temporal.taaDescriptorSets[i],
+					.dstBinding = 1,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
+					.pImageInfo = &currentFrameInfo
+				},
+				vk::WriteDescriptorSet{
+					.dstSet = temporal.taaDescriptorSets[i],
+					.dstBinding = 2,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
+					.pImageInfo = &currentDepthBuffer
+				},
+				vk::WriteDescriptorSet{
+					.dstSet = temporal.taaDescriptorSets[i],
+					.dstBinding = 3,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
+					.pImageInfo = &velocityImageinfo
+				},
+				vk::WriteDescriptorSet{
+					.dstSet = temporal.taaDescriptorSets[i],
+					.dstBinding = 4,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
+					.pImageInfo = &previousFrameInfo
+				},
+				vk::WriteDescriptorSet{
+					.dstSet = temporal.taaDescriptorSets[i],
+					.dstBinding = 5,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
+					.pImageInfo = &previousDepthInfo
 				}
 			};
 			vulkanCore.device.updateDescriptorSets(descriptorWrites, {});

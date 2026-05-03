@@ -107,6 +107,9 @@ namespace JD
 		vk::ImageView gbufferPositionImageView = nullptr;
 		VmaAllocation gbufferPositionAllocation = nullptr;
 
+		vk::Image gbufferVelocityImage = nullptr;
+		vk::ImageView gbufferVelocityImageView = nullptr;
+		VmaAllocation gbufferVelocityAllocation = nullptr;
 
 		vk::PipelineLayout gbufferPipelineLayout;
 		vk::Pipeline gBufferPipeline;
@@ -141,6 +144,10 @@ namespace JD
 		vk::Image taaHistoryImage = nullptr;
 		vk::ImageView taaHistoryImageView = nullptr;
 		VmaAllocation taaHistoryAllocation = nullptr;
+
+		vk::Image historyDepthImage = nullptr;
+		vk::ImageView historyDepthImageView = nullptr;
+		VmaAllocation historyDepthAllocation = nullptr;
 	};
 
 
