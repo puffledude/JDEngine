@@ -1,6 +1,13 @@
 //Placeholder shader for TAA, not used yet
 
-
+struct CameraInfo {
+    float4 position;
+    float4x4 view;
+    float4x4 projection;
+    float4x4 jitteredProjection;
+};
+[[vk::binding(0, 0)]]
+ConstantBuffer<CameraInfo> cameraData;
 
 struct VSInput {
     float3 inPos;
@@ -8,13 +15,6 @@ struct VSInput {
     float2 inTexCoord;
 };
 
-
-struct UniformBuffer {
-    float4x4 model;
-    float4x4 view;
-    float4x4 proj;
-};
-ConstantBuffer<UniformBuffer> ubo;
 
 struct VSOutput
 {
@@ -26,16 +26,32 @@ struct VSOutput
 [shader("vertex")]
 VSOutput vertMain(VSInput input) {
     VSOutput output;
-    output.pos = mul(ubo.proj, mul(ubo.view, mul(ubo.model, float4(input.inPos,1.0))));
+    output.pos = float4(input.inPos, 1.0);
     output.color = input.inColor;
     output.texCoord = input.inTexCoord;
+
     return output;
 }
 
-Sampler2D texture;
+[[vk::binding(1, 0)]]
+Sampler2D newFrame;
+
+[[vk::binding(2, 0)]]
+Sampler2D newFrameDepth;
+
+[[vk::binding(3, 0)]]
+Sampler2D velocityBuffer;
+
+[[vk::binding(4, 0)]]
+Sampler2D historyFrame;
+
+[[vk::binding(5, 0)]]
+Sampler2D historyDepth;
+
+
 
 [shader("fragment")]
 float4 fragMain(VSOutput vertIn) : SV_Target
 {
-    return texture.Sample(vertIn.texCoord);
+    return newFrame.Sample(vertIn.texCoord);
 }

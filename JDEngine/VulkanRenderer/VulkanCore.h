@@ -131,6 +131,17 @@ namespace JD
 		VmaAllocation lightingOutputAllocation = nullptr;
 	};
 
+	struct FinalOutput {
+		vk::DescriptorSetLayout finalOutputDescriptorSetLayout = nullptr;
+		std::vector<vk::DescriptorSet> finalOutputDescriptorSets;
+		vk::Pipeline finalOutputPipeline = nullptr;
+		vk::PipelineLayout finalOutputPipelineLayout = nullptr;
+
+		vk::Image finalOutputImage = nullptr;
+		vk::ImageView finalOutputImageView = nullptr;
+		VmaAllocation finalOutputAllocation = nullptr;
+	};
+
 	struct TAA {
 		vk::DescriptorSetLayout taaDescriptorSetLayout = nullptr;
 		std::vector<vk::DescriptorSet> taaDescriptorSets;
@@ -150,25 +161,5 @@ namespace JD
 		VmaAllocation historyDepthAllocation = nullptr;
 	};
 
-
-
-
-	struct CombineStep {
-		vk::DescriptorSetLayout combineDescriptorSetLayout = nullptr;
-		std::vector<vk::DescriptorSet> combineDescriptorSets;
-		vk::Pipeline combinePipeline = nullptr;
-		vk::PipelineLayout combinePipelineLayout = nullptr;
-
-		vk::Image combineOutputImage = nullptr;
-		VmaAllocation combineOutputAllocation = nullptr;
-	};
-
-
-	struct FinalOutput {
-		vk::DescriptorSetLayout finalOutputDescriptorSetLayout = nullptr;
-		std::vector<vk::DescriptorSet> finalOutputDescriptorSets;
-		vk::Pipeline finalOutputPipeline = nullptr;
-		vk::PipelineLayout finalOutputPipelineLayout = nullptr;
-	};
 
 }

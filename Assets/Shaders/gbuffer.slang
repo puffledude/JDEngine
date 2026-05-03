@@ -107,6 +107,7 @@ struct FragOutput {
     float4 normal : SV_Target1;
     float4 material : SV_Target2;
     float4 pos : SV_Target3;
+    float4 vel : SV_Target4;
 };
 
 
@@ -121,6 +122,6 @@ FragOutput fragMain(VSOutput vertIn)
     output.normal = norm;
     output.material = mat;
     output.pos = float4(vertIn.worldPos, 1.0);
-
+    output.vel = float4(0.0);
     return output;
 }

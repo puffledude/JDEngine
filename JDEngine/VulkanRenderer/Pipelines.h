@@ -235,7 +235,7 @@ namespace JD {
 		.blendEnable = VK_FALSE,
 		.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
 		};
-		std::array blendAttachments = { colorBlendAttachment, colorBlendAttachment,  colorBlendAttachment, colorBlendAttachment };
+		std::array blendAttachments = { colorBlendAttachment, colorBlendAttachment,  colorBlendAttachment, colorBlendAttachment, colorBlendAttachment };
 
 		vk::PipelineColorBlendStateCreateInfo colorBlending{
 			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = static_cast<uint32_t>(blendAttachments.size()), .pAttachments = blendAttachments.data() };
@@ -264,7 +264,8 @@ namespace JD {
 		const vk::Format gbufferNormalFormat = vk::Format::eB8G8R8A8Unorm;
 		const vk::Format gbufferMaterialFormat = vk::Format::eB8G8R8A8Unorm;
 		const vk::Format positionFormat = vk::Format::eR16G16B16A16Sfloat;
-		std::array<vk::Format, 4> colorAttachmentFormats = { gbufferColourFormat, gbufferNormalFormat, gbufferMaterialFormat, positionFormat };
+		const vk::Format velocityFormat = vk::Format::eR16G16B16A16Sfloat;
+		std::array<vk::Format, 5> colorAttachmentFormats = { gbufferColourFormat, gbufferNormalFormat, gbufferMaterialFormat, positionFormat, velocityFormat };
 		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
 		{.stageCount = 2,
 		.pStages = shaderStages,

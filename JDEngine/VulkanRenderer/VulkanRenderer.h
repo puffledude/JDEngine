@@ -160,6 +160,7 @@ namespace JD
 		void drawSkyboxPass();
 		void drawGBufferPass(const std::vector<MeshInstanceBatch>& meshInstanceBatches);
 		void drawLightPass(std::vector<lightTransmition>* lightTransmitions);
+		void drawTAApass(uint32_t imageIndex);
 		void drawFinalOutputPass(uint32_t imageIndex);
 
 		//void recordCommandBuffer(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
@@ -218,7 +219,6 @@ namespace JD
 		Shadows shadows{};
 		GBuffer gBuffer{};
 		Lighting lighting{};
-		CombineStep combineStep{};
 		TAA temporal{};
 
 		FinalOutput finalOutput{};
