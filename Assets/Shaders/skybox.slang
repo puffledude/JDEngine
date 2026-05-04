@@ -28,7 +28,7 @@ struct VSOutput
 };
 
 float3 calcViewDir(float3 pos, float4x4 projection, float4x4 view) {
-    projection[1][1] *= -1; // Flip Y for Vulkan's coordinate system
+    //projection[1][1] *= -1; // Flip Y for Vulkan's coordinate system
     // Apply the diagonal inverse of the projection matrix equivalent
     float invProjX = 1.0 / projection[0][0];
     float invProjY = 1.0 / projection[1][1];
@@ -89,17 +89,17 @@ SamplerCube skyboxTexture;
 
 
 struct FragOutput {
-    float4 color : SV_Target;
+    float4 color : SV_Target0;
     float4 velocity : SV_Target1;
 };
 
 [Shader("fragment")]
-float4 fragMain(VSOutput vertIn) : SV_Target
+FragOutput fragMain(VSOutput vertIn)
 {
     FragOutput output;
     output.color = skyboxTexture.Sample(vertIn.viewDir);
     float3 diff = vertIn.prevViewDir - vertIn.viewDir;
-    output.velocity = float4(diff, 0.0f);
+    output.velocity = float4(diff, 1.0);
 
-    return output.color;
+    return output;
 }

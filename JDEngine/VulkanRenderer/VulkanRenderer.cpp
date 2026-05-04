@@ -1908,6 +1908,7 @@ namespace JD
 		glm::mat4 cameraView = gameworld.getCameraView();
 		glm::vec4 cameraPos = glm::vec4(gameworld.getCameraPosition(), 1.0f);
 		glm::mat4 cameraProjection = getProjMatrix();
+		cameraProjection[1][1] *= -1; //Flip Y for vulkan
 		glm::mat4 jittered = cameraProjection;
 		if (useTaa) {
 			JitterMatrix(jittered);

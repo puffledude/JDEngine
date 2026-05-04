@@ -75,7 +75,7 @@ VSOutput vertMain(VSInput input) {
     float4x4 modelMatrix = objectBuffer[objectIndex].model;
 
     float4x4 projection = cameraData.jitteredProjection;
-    projection[1][1] *= -1; // Flip Y for Vulkan's coordinate system
+    //projection[1][1] *= -1; // Flip Y for Vulkan's coordinate system
 
 
 

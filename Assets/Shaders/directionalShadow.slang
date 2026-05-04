@@ -44,7 +44,7 @@ VSOutput vertMain(VSInput input) {
     uint objectIndex = pc.instanceBaseOffset + input.instanceID;
     float4x4 modelMatrix = objectBuffer[objectIndex].model;
     float4x4 projection = cameraData.jitteredProjection;
-    projection[1][1] *= -1;
+    //projection[1][1] *= -1;
 
     VSOutput output;
     output.pos = mul(projection, mul(cameraData.view, mul(modelMatrix, float4(input.inPos, 1.0))));
