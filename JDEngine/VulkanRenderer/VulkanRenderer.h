@@ -9,6 +9,7 @@
 #include "VkBootstrap.h"
 #include <iostream>
 #include "stb_image.h"
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/vec3.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <fstream>

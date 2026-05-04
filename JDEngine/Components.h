@@ -123,6 +123,8 @@ namespace JD {
 		glm::mat4 view = glm::mat4(1.0f);
 		glm::mat4 projection = glm::mat4(1.0f);
 		glm::mat4 jitteredProjection = glm::mat4(1.0f);
+		glm::mat4 inverseView= glm::mat4(1.0f);	
+		glm::mat4 inverseProjection = glm::mat4(1.0f);
 	};
 
 	struct RenderableComponent {

@@ -781,11 +781,12 @@ namespace JD
 	
 		std::array bindings = {
 			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment, nullptr),  // view projection buffer
-			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // New Frame
-			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // New Frame Depth Buffer
-			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Velocity Buffer
-			vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Historical Frame
-			vk::DescriptorSetLayoutBinding(5, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Historical depth buffer.
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment, nullptr),  // previous view projection buffer
+			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // New Frame
+			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // New Frame Depth Buffer
+			vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Velocity Buffer
+			vk::DescriptorSetLayoutBinding(5, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Historical Frame
+			vk::DescriptorSetLayoutBinding(6, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Historical depth buffer.
 		};
 		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
 		temporal.taaDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
@@ -1769,12 +1770,13 @@ namespace JD
 		temporal.taaDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 			vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
+			vk::DescriptorBufferInfo prevCameraBufferInfo{ .buffer = cameraBuffers[(i + 1) % MAX_FRAMES_IN_FLIGHT], .offset = 0, .range = sizeof(CameraInfo) };
 			vk::DescriptorImageInfo currentFrameInfo{ .sampler = vulkanCore.textureSampler, .imageView = finalOutput.finalOutputImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 			vk::DescriptorImageInfo currentDepthBuffer{ .sampler = vulkanCore.textureSampler, .imageView = depthImageView, .imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal};
 			vk::DescriptorImageInfo velocityImageinfo{ .sampler = vulkanCore.textureSampler, .imageView = gBuffer.gbufferVelocityImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 			vk::DescriptorImageInfo previousFrameInfo{ .sampler = vulkanCore.textureSampler, .imageView = temporal.taaHistoryImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 			vk::DescriptorImageInfo previousDepthInfo{ .sampler = vulkanCore.textureSampler, .imageView = temporal.historyDepthImageView, .imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal };
-			std::array<vk::WriteDescriptorSet, 6> descriptorWrites = {
+			std::array<vk::WriteDescriptorSet, 7> descriptorWrites = {
 				vk::WriteDescriptorSet{
 					.dstSet = temporal.taaDescriptorSets[i],
 					.dstBinding = 0,
@@ -1788,8 +1790,8 @@ namespace JD
 					.dstBinding = 1,
 					.dstArrayElement = 0,
 					.descriptorCount = 1,
-					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
-					.pImageInfo = &currentFrameInfo
+					.descriptorType = vk::DescriptorType::eUniformBuffer,
+					.pBufferInfo = &prevCameraBufferInfo
 				},
 				vk::WriteDescriptorSet{
 					.dstSet = temporal.taaDescriptorSets[i],
@@ -1797,7 +1799,7 @@ namespace JD
 					.dstArrayElement = 0,
 					.descriptorCount = 1,
 					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
-					.pImageInfo = &currentDepthBuffer
+					.pImageInfo = &currentFrameInfo
 				},
 				vk::WriteDescriptorSet{
 					.dstSet = temporal.taaDescriptorSets[i],
@@ -1805,7 +1807,7 @@ namespace JD
 					.dstArrayElement = 0,
 					.descriptorCount = 1,
 					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
-					.pImageInfo = &velocityImageinfo
+					.pImageInfo = &currentDepthBuffer
 				},
 				vk::WriteDescriptorSet{
 					.dstSet = temporal.taaDescriptorSets[i],
@@ -1813,11 +1815,19 @@ namespace JD
 					.dstArrayElement = 0,
 					.descriptorCount = 1,
 					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
-					.pImageInfo = &previousFrameInfo
+					.pImageInfo = &velocityImageinfo
 				},
 				vk::WriteDescriptorSet{
 					.dstSet = temporal.taaDescriptorSets[i],
 					.dstBinding = 5,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
+					.pImageInfo = &previousFrameInfo
+				},
+				vk::WriteDescriptorSet{
+					.dstSet = temporal.taaDescriptorSets[i],
+					.dstBinding = 6,
 					.dstArrayElement = 0,
 					.descriptorCount = 1,
 					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
@@ -1902,7 +1912,8 @@ namespace JD
 		if (useTaa) {
 			JitterMatrix(jittered);
 		}
-		CameraInfo* cameraInfo = new CameraInfo{.position = cameraPos, .view = cameraView, .projection = cameraProjection, .jitteredProjection = jittered };
+		CameraInfo* cameraInfo = new CameraInfo{.position = cameraPos, .view = cameraView, .projection = cameraProjection, .jitteredProjection = jittered,
+		.inverseView = glm::inverse(cameraView), .inverseProjection = glm::inverse(cameraProjection)};
 		CameraInfo info = *cameraInfo;
 		void* data;
 		vmaMapMemory(vulkanCore.allocator, cameraBufferAllocations[frameIndex], &data);
@@ -2352,7 +2363,7 @@ namespace JD
 			.imageView = depthImageView,
 			.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
 			.loadOp = vk::AttachmentLoadOp::eClear,
-			.storeOp = vk::AttachmentStoreOp::eDontCare,
+			.storeOp = vk::AttachmentStoreOp::eStore,
 			.clearValue = { vk::ClearDepthStencilValue{ 1.0f, 0 } }
 		};
 		const std::array<vk::RenderingAttachmentInfo, 5> colorAttachments = { colorAttachment,	normalAttachment, materialAttachment, positionAttachment, velocityAttachment };
