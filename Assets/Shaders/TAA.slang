@@ -91,7 +91,7 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     float4 newSample = newFrame.Sample(vertIn.texCoord);
 
     float3 worldSpacePos = generateWorldSpacePos(vertIn.texCoord, cameraData);
-    float4 oldPos = mul(prevCameraData.projection, mul(prevCameraData.view, float4(worldSpacePos, 1.0)));
+    float4 oldPos = mul(prevCameraData.jitteredProjection, mul(prevCameraData.view, float4(worldSpacePos, 1.0)));
     float2 reprojectPos = 0.5 * (oldPos.xy / oldPos.w) + 0.5;
     float4 historySample = historyFrame.Sample(reprojectPos);
     float4 newDepth = newFrameDepth.Sample(vertIn.texCoord);
