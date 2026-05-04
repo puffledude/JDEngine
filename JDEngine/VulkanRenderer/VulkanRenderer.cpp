@@ -200,6 +200,11 @@ namespace JD
 		for (size_t i = 0; i < cameraBuffers.size(); ++i) {
 			if (cameraBuffers[i]) vmaDestroyBuffer(vulkanCore.allocator, static_cast<VkBuffer>(cameraBuffers[i]), cameraBufferAllocations[i]);
 		}
+		/*for (size_t i=0; i< prevCameraBuffers.size(); ++i) {
+			if (prevCameraBuffers[i]) vmaDestroyBuffer(vulkanCore.allocator, static_cast<VkBuffer>(prevCameraBuffers[i]), prevCameraBufferAllocations[i]);
+		}
+		prevCameraBuffers.clear();
+		prevCameraBufferAllocations.clear();*/
 		cameraBuffers.clear();
 		cameraBufferAllocations.clear();
 		for (size_t i=0; i< sunBuffers.size(); ++i) {
@@ -600,13 +605,29 @@ namespace JD
 	void VulkanRenderer::createCameraBuffers() {
 		cameraBuffers.clear();
 		cameraBufferAllocations.clear();
+		/*prevCameraBufferAllocations.clear();
+		prevCameraBuffers.clear();*/
+		//CameraInfo initialCameraData{ .position = glm::vec4(1.0f), .view = glm::mat4(1.0f), .projection = glm::mat4(1.0f), .jitteredProjection = glm::mat4(1.0f) };
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 			vk::Buffer buffer;
 			VmaAllocation allocation;
 			createBuffer(sizeof(CameraInfo), vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer, allocation);
 			cameraBuffers.push_back(buffer);
 			cameraBufferAllocations.push_back(allocation);
+
+			//vk::Buffer prevBuffer;
+			//VmaAllocation prevAllocation;
+			//createBuffer(sizeof(CameraInfo), vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferDst, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, prevBuffer, prevAllocation);
+			//prevCameraBuffers.push_back(prevBuffer);
+			//prevCameraBufferAllocations.push_back(prevAllocation);
+			//void* mapped = nullptr;
+			//vmaMapMemory(vulkanCore.allocator, prevAllocation, &mapped);
+			//memcpy(mapped, &initialCameraData, sizeof(CameraInfo));
+			//vmaUnmapMemory(vulkanCore.allocator, prevAllocation);
 		}
+
+
+
 	}
 
 	void VulkanRenderer::createSunBuffers() {
@@ -717,10 +738,12 @@ namespace JD
 	{
 		std::array bindings = {
 			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  //Model matrix buffer
-			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),
-			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Roughness metallic buffer.
-			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Color texture
-			vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr)  // Normal texture
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  // previous model matrix buffer.
+			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  //Current camera buffer
+			vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  // Previous camera buffer
+			vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Roughness metallic buffer.
+			vk::DescriptorSetLayoutBinding(5, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Color texture
+			vk::DescriptorSetLayoutBinding(6, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr)  // Normal texture
 		};
 		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
 		objectDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
@@ -781,7 +804,7 @@ namespace JD
 
 	void VulkanRenderer::createDescriptorPool() {
 			std::array poolSizes = {
-			vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, static_cast<uint32_t>(storageBuffers.size())),
+			vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, static_cast<uint32_t>(storageBuffers.size())*2),
 			vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 100),  // Arbitrary large number for now
 			vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 1000),  // Arbitrary large number for now
 		};
@@ -1173,13 +1196,17 @@ namespace JD
 			mat.descriptorSets.clear();
 			mat.descriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
 			for (size_t i=0; i<MAX_FRAMES_IN_FLIGHT; i++) {
+
+				size_t prevFrame = (i + 1) % MAX_FRAMES_IN_FLIGHT;
 				vk::DescriptorBufferInfo bufferInfo{ .buffer = storageBuffers[i], .offset = 0, .range = sizeof(GPUObjectData) * MAX_OBJECTS };
+				vk::DescriptorBufferInfo prevBufferInfo{ .buffer = storageBuffers[prevFrame], .offset = 0, .range = sizeof(GPUObjectData) * MAX_OBJECTS };
 				vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
+				vk::DescriptorBufferInfo prevCameraBufferInfo{ .buffer = cameraBuffers[prevFrame], .offset = 0, .range = sizeof(CameraInfo) };
 				vk::DescriptorBufferInfo materialBufferInfo{ .buffer = mat.materialBuffer, .offset = 0, .range = sizeof(MaterialData) };
 				vk::DescriptorImageInfo baseColorImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = mat.baseColorTextureView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 				vk::DescriptorImageInfo normalImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = mat.normalTextureView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 				
-				std::array<vk::WriteDescriptorSet, 5> descriptorWrites = {
+				std::array<vk::WriteDescriptorSet, 7> descriptorWrites = {
 						vk::WriteDescriptorSet {
 							.dstSet = mat.descriptorSets[i],
 							.dstBinding = 0,
@@ -1188,13 +1215,13 @@ namespace JD
 							.descriptorType = vk::DescriptorType::eStorageBuffer,
 							.pBufferInfo = &bufferInfo
 						},
-						vk::WriteDescriptorSet {
+					vk::WriteDescriptorSet {
 							.dstSet = mat.descriptorSets[i],
 							.dstBinding = 1,
 							.dstArrayElement = 0,
 							.descriptorCount = 1,
-							.descriptorType = vk::DescriptorType::eUniformBuffer,
-							.pBufferInfo = &cameraBufferInfo
+							.descriptorType = vk::DescriptorType::eStorageBuffer,
+							.pBufferInfo = &prevBufferInfo
 						},
 						vk::WriteDescriptorSet {
 							.dstSet = mat.descriptorSets[i],
@@ -1202,11 +1229,28 @@ namespace JD
 							.dstArrayElement = 0,
 							.descriptorCount = 1,
 							.descriptorType = vk::DescriptorType::eUniformBuffer,
-							.pBufferInfo = &materialBufferInfo
+							.pBufferInfo = &cameraBufferInfo
 						},
 						vk::WriteDescriptorSet {
 							.dstSet = mat.descriptorSets[i],
 							.dstBinding = 3,
+							.dstArrayElement = 0,
+							.descriptorCount = 1,
+							.descriptorType = vk::DescriptorType::eUniformBuffer,
+							.pBufferInfo = &prevCameraBufferInfo
+						},
+
+						vk::WriteDescriptorSet {
+							.dstSet = mat.descriptorSets[i],
+							.dstBinding = 4,
+							.dstArrayElement = 0,
+							.descriptorCount = 1,
+							.descriptorType = vk::DescriptorType::eUniformBuffer,
+							.pBufferInfo = &materialBufferInfo
+						},
+						vk::WriteDescriptorSet {
+							.dstSet = mat.descriptorSets[i],
+							.dstBinding = 5,
 							.dstArrayElement = 0,
 							.descriptorCount = 1,
 							.descriptorType = vk::DescriptorType::eCombinedImageSampler,
@@ -1214,7 +1258,7 @@ namespace JD
 						},
 						vk::WriteDescriptorSet {
 							.dstSet = mat.descriptorSets[i],
-							.dstBinding = 4,
+							.dstBinding = 6,
 							.dstArrayElement = 0,
 							.descriptorCount = 1,
 							.descriptorType = vk::DescriptorType::eCombinedImageSampler,
@@ -1840,6 +1884,7 @@ namespace JD
 	}
 
 	void VulkanRenderer::updateCameraBuffer(uint32_t frameIndex) {
+
 		glm::mat4 cameraView = gameworld.getCameraView();
 		glm::vec4 cameraPos = glm::vec4(gameworld.getCameraPosition(), 1.0f);
 		glm::mat4 cameraProjection = getProjMatrix();
@@ -1955,7 +2000,7 @@ namespace JD
 		else {
 			assert(result == vk::Result::eSuccess);
 		}
-		
+		//updatePreviousBuffers();
 		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 	}
 
@@ -2715,5 +2760,4 @@ namespace JD
 		}
 		vmaUnmapMemory(vulkanCore.allocator, lighting.lightingStorageBufferAllocations[frameIndex]);
 	}
-
 }

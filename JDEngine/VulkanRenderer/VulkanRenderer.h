@@ -154,7 +154,10 @@ namespace JD
 			currentRenderTransmition = renderTransmition;
 		}
 		void updateCameraBuffer(uint32_t frameIndex);
+		//void updatePreviousBuffers();
+		//void copyBuffer(vk::Buffer& srcBuffer, vk::Buffer& dstBuffer, vk::DeviceSize size);
 		void updateSunData(uint32_t frameIndex);
+
 		void drawFrame();
 		void drawShadowPass(const std::vector<MeshInstanceBatch>& meshInstanceBatches);
 		void drawSkyboxPass();
@@ -200,6 +203,9 @@ namespace JD
 
 		std::vector<vk::Buffer> cameraBuffers;
 		std::vector<VmaAllocation> cameraBufferAllocations;
+
+		/*std::vector<vk::Buffer> prevCameraBuffers;
+		std::vector<VmaAllocation> prevCameraBufferAllocations;*/
 
 		std::vector<vk::Buffer> sunBuffers;
 		std::vector<VmaAllocation> sunBufferAllocations;

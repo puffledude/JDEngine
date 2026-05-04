@@ -19,7 +19,13 @@ struct PushConstants {
 StructuredBuffer<GPUObjectData> objectBuffer;
 
 [[vk::binding(1, 0)]]
+StructuredBuffer<GPUObjectData> prevObjectBuffer;
+
+[[vk::binding(2, 0)]]
 ConstantBuffer<CameraInfo> cameraData;
+
+[[vk::binding(3, 0)]]
+ConstantBuffer<CameraInfo> prevCameraData;
 
 [[vk::push_constant]]
 ConstantBuffer<PushConstants> pc;
@@ -93,13 +99,13 @@ struct MaterialData {
     float metallic;
 };
 
-[[vk::binding(2, 0)]]
+[[vk::binding(4, 0)]]
 ConstantBuffer<MaterialData> materialData;
 
-[[vk::binding(3, 0)]]
+[[vk::binding(5, 0)]]
 Sampler2D colourTexure;
 
-[[vk::binding(4, 0)]]
+[[vk::binding(6, 0)]]
 Sampler2D normalTexture;
 
 struct FragOutput {
