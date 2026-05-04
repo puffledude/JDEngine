@@ -48,6 +48,15 @@ Sampler2D historyFrame;
 [[vk::binding(5, 0)]]
 Sampler2D historyDepth;
 
+//Stages:
+/*
+1. Jitter. Handled in the g buffer.
+2. Generate velocity buffer. Movement of camera plus object movement. TODO.
+3. Reproject using velocity. Go through each pixel, use the velocity to find the corresponding pixel in the history frame, and fetch that colour. TODO
+4. Neightborhood clamping. For those we rejected, take the surrounding pixels and find the closest depth match, and use that colour instead. TODO
+5. Blending. Blend the reprojected colour with the new frame colour, using a fixed alpha for now.
+*/
+
 
 [shader("fragment")]
 float4 fragMain(VSOutput vertIn) : SV_Target
@@ -61,7 +70,7 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     float4 historyDepthSample = historyDepth.Sample(vertIn.texCoord);
     if (abs(newDepth.r - historyDepthSample.r) > depthRejectionvalue)
     {
-        return newSample;
+        alpha = 1;
     }
 
     float4 colour = alpha * newSample + (1 - alpha) * historySample;
