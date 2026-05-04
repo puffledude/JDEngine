@@ -72,14 +72,21 @@ namespace JD {
 		.blendEnable = VK_FALSE,
 		.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
 		};
+
+		std::array blendAttachments = { colorBlendAttachment, colorBlendAttachment };
+
 		vk::PipelineColorBlendStateCreateInfo colorBlending{
-			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = 1, .pAttachments = &colorBlendAttachment
+			.logicOpEnable = VK_FALSE , .logicOp = vk::LogicOp::eCopy, .attachmentCount = static_cast<uint32_t>(blendAttachments.size()), .pAttachments = blendAttachments.data()
 		};
 
 		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1,
 		.pSetLayouts = &descriptorSetLayout };
 		pipelineLayout = device.createPipelineLayout(pipelineLayoutInfo);
 		vk::Format colorAttachmentFormat = swapChainFormat;
+
+		const vk::Format velocityFormat = vk::Format::eR16G16B16A16Sfloat;
+		std::array<vk::Format, 2> colorAttachmentFormats = { colorAttachmentFormat, velocityFormat };
+
 
 		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
 		{.stageCount = 2,
@@ -93,7 +100,7 @@ namespace JD {
 		 .pDynamicState = &dynamicState,
 		 .layout = pipelineLayout,
 		 .renderPass = nullptr},
-		{.colorAttachmentCount = 1, .pColorAttachmentFormats = &colorAttachmentFormat} };
+		{.colorAttachmentCount = static_cast<uint32_t>(colorAttachmentFormats.size()), .pColorAttachmentFormats = colorAttachmentFormats.data()} };
 
 		auto pipelineResult = device.createGraphicsPipeline(nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
 		if (pipelineResult.result != vk::Result::eSuccess) {

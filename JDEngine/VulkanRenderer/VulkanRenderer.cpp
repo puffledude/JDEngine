@@ -727,7 +727,8 @@ namespace JD
 	void VulkanRenderer::createSkyboxDescriptorSetLayout() {
 		std::array bindings = {
 			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  // view projection buffer
-			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr)  // Cubemap texture
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  // previous view projection buffer
+			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr)  // Cubemap texture
 		};
 		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
 		skybox.skyboxDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
@@ -1523,8 +1524,9 @@ namespace JD
 
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 			vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
+			vk::DescriptorBufferInfo prevCameraBufferInfo{ .buffer = cameraBuffers[(i + 1) % MAX_FRAMES_IN_FLIGHT], .offset = 0, .range = sizeof(CameraInfo) };
 			vk::DescriptorImageInfo imageInfo{ .sampler = vulkanCore.textureSampler, .imageView = skybox.skyboxImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
-			std::array<vk::WriteDescriptorSet, 2> descriptorWrites = {
+			std::array<vk::WriteDescriptorSet, 3> descriptorWrites = {
 				vk::WriteDescriptorSet {
 					.dstSet = skybox.skyboxDescriptorSets[i],
 					.dstBinding = 0,
@@ -1536,6 +1538,14 @@ namespace JD
 				vk::WriteDescriptorSet {
 					.dstSet = skybox.skyboxDescriptorSets[i],
 					.dstBinding = 1,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eUniformBuffer,
+					.pBufferInfo = &prevCameraBufferInfo
+				},
+				vk::WriteDescriptorSet {
+					.dstSet = skybox.skyboxDescriptorSets[i],
+					.dstBinding = 2,
 					.dstArrayElement = 0,
 					.descriptorCount = 1,
 					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
@@ -2026,6 +2036,18 @@ namespace JD
 			vk::ImageAspectFlagBits::eColor,
 			mipLevels
 		);
+		transitionImageLayout(commandBuffer,
+			gBuffer.gbufferVelocityImage,
+			vk::ImageLayout::eUndefined,
+			vk::ImageLayout::eColorAttachmentOptimal,
+			{},
+			vk::AccessFlagBits2::eColorAttachmentWrite,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::ImageAspectFlagBits::eColor,
+			mipLevels
+		);
+
 		int width = vulkanCore.vkbInstances.swapChain.extent.width;
 		int height = vulkanCore.vkbInstances.swapChain.extent.height;
 		vk::Extent2D extent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
@@ -2045,13 +2067,21 @@ namespace JD
 			.storeOp = vk::AttachmentStoreOp::eStore,
 			.clearValue = { std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f} }
 		};
+		vk::RenderingAttachmentInfo velocityAttachment{
+			.imageView = gBuffer.gbufferVelocityImageView,
+			.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+			.loadOp = vk::AttachmentLoadOp::eClear,
+			.storeOp = vk::AttachmentStoreOp::eStore,
+			.clearValue = { std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f} }
+		};
+		const std::array<vk::RenderingAttachmentInfo, 2> colorAttachments = { colorAttachment, velocityAttachment };
 
 		vk::RenderingInfo renderingInfo{
 			.renderArea = vk::Rect2D({ 0, 0 }, extent),
 			.layerCount = 1,
 			.viewMask = 0,
-			.colorAttachmentCount = 1,
-			.pColorAttachments = &colorAttachment,
+			.colorAttachmentCount = static_cast<uint32_t>(colorAttachments.size()),
+			.pColorAttachments = colorAttachments.data(),
 			.pDepthAttachment = nullptr,
 			.pStencilAttachment = nullptr
 		};
@@ -2313,7 +2343,7 @@ namespace JD
 		vk::RenderingAttachmentInfo velocityAttachment{
 			.imageView = gBuffer.gbufferVelocityImageView,
 			.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-			.loadOp = vk::AttachmentLoadOp::eClear,
+			.loadOp = vk::AttachmentLoadOp::eLoad,  //Want to draw over the existing data placed in by the skybox pass.
 			.storeOp = vk::AttachmentStoreOp::eStore,
 			.clearValue = { std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f} }
 		};
