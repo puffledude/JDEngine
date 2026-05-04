@@ -1619,10 +1619,10 @@ namespace JD
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 			vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
 			vk::DescriptorImageInfo currentFrameInfo{ .sampler = vulkanCore.textureSampler, .imageView = finalOutput.finalOutputImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
-			vk::DescriptorImageInfo currentDepthBuffer{ .sampler = vulkanCore.textureSampler, .imageView = depthImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal};
+			vk::DescriptorImageInfo currentDepthBuffer{ .sampler = vulkanCore.textureSampler, .imageView = depthImageView, .imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal};
 			vk::DescriptorImageInfo velocityImageinfo{ .sampler = vulkanCore.textureSampler, .imageView = gBuffer.gbufferVelocityImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 			vk::DescriptorImageInfo previousFrameInfo{ .sampler = vulkanCore.textureSampler, .imageView = temporal.taaHistoryImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
-			vk::DescriptorImageInfo previousDepthInfo{ .sampler = vulkanCore.textureSampler, .imageView = temporal.historyDepthImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo previousDepthInfo{ .sampler = vulkanCore.textureSampler, .imageView = temporal.historyDepthImageView, .imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal };
 			std::array<vk::WriteDescriptorSet, 6> descriptorWrites = {
 				vk::WriteDescriptorSet{
 					.dstSet = temporal.taaDescriptorSets[i],
