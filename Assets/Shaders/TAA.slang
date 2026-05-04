@@ -53,9 +53,17 @@ Sampler2D historyDepth;
 float4 fragMain(VSOutput vertIn) : SV_Target
 {
     float alpha = 0.1;
+    float depthRejectionvalue = 0.1;
 
     float4 newSample = newFrame.Sample(vertIn.texCoord);
     float4 historySample = historyFrame.Sample(vertIn.texCoord);
+    float4 newDepth = newFrameDepth.Sample(vertIn.texCoord);
+    float4 historyDepthSample = historyDepth.Sample(vertIn.texCoord);
+    if (abs(newDepth.r - historyDepthSample.r) > depthRejectionvalue)
+    {
+        return newSample;
+    }
+
     float4 colour = alpha * newSample + (1 - alpha) * historySample;
 
     return colour;

@@ -119,6 +119,9 @@ FragOutput fragMain(VSOutput vertIn)
     // Optionally multiply by vertIn.color if your GLTF models have vertex colors!
     FragOutput output;
     output.colour = col;
+    if (col.a < 0.1) {
+        discard;
+    }
     output.normal = norm;
     output.material = mat;
     output.pos = float4(vertIn.worldPos, 1.0);

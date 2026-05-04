@@ -3,6 +3,7 @@
 #include <Jolt/Physics/Body/Body.h>
 #include <Jolt/Physics/Body/BodyLockInterface.h>
 #include <execution>
+#include <mutex>
 namespace JD
 {
 	Gameworld::Gameworld(JPH::PhysicsSystem* physicsSystem, Controller* controller) : physicsSystem(physicsSystem), controller(controller) {
@@ -54,6 +55,8 @@ namespace JD
 
 	std::vector<RenderTransmition>* Gameworld::getRenderTransmitions()
 	{
+		std::mutex vectorMutex;
+
 		const JPH::BodyLockInterface& lock_interface = physicsSystem->GetBodyLockInterface(); // Or GetBodyLockInterfaceNoLock
 
 		std::vector<RenderTransmition>* renderTransmition = new std::vector<RenderTransmition>();
@@ -78,6 +81,8 @@ namespace JD
 				}
 				glm::mat4 modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(position.GetX(), position.GetY(), position.GetZ())) * glm::mat4_cast(glm::quat(rotation.GetW(), rotation.GetX(), rotation.GetY(), rotation.GetZ())) * glm::scale(glm::mat4(1.0f), scale);
 				transmition.modelMatrix = modelMatrix;
+				std::lock_guard<std::mutex> guard(vectorMutex);
+
 				renderTransmition->push_back(transmition);
 			}});
 			return renderTransmition;

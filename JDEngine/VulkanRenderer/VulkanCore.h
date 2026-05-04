@@ -111,6 +111,9 @@ namespace JD
 		vk::ImageView gbufferVelocityImageView = nullptr;
 		VmaAllocation gbufferVelocityAllocation = nullptr;
 
+		std::vector<vk::Buffer> previousMatrixBuffers;
+		std::vector<VmaAllocation> previousMatrixBufferAllocations;
+
 		vk::PipelineLayout gbufferPipelineLayout;
 		vk::Pipeline gBufferPipeline;
 	};

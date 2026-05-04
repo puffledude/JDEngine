@@ -17,6 +17,7 @@ private:
 
 	void loadEnvironment();
 	void addLights();
+	void addTrees();
 	entt::entity* addLight(glm::vec3 position, glm::vec3 color, glm::vec3 direction, float range);
 
     JD::Gameworld* gameWorld;
@@ -25,5 +26,8 @@ private:
 	std::vector<JD::MeshComponent> Environment;
 	entt::entity* environmentEntity;
 	entt::entity* sun;
-
+	std::vector<JD::MeshComponent> treeMesh;
+	std::vector<entt::entity*> treeEntities;
+	std::vector<JD::MeshComponent> tentMesh;
+	entt::entity* tentEntity;
 };
