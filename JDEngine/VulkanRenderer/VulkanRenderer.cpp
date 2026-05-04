@@ -2423,6 +2423,8 @@ namespace JD
 			1
 		);
 
+
+
 		transitionImageLayout(commandBuffer,
 			temporal.historyDepthImage,
 			vk::ImageLayout::eUndefined,
