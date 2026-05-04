@@ -165,6 +165,8 @@ namespace JD
 		void drawLightPass(std::vector<lightTransmition>* lightTransmitions);
 		void drawTAApass(uint32_t imageIndex);
 		void drawFinalOutputPass(uint32_t imageIndex);
+		void drawFinalOutputAliased(uint32_t imageIndex);
+
 
 		//void recordCommandBuffer(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
 		void BuildInstanceBatches(

@@ -1965,8 +1965,14 @@ namespace JD
 		drawShadowPass(meshInstanceBatches);
 		drawGBufferPass(meshInstanceBatches);
 		drawLightPass(lightTransmissions);
-		drawFinalOutputPass(imageIndex);
-		drawTAApass(imageIndex);
+		if (useTaa){
+			drawFinalOutputPass(imageIndex);
+			drawTAApass(imageIndex);
+		}
+		else {
+			drawFinalOutputAliased(imageIndex);
+		}
+		
 		vk::PipelineStageFlags waitDestinationStageMask = (vk::PipelineStageFlagBits::eColorAttachmentOutput);
 		const vk::SubmitInfo submitInfo{ .waitSemaphoreCount = 1,
 								  .pWaitSemaphores = &vulkanCore.perFrame[currentFrame].presentSemaphore,
@@ -2699,9 +2705,65 @@ namespace JD
 
 
 		commandBuffer.end();
+	}
+	void VulkanRenderer::drawFinalOutputAliased(uint32_t imageIndex)
+	{
+		vk::CommandBuffer commandBuffer = vulkanCore.commandBuffers[currentFrame];
+		transitionImageLayout(commandBuffer,
+			vulkanCore.swapChainImages[imageIndex],
+			vk::ImageLayout::eUndefined,
+			vk::ImageLayout::eColorAttachmentOptimal,
+			{},
+			vk::AccessFlagBits2::eColorAttachmentWrite,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::ImageAspectFlagBits::eColor,
+			1
+		);
+
+		int width = vulkanCore.vkbInstances.swapChain.extent.width;
+		int height = vulkanCore.vkbInstances.swapChain.extent.height;
+		vk::Extent2D extent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
+
+		vk::RenderingAttachmentInfo colorAttachment{
+		.imageView = vulkanCore.swapChainImageViews[imageIndex],
+		.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+		.loadOp = vk::AttachmentLoadOp::eClear,
+		.storeOp = vk::AttachmentStoreOp::eStore,
+		.clearValue = { std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f} }
+		};
 
 
+		vk::RenderingInfo renderingInfo{
+			.renderArea = vk::Rect2D({ 0, 0 }, extent),
+			.layerCount = 1,
+			.viewMask = 0,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &colorAttachment,
+			.pDepthAttachment = nullptr,
+			.pStencilAttachment = nullptr
+		};
+		commandBuffer.beginRendering(renderingInfo);
+		commandBuffer.setViewport(0, vk::Viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width), static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f });
+		commandBuffer.setScissor(0, vk::Rect2D({ 0, 0 }, extent));
+		commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, finalOutput.finalOutputPipeline);
+		commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, finalOutput.finalOutputPipelineLayout, 0, finalOutput.finalOutputDescriptorSets[currentFrame], {});
+		commandBuffer.bindVertexBuffers(0, quad.vertexBuffer, { 0 });
+		commandBuffer.bindIndexBuffer(quad.indexBuffer, 0, vk::IndexType::eUint32);
+		commandBuffer.drawIndexed(static_cast<uint32_t>(quad.indices.size()), 1, 0, 0, 0);
+		commandBuffer.endRendering();
 
+		transitionImageLayout(commandBuffer,
+			vulkanCore.swapChainImages[imageIndex],
+			vk::ImageLayout::eColorAttachmentOptimal,
+			vk::ImageLayout::ePresentSrcKHR,
+			vk::AccessFlagBits2::eColorAttachmentWrite,             // srcAccessMask
+			{},                                                     // dstAccessMask
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,     // srcStage
+			vk::PipelineStageFlagBits2::eBottomOfPipe,               // dstStage
+			vk::ImageAspectFlagBits::eColor,
+			1);
+		commandBuffer.end();
 	}
 
 
