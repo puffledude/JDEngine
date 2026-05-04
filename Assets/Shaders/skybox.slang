@@ -6,6 +6,8 @@ struct CameraInfo {
     float4x4 view;
     float4x4 projection;
     float4x4 jitteredProjection;
+    float4x4 inverseView;
+    float4x4 inverseProjection;
 };
 
 [[vk::binding(0, 0)]]
@@ -27,22 +29,17 @@ struct VSOutput
     float3 prevViewDir;
 };
 
-float3 calcViewDir(float3 pos, float4x4 projection, float4x4 view) {
+float3 calcViewDir(float3 inputpos, float4x4 projection, float4x4 view) {
     //projection[1][1] *= -1; // Flip Y for Vulkan's coordinate system
     // Apply the diagonal inverse of the projection matrix equivalent
-    float invProjX = 1.0 / projection[0][0];
-    float invProjY = 1.0 / projection[1][1];
-    pos.x *= invProjX;
-    pos.y *= invProjY;
+
+    float3 pos = inputpos;
+    pos.xy *= float2(projection[0][0], projection[1][1]);
     pos.z = -1.0;
-    // Extract the 3x3 rotation view matrix
-    float3x3 view3x3 = float3x3(
-        view[0].xyz,
-        view[1].xyz,
-        view[2].xyz
-    );
+    float3 viewDir = mul(transpose(float3x3(view)), normalize(pos));
+
     // Multiply by the transposed (inverse) view matrix to reconstruct the world-space direction
-    return mul(transpose(view3x3), normalize(pos));
+    return viewDir;
 }
 
 
@@ -56,30 +53,11 @@ VSOutput vertMain(VSInput input) {
 
     float3 pos = input.inPos;
     float4x4 projection = cameraData.projection;
-    float4x4 prevProjection = prevCameraData.projection;
+    float4x4 prevProjection = prevCameraData.inverseProjection;
 
-    //projection[1][1] *= -1; // Flip Y for Vulkan's coordinate system
-    output.viewDir = calcViewDir(pos, projection, cameraData.view);
+    output.viewDir = calcViewDir(pos, cameraData.inverseProjection, cameraData.view);
     output.prevViewDir = calcViewDir(pos, prevProjection, prevCameraData.view);
-    // Apply the diagonal inverse of the projection matrix equivalent
-    //float invProjX = 1.0 / projection[0][0];
-    //float invProjY = 1.0 / projection[1][1];
-
-
-
-    //pos.x *= invProjX;
-    //pos.y *= invProjY;
-    //pos.z = -1.0;
-
-    // Extract the 3x3 rotation view matrix
-    //float3x3 view3x3 = float3x3(
-        //cameraData.view[0].xyz,
-        //cameraData.view[1].xyz,
-      //  cameraData.view[2].xyz
-    //);
-
-    // Multiply by the transposed (inverse) view matrix to reconstruct the world-space direction
-    //output.viewDir = mul(transpose(view3x3), normalize(pos));
+   
 
     return output;
 }
@@ -98,6 +76,7 @@ FragOutput fragMain(VSOutput vertIn)
 {
     FragOutput output;
     output.color = skyboxTexture.Sample(vertIn.viewDir);
+
     float3 diff = vertIn.prevViewDir - vertIn.viewDir;
     output.velocity = float4(diff, 1.0);
 
