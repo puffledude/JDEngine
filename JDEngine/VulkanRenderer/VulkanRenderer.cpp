@@ -1929,7 +1929,13 @@ namespace JD
 		glm::vec4 sunPos = glm::vec4(gameworld.getSunPosition(), 1.0f);
 		glm::mat4 sunView = gameworld.getSunView();
 		glm::mat4 sunProjection = getProjMatrix();
-		CameraInfo* sunInfo = new CameraInfo{.position = sunPos, .view = sunView, .projection = sunProjection };
+		glm::mat4 jittered = sunProjection;
+		if (useTaa) {
+			JitterMatrix(jittered);
+		}
+		sunProjection[1][1] *= -1; //Flip Y for vulkan
+		CameraInfo* sunInfo = new CameraInfo{.position = sunPos, .view = sunView, .projection = sunProjection, .jitteredProjection = jittered,
+		.inverseView = glm::inverse(sunView), .inverseProjection = glm::inverse(sunProjection)};
 		void* data;
 		vmaMapMemory(vulkanCore.allocator, sunBufferAllocations[frameIndex], &data);
 		std::memcpy(data, sunInfo, sizeof(CameraInfo));
