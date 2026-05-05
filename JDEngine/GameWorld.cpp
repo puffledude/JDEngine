@@ -82,9 +82,13 @@ namespace JD
 				glm::mat4 modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(position.GetX(), position.GetY(), position.GetZ())) * glm::mat4_cast(glm::quat(rotation.GetW(), rotation.GetX(), rotation.GetY(), rotation.GetZ())) * glm::scale(glm::mat4(1.0f), scale);
 				transmition.modelMatrix = modelMatrix;
 				std::lock_guard<std::mutex> guard(vectorMutex);
-
+				transmition.entityID = static_cast<uint32_t>(entity);
 				renderTransmition->push_back(transmition);
 			}});
+			std::sort(std::execution::par, renderTransmition->begin(), renderTransmition->end(),
+				[](const RenderTransmition& a, const RenderTransmition& b) {
+					return a.entityID < b.entityID;
+				});
 			return renderTransmition;
 	}
 	//for (auto [entity, renderable, jolt] : view.each()) {

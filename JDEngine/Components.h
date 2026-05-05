@@ -136,6 +136,7 @@ namespace JD {
 	struct RenderTransmition {
 		std::vector<MeshComponent>* mesh = nullptr;
 		glm::mat4 modelMatrix;
+		uint32_t entityID;
 	};
 
 
