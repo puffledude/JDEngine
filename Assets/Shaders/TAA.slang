@@ -89,23 +89,24 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     float alpha = 0.1;
     float depthRejectionvalue = 0.1;
 
-    float3 worldSpacePos = generateWorldSpacePos(vertIn.texCoord, cameraData);
-    float4 oldPos = mul(prevCameraData.jitteredProjection, mul(prevCameraData.view, float4(worldSpacePos, 1.0)));
-    float2 reprojectPos = 0.5 * (oldPos.xy / oldPos.w) + 0.5;
+   /// float3 worldSpacePos = generateWorldSpacePos(vertIn.texCoord, cameraData);
+    //float4 oldPos = mul(prevCameraData.jitteredProjection, mul(prevCameraData.view, float4(worldSpacePos, 1.0)));
+    //float2 reprojectPos = 0.5 * (oldPos.xy / oldPos.w) + 0.5;
 
     //In previous frmae v=p_uv - q_uv 
     //q_uv = p_uv - v
 
     float2 velocity = velocityBuffer.Sample(vertIn.texCoord).xy;
-    float2 newPos = reprojectPos - velocity;
+    float2 currentPos = vertIn.texCoord;
+    float2 reprojectPos = currentPos - velocity; // Reproject the current position back to the previous frame using the velocity buffer
 
 
     //float2 velocityPos = reprojectPos - velocity;
 
     // float2 adjustedReprojectPos = reprojectPos + velocityBuffer.Sample(vertIn.texCoord).xy; // Adjust the reprojected position using the velocity buffer
     float4 historySample = historyFrame.Sample(reprojectPos);
-    float4 newDepth = newFrameDepth.Sample(newPos);
-    float4 newSample = newFrame.Sample(newPos);
+    float4 newDepth = newFrameDepth.Sample(currentPos);
+    float4 newSample = newFrame.Sample(currentPos);
 
     //Local Clamping next. Need to clamp or clip the colour to between the colours of the surrounding pixels.
     //[Sousa13] gives implementation idea. 
@@ -114,10 +115,10 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     float4 historyDepthSample = historyDepth.Sample(reprojectPos);
 
 
-    if (abs(newDepth.r - historyDepthSample.r) > depthRejectionvalue)
-    {
-        alpha = 1;
-    }
+   // if (abs(newDepth.r - historyDepthSample.r) > depthRejectionvalue)
+   // {
+    //    alpha = 1;
+   // }
 
     float4 colour = alpha * newSample + (1 - alpha) * historySample;
 
