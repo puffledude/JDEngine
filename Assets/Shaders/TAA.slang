@@ -88,14 +88,20 @@ float4 fragMain(VSOutput vertIn) : SV_Target
 {
     float alpha = 0.1;
     float depthRejectionvalue = 0.1;
-    float4 newSample = newFrame.Sample(vertIn.texCoord);
 
     float3 worldSpacePos = generateWorldSpacePos(vertIn.texCoord, cameraData);
     float4 oldPos = mul(prevCameraData.jitteredProjection, mul(prevCameraData.view, float4(worldSpacePos, 1.0)));
     float2 reprojectPos = 0.5 * (oldPos.xy / oldPos.w) + 0.5;
-    //float2 adjustedReprojectPos = reprojectPos + velocityBuffer.Sample(vertIn.texCoord).xy; // Adjust the reprojected position using the velocity buffer
+
+    float2 velocity = reprojectPos - vertIn.texCoord;
+
+    float2 velocityPos = reprojectPos - velocity;
+
+    // float2 adjustedReprojectPos = reprojectPos + velocityBuffer.Sample(vertIn.texCoord).xy; // Adjust the reprojected position using the velocity buffer
     float4 historySample = historyFrame.Sample(reprojectPos);
-    float4 newDepth = newFrameDepth.Sample(vertIn.texCoord);
+    float4 newDepth = newFrameDepth.Sample(velocityPos);
+    float4 newSample = newFrame.Sample(velocityPos);
+
     float4 historyDepthSample = historyDepth.Sample(reprojectPos);
 
 
