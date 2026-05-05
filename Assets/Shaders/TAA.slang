@@ -107,6 +107,10 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     float4 newDepth = newFrameDepth.Sample(newPos);
     float4 newSample = newFrame.Sample(newPos);
 
+    //Local Clamping next. Need to clamp or clip the colour to between the colours of the surrounding pixels.
+    //[Sousa13] gives implementation idea. 
+
+
     float4 historyDepthSample = historyDepth.Sample(reprojectPos);
 
 
