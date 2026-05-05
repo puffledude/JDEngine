@@ -115,10 +115,10 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     float4 historyDepthSample = historyDepth.Sample(reprojectPos);
 
 
-   // if (abs(newDepth.r - historyDepthSample.r) > depthRejectionvalue)
-   // {
-    //    alpha = 1;
-   // }
+    if (abs(newDepth.r - historyDepthSample.r) > depthRejectionvalue)
+    {
+        alpha = 1;
+    }
 
     float4 colour = alpha * newSample + (1 - alpha) * historySample;
 
