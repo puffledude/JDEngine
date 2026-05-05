@@ -63,11 +63,11 @@ float Halton(uint index, uint base) {
 
 }
 
-float2 calcScreenSpaceVelocity(float3 vertPos) {
+float2 calcScreenSpaceVelocity(float3 worldPos, float3 prevWorldPos) {
     // Need to calculate unjittered clip space position for current frame, and unjittered clip space position for previous frame, then take the difference.
 
-    float4 currentPos = mul(cameraData.projection, mul(cameraData.view, float4(vertPos, 1.0)));
-    float4 prevPos = mul(prevCameraData.projection, mul(prevCameraData.view, float4(vertPos, 1.0)));
+    float4 currentPos = mul(cameraData.projection, mul(cameraData.view, float4(worldPos, 1.0)));
+    float4 prevPos = mul(prevCameraData.projection, mul(prevCameraData.view, float4(prevWorldPos, 1.0)));
     float2 currentNDC = currentPos.xy / currentPos.w;
     float2 currentClip = currentNDC * 0.5 + 0.5; // Convert from NDC to screen space
 
@@ -97,11 +97,11 @@ VSOutput vertMain(VSInput input) {
 
     // Pass through vertex colors and UVs
     float4 pos = mul(projection, mul(cameraData.view, mul(modelMatrix, float4(input.inPos, 1.0))));
-
-    output.velocity = calcScreenSpaceVelocity(input.inPos);
+    float4 worldPos = mul(modelMatrix, float4(input.inPos, 1.0));
+    float4 prevWorldPos = mul(prevObjectBuffer[objectIndex].model, float4(input.inPos, 1.0));
+    output.velocity = calcScreenSpaceVelocity(worldPos.xyz, prevWorldPos.xyz);
 
     output.pos = pos;
-    float4 worldPos = mul(modelMatrix, float4(input.inPos, 1.0));
     output.worldPos = worldPos.xyz; // Store World Pos!
 
     output.color = input.inColor;
