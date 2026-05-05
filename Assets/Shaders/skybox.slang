@@ -26,7 +26,7 @@ struct VSOutput
 {
     float4 pos : SV_Position;
     float3 viewDir;
-    float4 velocity;
+    float2 velocity;
    // float3 prevViewDir;
 };
 
@@ -54,6 +54,19 @@ float4 calcCameraVelocity(float4x4 prevProjection, float4x4 prevView, float4x4 i
     return float4(prevClipPos.xyz - viewDir, 1.0);
 }
 
+float2 calcScreenSpaceVelocity(float3 viewDir) {
+    // Need to calculate unjittered clip space position for current frame, and unjittered clip space position for previous frame, then take the difference.
+
+    float4 currentPos = mul(cameraData.projection, mul(cameraData.view, float4(viewDir, 0.0)));
+    float4 prevPos = mul(prevCameraData.projection, mul(prevCameraData.view, float4(viewDir, 0.0)));
+    float2 currentNDC = currentPos.xy / currentPos.w;
+    float2 currentClip = currentNDC * 0.5 + 0.5; // Convert from NDC to screen space
+
+    float2 prevNDC = prevPos.xy / prevPos.w;
+    float2 prevClip = prevNDC * 0.5 + 0.5; // Convert from NDC to screen space
+
+    return currentClip - prevClip;
+}
 
 
 [Shader("vertex")]
@@ -67,9 +80,9 @@ VSOutput vertMain(VSInput input) {
     float4x4 projection = cameraData.projection;
     float4x4 prevProjection = prevCameraData.inverseProjection;
 
-    output.viewDir = calcViewDir(pos, cameraData.inverseProjection, cameraData.view);
-    output.velocity = calcCameraVelocity(prevProjection, prevCameraData.view, prevCameraData.inverseProjection, prevCameraData.inverseView, output.viewDir);
-    //output.prevViewDir = calcViewDir(pos, prevProjection, prevCameraData.view);
+    float3 viewDir = calcViewDir(pos, cameraData.inverseProjection, cameraData.view);
+    output.viewDir = viewDir;
+    output.velocity = calcScreenSpaceVelocity(viewDir);
 
     return output;
 }
@@ -90,7 +103,7 @@ FragOutput fragMain(VSOutput vertIn)
     output.color = skyboxTexture.Sample(vertIn.viewDir);
 
     //float3 diff = vertIn.prevViewDir - vertIn.viewDir;
-    output.velocity = vertIn.velocity;
+    output.velocity = float4(vertIn.velocity, 0.0, 1.0);
 
     return output;
 }

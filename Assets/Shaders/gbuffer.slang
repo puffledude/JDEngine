@@ -44,6 +44,7 @@ struct VSOutput
     float3 worldPos;
     float3 color;
     float2 texCoord;
+    float2 velocity;
 };
 
 // Halton implementation based off of https://alextardif.com/TAA.html
@@ -60,6 +61,20 @@ float Halton(uint index, uint base) {
 
     return result;
 
+}
+
+float2 calcScreenSpaceVelocity(float3 vertPos) {
+    // Need to calculate unjittered clip space position for current frame, and unjittered clip space position for previous frame, then take the difference.
+
+    float4 currentPos = mul(cameraData.projection, mul(cameraData.view, float4(vertPos, 1.0)));
+    float4 prevPos = mul(prevCameraData.projection, mul(prevCameraData.view, float4(vertPos, 1.0)));
+    float2 currentNDC = currentPos.xy / currentPos.w;
+    float2 currentClip = currentNDC * 0.5 + 0.5; // Convert from NDC to screen space
+
+    float2 prevNDC = prevPos.xy / prevPos.w;
+    float2 prevClip = prevNDC * 0.5 + 0.5; // Convert from NDC to screen space
+
+    return currentClip - prevClip;
 }
 
 
@@ -82,6 +97,8 @@ VSOutput vertMain(VSInput input) {
 
     // Pass through vertex colors and UVs
     float4 pos = mul(projection, mul(cameraData.view, mul(modelMatrix, float4(input.inPos, 1.0))));
+
+    output.velocity = calcScreenSpaceVelocity(input.inPos);
 
     output.pos = pos;
     float4 worldPos = mul(modelMatrix, float4(input.inPos, 1.0));
@@ -131,6 +148,6 @@ FragOutput fragMain(VSOutput vertIn)
     output.normal = norm;
     output.material = mat;
     output.pos = float4(vertIn.worldPos, 1.0);
-    output.vel = float4(0.0);
+    output.vel = float4(vertIn.velocity, 0.0, 1.0);  //Vel should be screen space velocity.
     return output;
 }

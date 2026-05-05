@@ -93,14 +93,19 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     float4 oldPos = mul(prevCameraData.jitteredProjection, mul(prevCameraData.view, float4(worldSpacePos, 1.0)));
     float2 reprojectPos = 0.5 * (oldPos.xy / oldPos.w) + 0.5;
 
-    float2 velocity = reprojectPos - vertIn.texCoord;
+    //In previous frmae v=p_uv - q_uv 
+    //q_uv = p_uv - v
 
-    float2 velocityPos = reprojectPos - velocity;
+    float2 velocity = velocityBuffer.Sample(vertIn.texCoord).xy;
+    float2 newPos = reprojectPos - velocity;
+
+
+    //float2 velocityPos = reprojectPos - velocity;
 
     // float2 adjustedReprojectPos = reprojectPos + velocityBuffer.Sample(vertIn.texCoord).xy; // Adjust the reprojected position using the velocity buffer
     float4 historySample = historyFrame.Sample(reprojectPos);
-    float4 newDepth = newFrameDepth.Sample(velocityPos);
-    float4 newSample = newFrame.Sample(velocityPos);
+    float4 newDepth = newFrameDepth.Sample(newPos);
+    float4 newSample = newFrame.Sample(newPos);
 
     float4 historyDepthSample = historyDepth.Sample(reprojectPos);
 
