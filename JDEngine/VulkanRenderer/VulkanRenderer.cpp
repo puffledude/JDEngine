@@ -2557,7 +2557,16 @@ namespace JD
 			vk::PipelineStageFlagBits2::eFragmentShader,             // dstStage
 			vk::ImageAspectFlagBits::eColor,
 			1);
-
+		transitionImageLayout(commandBuffer,
+			gBuffer.gbufferVelocityImage,
+			vk::ImageLayout::eColorAttachmentOptimal,
+			vk::ImageLayout::eShaderReadOnlyOptimal,
+			vk::AccessFlagBits2::eColorAttachmentWrite,              // srcAccessMask
+			vk::AccessFlagBits2::eShaderRead,                        // dstAccessMask
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,      // srcStage
+			vk::PipelineStageFlagBits2::eFragmentShader,             // dstStage
+			vk::ImageAspectFlagBits::eColor,
+			1);
 
 		//commandBuffer->end();
 	}
