@@ -29,25 +29,32 @@ namespace JD
 			glfwWaitEvents();
 		}
 		cleanupSwapChain();
+		destroyImages();
+		destroyPipelines();
+		destroyDescriptorSets();
 		createSwapChain();
 		createImageViews();
 		createDepthResources();
+		
+
+		vk::Format swapChainFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
+		float swapChainWidth = static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width);
+		float swapChainHeight = static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height);
+
+		loadSkyboxImage();
+		loadDefaultTexture();
+		createShadowImages(swapChainFormat, depthImageFormat, width, height);
+		createGBufferImages(swapChainFormat, depthImageFormat, swapChainWidth, swapChainHeight);
+		createLightingImages(swapChainFormat, swapChainWidth, swapChainHeight);
+		createOutputImages(swapChainFormat, swapChainWidth, swapChainHeight);
+		createTaaImages(swapChainFormat, swapChainWidth, swapChainHeight);
+		createGraphicsPipelines(swapChainFormat, depthImageFormat, width, height);
+		createDescriptorSets();
 
 	}
 
-
-	void VulkanRenderer::cleanupVulkan() {
-		if (vulkanCore.device) {
-			try {
-				vulkanCore.device.waitIdle();
-			}
-			catch (const vk::SystemError& e) {
-				std::cerr << "[Vulkan Cleanup] waitIdle failed: " << e.what() << "\n";
-			}
-		}
-		quad.Destroy(vulkanCore.device, vulkanCore.allocator);
-
-		if (skybox.skyboxImage){
+	void VulkanRenderer::destroyImages() {
+		if (skybox.skyboxImage) {
 			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(skybox.skyboxImage), skybox.skyboxAllocation);
 			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(skybox.skyboxRenderOutputImage), skybox.skyboxRenderOutputAllocation);
 			vulkanCore.device.destroyImageView(skybox.skyboxImageView);
@@ -153,6 +160,71 @@ namespace JD
 			defaultTexAllocation = nullptr;
 			defaultTexView = nullptr;
 		}
+	}
+
+	void VulkanRenderer::destroyPipelines() {
+		if (gBuffer.gBufferPipeline) { vulkanCore.device.destroyPipeline(gBuffer.gBufferPipeline);             gBuffer.gBufferPipeline = nullptr; }
+		if (gBuffer.gbufferPipelineLayout) { vulkanCore.device.destroyPipelineLayout(gBuffer.gbufferPipelineLayout); gBuffer.gbufferPipelineLayout = nullptr; }
+
+		if (skybox.skyboxPipeline) { vulkanCore.device.destroyPipeline(skybox.skyboxPipeline); skybox.skyboxPipeline = nullptr; }
+		if (skybox.skyboxPipelineLayout) { vulkanCore.device.destroyPipelineLayout(skybox.skyboxPipelineLayout); skybox.skyboxPipelineLayout = nullptr; }
+
+		if (finalOutput.finalOutputPipeline) { vulkanCore.device.destroyPipeline(finalOutput.finalOutputPipeline); finalOutput.finalOutputPipeline = nullptr; }
+		if (finalOutput.finalOutputPipelineLayout) { vulkanCore.device.destroyPipelineLayout(finalOutput.finalOutputPipelineLayout); finalOutput.finalOutputPipelineLayout = nullptr; }
+
+		if (shadows.shadowPipeline) { vulkanCore.device.destroyPipeline(shadows.shadowPipeline); shadows.shadowPipeline = nullptr; }
+		if (shadows.shadowPipelineLayout) { vulkanCore.device.destroyPipelineLayout(shadows.shadowPipelineLayout); shadows.shadowPipelineLayout = nullptr; }
+
+		if (lighting.lightingPipeline) { vulkanCore.device.destroyPipeline(lighting.lightingPipeline); lighting.lightingPipeline = nullptr; }
+		if (lighting.lightingPipelineLayout) { vulkanCore.device.destroyPipelineLayout(lighting.lightingPipelineLayout); lighting.lightingPipelineLayout = nullptr; }
+
+		if (temporal.taaPipeline) { vulkanCore.device.destroyPipeline(temporal.taaPipeline); temporal.taaPipeline = nullptr; }
+		if (temporal.taaPipelineLayout) { vulkanCore.device.destroyPipelineLayout(temporal.taaPipelineLayout); temporal.taaPipelineLayout = nullptr; }
+	}
+
+
+	void VulkanRenderer::destroyDescriptorSets() {
+		if (skybox.skyboxDescriptorSets.size() > 0) {
+			vulkanCore.device.freeDescriptorSets(descriptorPool, skybox.skyboxDescriptorSets);
+			skybox.skyboxDescriptorSets.clear();
+		}
+		if (shadows.shadowDescriptorSets.size() > 0) {
+			vulkanCore.device.freeDescriptorSets(descriptorPool, shadows.shadowDescriptorSets);
+			shadows.shadowDescriptorSets.clear();
+		}
+
+		if (finalOutput.finalOutputDescriptorSets.size() > 0) {
+			vulkanCore.device.freeDescriptorSets(descriptorPool, finalOutput.finalOutputDescriptorSets);
+			finalOutput.finalOutputDescriptorSets.clear();
+		}
+
+		if (lighting.lightingDescriptorSets.size() > 0) {
+			vulkanCore.device.freeDescriptorSets(descriptorPool, lighting.lightingDescriptorSets);
+			lighting.lightingDescriptorSets.clear();
+		}
+
+		if (temporal.taaDescriptorSets.size() > 0) {
+			vulkanCore.device.freeDescriptorSets(descriptorPool, temporal.taaDescriptorSets);
+			temporal.taaDescriptorSets.clear();
+		}
+		{
+
+		}
+	
+	}
+
+	void VulkanRenderer::cleanupVulkan() {
+		if (vulkanCore.device) {
+			try {
+				vulkanCore.device.waitIdle();
+			}
+			catch (const vk::SystemError& e) {
+				std::cerr << "[Vulkan Cleanup] waitIdle failed: " << e.what() << "\n";
+			}
+		}
+		quad.Destroy(vulkanCore.device, vulkanCore.allocator);
+
+		destroyImages();
 		
 
 
@@ -167,23 +239,7 @@ namespace JD
 		vulkanCore.renderSemaphores.clear();
 
 		// 2) Pipeline & layout
-		if (gBuffer.gBufferPipeline) { vulkanCore.device.destroyPipeline(gBuffer.gBufferPipeline);             gBuffer.gBufferPipeline = nullptr; }
-		if (gBuffer.gbufferPipelineLayout) { vulkanCore.device.destroyPipelineLayout(gBuffer.gbufferPipelineLayout); gBuffer.gbufferPipelineLayout = nullptr; }
-
-		if (skybox.skyboxPipeline) { vulkanCore.device.destroyPipeline(skybox.skyboxPipeline); skybox.skyboxPipeline = nullptr; }
-		if (skybox.skyboxPipelineLayout) { vulkanCore.device.destroyPipelineLayout(skybox.skyboxPipelineLayout); skybox.skyboxPipelineLayout = nullptr; }
-		
-		if (finalOutput.finalOutputPipeline) { vulkanCore.device.destroyPipeline(finalOutput.finalOutputPipeline); finalOutput.finalOutputPipeline = nullptr; }
-		if (finalOutput.finalOutputPipelineLayout) { vulkanCore.device.destroyPipelineLayout(finalOutput.finalOutputPipelineLayout); finalOutput.finalOutputPipelineLayout = nullptr; }
-
-		if (shadows.shadowPipeline) { vulkanCore.device.destroyPipeline(shadows.shadowPipeline); shadows.shadowPipeline = nullptr; }
-		if (shadows.shadowPipelineLayout) { vulkanCore.device.destroyPipelineLayout(shadows.shadowPipelineLayout); shadows.shadowPipelineLayout = nullptr; }
-
-		if (lighting.lightingPipeline) { vulkanCore.device.destroyPipeline(lighting.lightingPipeline); lighting.lightingPipeline = nullptr; }
-		if (lighting.lightingPipelineLayout) { vulkanCore.device.destroyPipelineLayout(lighting.lightingPipelineLayout); lighting.lightingPipelineLayout = nullptr; }
-
-		if (temporal.taaPipeline) { vulkanCore.device.destroyPipeline(temporal.taaPipeline); temporal.taaPipeline = nullptr; }
-		if (temporal.taaPipelineLayout) { vulkanCore.device.destroyPipelineLayout(temporal.taaPipelineLayout); temporal.taaPipelineLayout = nullptr; }
+		destroyPipelines();
 
 		// 3) Descriptor pool (implicitly frees all descriptor sets), then layout
 		if (descriptorPool) { vulkanCore.device.destroyDescriptorPool(descriptorPool);                descriptorPool = nullptr; }
@@ -329,19 +385,21 @@ namespace JD
 			createGraphicsPipelines(swapChainFormat, depthImageFormat, (float)vulkanCore.vkbInstances.swapChain.extent.width, (float)vulkanCore.vkbInstances.swapChain.extent.height);
 			createCameraBuffers();
 			createSunBuffers();
+			createLightingBuffers();
 			createCommandPool();
 			createQuad();
-			loadSkybox();
-			loadDefaultTexture();
-			//loadDefaultTexture();
-			//createDescriptorSets();
 			createCommandBuffers();
 			createSyncObjects();
+			loadSkyboxImage();
+			loadDefaultTexture();
+			createShadowImages(swapChainFormat, depthImageFormat, (float)vulkanCore.vkbInstances.swapChain.extent.width, (float)vulkanCore.vkbInstances.swapChain.extent.height);
 			createGBufferImages(swapChainFormat, depthImageFormat, (float)vulkanCore.vkbInstances.swapChain.extent.width, (float)vulkanCore.vkbInstances.swapChain.extent.height);
-			createLightingDescriptorSets();
-			createShadowDescriptorSets();
-			createTaaDescriptorSets();
-			createOutputDescriptorSets();
+			createLightingImages(swapChainFormat, (float)vulkanCore.vkbInstances.swapChain.extent.width, (float)vulkanCore.vkbInstances.swapChain.extent.height);
+			createOutputImages(swapChainFormat, (float)vulkanCore.vkbInstances.swapChain.extent.width, (float)vulkanCore.vkbInstances.swapChain.extent.height);
+			createTaaImages(swapChainFormat, (float)vulkanCore.vkbInstances.swapChain.extent.width, (float)vulkanCore.vkbInstances.swapChain.extent.height);
+			
+			
+			createDescriptorSets();
 			std::cout << "Vulkan initialized successfully!" << std::endl;
 
 		}
@@ -350,6 +408,15 @@ namespace JD
 			exit(EXIT_FAILURE);
 		}
 	}
+
+	void VulkanRenderer::createDescriptorSets() {
+		createShadowDescriptorSets();
+		createLightingDescriptorSets();
+		createTaaDescriptorSets();
+		createOutputDescriptorSets();
+		assignSkyboxDescriptors();
+	}
+
 
 	void VulkanRenderer::createDevices() {
 		vkb::PhysicalDeviceSelector physDeviceSelector(vulkanCore.instance);
@@ -867,38 +934,49 @@ namespace JD
 	}
 
 	void VulkanRenderer::createShadowPipeline(vk::Format swapChainFormat, vk::Format depthFormat, float width, float height) {
-		
-
 		createShadowPipelinefunc(shadows.shadowPipeline, shadows.shadowPipelineLayout, vulkanCore.device, shadows.shadowDescriptorSetLayout, width, height, swapChainFormat, depthFormat);
-		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, swapChainFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, shadows.shadowImage, shadows.shadowAllocation);
-		shadows.shadowImageView = createImageView(shadows.shadowImage, swapChainFormat, vk::ImageAspectFlagBits::eColor, 1);
-		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, depthFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment| vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, shadows.shadowDepthImage, shadows.shadowDepthAllocation);
-		shadows.shadowDepthImageView = createImageView(shadows.shadowDepthImage, depthFormat, vk::ImageAspectFlagBits::eDepth, 1);
-
 	}
 
+	void VulkanRenderer::createShadowImages(vk::Format swapChainFormat, vk::Format depthFormat, float width, float height) {
+		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, swapChainFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, shadows.shadowImage, shadows.shadowAllocation);
+		shadows.shadowImageView = createImageView(shadows.shadowImage, swapChainFormat, vk::ImageAspectFlagBits::eColor, 1);
+		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, depthFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, shadows.shadowDepthImage, shadows.shadowDepthAllocation);
+		shadows.shadowDepthImageView = createImageView(shadows.shadowDepthImage, depthFormat, vk::ImageAspectFlagBits::eDepth, 1);
+	}
+
+	void VulkanRenderer::createLightingImages(vk::Format swapChainFormat, float width, float height) {
+		createImage(width, height, 1, swapChainFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, lighting.lightingOutputImage, lighting.lightingOutputAllocation);
+		lighting.lightingOutputImageView = createImageView(lighting.lightingOutputImage, swapChainFormat, vk::ImageAspectFlagBits::eColor, 1);
+	}
 
 	void VulkanRenderer::createLightingPipeline(vk::Format swapChainFormat, float width, float height) {
 		createLightingPipelinefunc(lighting.lightingPipeline, lighting.lightingPipelineLayout, vulkanCore.device, lighting.lightingDescriptorSetLayout, width, height, swapChainFormat);
 
 	}
 
-	void VulkanRenderer::createOutputPipeline(vk::Format swapChainFormat, float width, float height) {
+	void VulkanRenderer::createOutputImages(vk::Format swapChainFormat, float width, float height) {
 		createImage(width, height, 1, swapChainFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, finalOutput.finalOutputImage, finalOutput.finalOutputAllocation);
 		finalOutput.finalOutputImageView = createImageView(finalOutput.finalOutputImage, swapChainFormat, vk::ImageAspectFlagBits::eColor, 1);
+	}
+
+	void VulkanRenderer::createOutputPipeline(vk::Format swapChainFormat, float width, float height) {
+		
 		createFinalOutputPipelinefunc(finalOutput.finalOutputPipeline, finalOutput.finalOutputPipelineLayout, vulkanCore.device, finalOutput.finalOutputDescriptorSetLayout, width, height, swapChainFormat);
 	}
 
 	void VulkanRenderer::createTaaPipeline(vk::Format swapChainFormat, float width, float height) {
+		createTaaPipelinefunc(temporal.taaPipeline, temporal.taaPipelineLayout, vulkanCore.device, temporal.taaDescriptorSetLayout, width, height, swapChainFormat);
+	}
+
+	void VulkanRenderer::createTaaImages(vk::Format swapChainFormat, float width, float height) {
 		createImage(width, height, 1, swapChainFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, temporal.taaOutputImage, temporal.taaOutputAllocation);
 		temporal.taaOutputImageView = createImageView(temporal.taaOutputImage, swapChainFormat, vk::ImageAspectFlagBits::eColor, 1);
 		createImage(width, height, 1, swapChainFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst, vk::MemoryPropertyFlagBits::eDeviceLocal, temporal.taaHistoryImage, temporal.taaHistoryAllocation);
 		temporal.taaHistoryImageView = createImageView(temporal.taaHistoryImage, swapChainFormat, vk::ImageAspectFlagBits::eColor, 1);
-		createImage(width, height, 1, depthImageFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled| vk::ImageUsageFlagBits::eTransferDst, vk::MemoryPropertyFlagBits::eDeviceLocal, temporal.historyDepthImage, temporal.historyDepthAllocation);
+		createImage(width, height, 1, depthImageFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst, vk::MemoryPropertyFlagBits::eDeviceLocal, temporal.historyDepthImage, temporal.historyDepthAllocation);
 		temporal.historyDepthImageView = createImageView(temporal.historyDepthImage, depthImageFormat, vk::ImageAspectFlagBits::eDepth, 1);
-
-		createTaaPipelinefunc(temporal.taaPipeline, temporal.taaPipelineLayout, vulkanCore.device, temporal.taaDescriptorSetLayout, width, height, swapChainFormat);
 	}
+
 	
 	void VulkanRenderer::createCubeMapTextureImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation) {
 		vk::ImageCreateInfo imageInfo{ .imageType = vk::ImageType::e2D, .format = format,
@@ -1503,7 +1581,7 @@ namespace JD
 
 
 
-	void VulkanRenderer::loadSkybox() {
+	void VulkanRenderer::loadSkyboxImage() {
 
 		loadCubemap({
 			IMAGEDIR"/skybox/CubeMapLeft.jpg",
@@ -1514,12 +1592,22 @@ namespace JD
 			IMAGEDIR"/skybox/CubeMapFront.jpg"
 			},skybox.skyboxImage ,skybox.skyboxAllocation, skybox.skyboxImageView);
 		
+		vk::Format renderOutputFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
+
+		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, renderOutputFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, skybox.skyboxRenderOutputImage, skybox.skyboxRenderOutputAllocation);
+		skybox.skyboxRenderOutputView = createImageView(skybox.skyboxRenderOutputImage, renderOutputFormat, vk::ImageAspectFlagBits::eColor, 1);
+	}
+
+	void VulkanRenderer::assignSkyboxDescriptors() {
 		std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, skybox.skyboxDescriptorSetLayout);
 		vk::DescriptorSetAllocateInfo allocInfo{
 			.descriptorPool = descriptorPool,
 			.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
 			.pSetLayouts = layouts.data()
 		};
+		if (!skybox.skyboxDescriptorSets.empty()) {
+			vulkanCore.device.freeDescriptorSets(descriptorPool, skybox.skyboxDescriptorSets);
+		}
 		skybox.skyboxDescriptorSets.clear();
 		skybox.skyboxDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
 
@@ -1557,12 +1645,8 @@ namespace JD
 
 
 		}
-		vk::Format renderOutputFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
-
-		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, renderOutputFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, skybox.skyboxRenderOutputImage, skybox.skyboxRenderOutputAllocation);
-		skybox.skyboxRenderOutputView = createImageView(skybox.skyboxRenderOutputImage, renderOutputFormat, vk::ImageAspectFlagBits::eColor, 1);
-
 	}
+
 
 	void VulkanRenderer::createGBufferImages(vk::Format swapChainFormat, vk::Format depthFormat, float width, float height) {
 		vk::Format gbufferFormat = swapChainFormat;
@@ -1590,6 +1674,10 @@ namespace JD
 			.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
 			.pSetLayouts = layouts.data()
 		};
+		if (!finalOutput.finalOutputDescriptorSets.empty()) {
+			vulkanCore.device.freeDescriptorSets(descriptorPool, finalOutput.finalOutputDescriptorSets);
+		}
+
 		finalOutput.finalOutputDescriptorSets.clear();
 		finalOutput.finalOutputDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
@@ -1619,6 +1707,16 @@ namespace JD
 		//createOutputPipelineLayout();
 	}
 
+	void VulkanRenderer::createLightingBuffers() {
+		lighting.lightingStorageBufferAllocations.clear();
+		lighting.lightingStorageBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+		for (auto& buffer : lighting.lightingStorageBuffers) {
+			VmaAllocation allocation;
+			createBuffer(sizeof(lightTransmition) * MAX_LIGHTS, vk::BufferUsageFlagBits::eStorageBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer, allocation);
+			lighting.lightingStorageBufferAllocations.push_back(allocation);
+		}
+	}
+
 	void VulkanRenderer::createLightingDescriptorSets() {
 
 
@@ -1628,19 +1726,13 @@ namespace JD
 			.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
 			.pSetLayouts = layouts.data()
 		};
+		if (!lighting.lightingDescriptorSets.empty()) {
+			vulkanCore.device.freeDescriptorSets(descriptorPool, lighting.lightingDescriptorSets);
+		}
+
 		lighting.lightingDescriptorSets.clear();
 		lighting.lightingDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
-		lighting.lightingStorageBufferAllocations.clear();
-		lighting.lightingStorageBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-		for (auto& buffer : lighting.lightingStorageBuffers) {
-			VmaAllocation allocation;
-			createBuffer(sizeof(lightTransmition) * MAX_LIGHTS, vk::BufferUsageFlagBits::eStorageBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer, allocation);
-			lighting.lightingStorageBufferAllocations.push_back(allocation);
-		}
-		vk::Format gbufferFormat = vk::Format::eB8G8R8A8Srgb;
-		createImage(vulkanCore.vkbInstances.swapChain.extent.width, vulkanCore.vkbInstances.swapChain.extent.height, 1, gbufferFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, lighting.lightingOutputImage, lighting.lightingOutputAllocation);
-		lighting.lightingOutputImageView = createImageView(lighting.lightingOutputImage, gbufferFormat, vk::ImageAspectFlagBits::eColor, 1);
-
+		
 
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 			vk::DescriptorBufferInfo lightBufferInfo{ .buffer = lighting.lightingStorageBuffers[i], .offset = 0, .range = sizeof(lightTransmition) * MAX_LIGHTS };
@@ -1730,6 +1822,9 @@ namespace JD
 			.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
 			.pSetLayouts = layouts.data()
 		};
+		if (!shadows.shadowDescriptorSets.empty()) {
+			vulkanCore.device.freeDescriptorSets(descriptorPool, shadows.shadowDescriptorSets);
+		}
 		shadows.shadowDescriptorSets.clear();
 		shadows.shadowDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -1766,6 +1861,9 @@ namespace JD
 			.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
 			.pSetLayouts = layouts.data()
 		};
+		if (!temporal.taaDescriptorSets.empty()) {
+			vulkanCore.device.freeDescriptorSets(descriptorPool, temporal.taaDescriptorSets);
+		}
 		temporal.taaDescriptorSets.clear();
 		temporal.taaDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {

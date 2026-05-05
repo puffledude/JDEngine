@@ -101,7 +101,8 @@ namespace JD
 		void createDescriptorPool();
 		void createDepthResources();
 		void createObjectDescriptorSetLayouts();
-		
+		void createDescriptorSets();
+		void destroyDescriptorSets();
 
 		void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, VmaAllocation& allocation);
 		void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation);
@@ -111,7 +112,7 @@ namespace JD
 
 		void createCameraBuffers();
 		void createSunBuffers();
-		
+		void createLightingBuffers();
 		
 		void createGraphicsPipelines(vk::Format swapChainFormat, vk::Format depthFormat, float width, float height);
 		void createGBufferPipeline(vk::Format swapChainFormat, vk::Format depthFormat, float width, float height);
@@ -120,7 +121,8 @@ namespace JD
 
 		void createCubeMapTextureImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, VmaAllocation& allocation);
 		void loadCubemap(std::vector<std::string> faces, vk::Image& cubemapImage, VmaAllocation& cubemapAllocation, vk::ImageView& cubemapImageView);
-		void loadSkybox();
+		void loadSkyboxImage();
+		void assignSkyboxDescriptors();
 		void createSkyboxDescriptorSetLayout();
 		void createSkyboxPipeline(vk::Format swapChainFormat, float width, float height);
 
@@ -129,19 +131,24 @@ namespace JD
 		void createShadowDescriptorSetLayout();
 		void createShadowDescriptorSets();
 		void createShadowPipeline(vk::Format swapChainFormat, vk::Format depthFormat, float width, float height);
+		void createShadowImages(vk::Format swapChainFormat, vk::Format depthFormat, float width, float height);
+
 
 		void createLightingDescriptorSetLayout();
 		void createLightingDescriptorSets();
 		void createLightingPipeline(vk::Format swapChainFormat, float width, float height);
-
+		void createLightingImages(vk::Format swapChainFormat, float width, float height);
 
 		void createOutputDescriptorSetLayout();
 		void createOutputDescriptorSets();
 		void createOutputPipeline(vk::Format swapChainFormat, float width, float height);
+		void createOutputImages(vk::Format swapChainFormat, float width, float height);
 
 		void createTaaDescriptorSetLayout();
 		void createTaaDescriptorSets();
 		void createTaaPipeline(vk::Format swapChainFormat, float width, float height);
+		void createTaaImages(vk::Format swapChainFormat, float width, float height);
+
 
 
 		void createCommandPool();
@@ -186,6 +193,8 @@ namespace JD
 
 
 		void cleanupVulkan();
+		void destroyImages();
+		void destroyPipelines();
 		void cleanupSwapChain();
 		
 		
