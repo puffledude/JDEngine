@@ -111,6 +111,7 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     //Local Clamping next. Need to clamp or clip the colour to between the colours of the surrounding pixels.
     //[Sousa13] gives implementation idea. 
 
+    //After local clamping, unjitter.
 
     float4 historyDepthSample = historyDepth.Sample(reprojectPos);
 
