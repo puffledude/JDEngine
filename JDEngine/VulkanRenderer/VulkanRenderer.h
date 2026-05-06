@@ -228,6 +228,7 @@ namespace JD
 		VmaAllocation depthImageAllocation;
 
 		void loadDefaultTexture();
+		void assignDefaultTexture(vk::Image& image, vk::ImageView& imageView, VmaAllocation& allocation);
 		vk::Image defaultTex;
 		vk::ImageView defaultTexView;
 		VmaAllocation defaultTexAllocation;
