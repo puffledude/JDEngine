@@ -26,7 +26,7 @@ struct VSOutput
     float4 pos : SV_Position;
     float3 color;
     float2 texCoord;
-}
+};
 
 [shader("vertex")]
 VSOutput vertMain(VSInput input) {
@@ -81,6 +81,23 @@ float3 generateWorldSpacePos(float2 texCoord, CameraInfo data) {
     // distance between the near and far plane * depth + near plane distance
 }
 
+float4 generateHistoryColour(float2 prevTexCoord, float2 currentTexCoord, float2 texelSize) {
+    // Using min and max to clamp the colour to the surrounding pixels.
+    // Taking inspiration from https://www.elopezr.com/temporal-aa-and-the-quest-for-the-holy-trail/
+    float3 prevColour = historyFrame.Sample(prevTexCoord).rgb;
+    float3 minColour = float3(9999);
+    float3 maxColour = float3(-9999);
+    
+    for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+            float3 colour = newFrame.Sample(currentTexCoord + float2(x, y) * texelSize).rgb;
+            minColour = min(minColour, colour);
+            maxColour = max(maxColour, colour);
+        }
+    }
+    float3 clampedColour = clamp(prevColour, minColour, maxColour);
+    return float4(clampedColour, 1.0);
+}
 
 
 [shader("fragment")]
@@ -103,8 +120,19 @@ float4 fragMain(VSOutput vertIn) : SV_Target
 
     //float2 velocityPos = reprojectPos - velocity;
 
-    // float2 adjustedReprojectPos = reprojectPos + velocityBuffer.Sample(vertIn.texCoord).xy; // Adjust the reprojected position using the velocity buffer
-    float4 historySample = historyFrame.Sample(reprojectPos);
+   // float2 adjustedReprojectPos = reprojectPos + velocityBuffer.Sample(vertIn.texCoord).xy; // Adjust the reprojected position using the velocity buffer
+
+    uint width=0;
+    uint height=0;
+    uint mipLevel=0;
+    uint levelNum = 0;
+
+    historyFrame.GetDimensions(mipLevel, width, height, levelNum);
+    float texSize = width * height;
+    float2 texelSize = float2(1.0 / width, 1.0 / height);
+
+    float4 historySample = generateHistoryColour(reprojectPos, currentPos, texelSize);
+    //float4 historySample = historyFrame.Sample(reprojectPos);
     float4 newDepth = newFrameDepth.Sample(currentPos);
     float4 newSample = newFrame.Sample(currentPos);
 
@@ -112,6 +140,8 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     //[Sousa13] gives implementation idea. 
 
 
+
+    
     float4 historyDepthSample = historyDepth.Sample(reprojectPos);
 
 
@@ -119,6 +149,8 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     {
         alpha = 1;
     }
+    float totalVelocity = length(velocity);
+    //alpha *= totalVelocity;
 
     float4 colour = alpha * newSample + (1 - alpha) * historySample;
 
