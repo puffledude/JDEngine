@@ -99,6 +99,34 @@ float4 generateHistoryColour(float2 prevTexCoord, float2 currentTexCoord, float2
     return float4(clampedColour, 1.0);
 }
 
+float4 generateHistoryColourfiveTap(float2 prevTexCoord, float2 currentTexCoord, float2 texelSize)
+{
+    float2 xyone = float2(-1, 0) * texelSize;
+    float4 colourone = historyFrame.Sample(prevTexCoord + xyone);
+    float2 xytwo = float2(1, 0) * texelSize;
+    float4 colourtwo = historyFrame.Sample(prevTexCoord + xytwo);
+    float2 xythree = float2(0, -1) * texelSize;
+    float4 colourthree = historyFrame.Sample(prevTexCoord + xythree);
+    float2 xyfour = float2(0, 1) * texelSize;
+    float4 colourfour = historyFrame.Sample(prevTexCoord + xyfour);
+    float4 colourcenter = historyFrame.Sample(prevTexCoord);
+    float4 blendedColour = (colourone + colourtwo + colourthree + colourfour + colourcenter) / 5.0;
+    float3 minColour = float3(9999);
+    float3 maxColour = float3(-9999);
+    for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+            float3 colour = newFrame.Sample(currentTexCoord + float2(x, y) * texelSize).rgb;
+            minColour = min(minColour, colour);
+            maxColour = max(maxColour, colour);
+        }
+    }
+    float3 clampedColour = clamp(blendedColour.rgb, minColour, maxColour);
+    return float4(clampedColour, 1.0);
+
+
+}
+
+
 
 [shader("fragment")]
 float4 fragMain(VSOutput vertIn) : SV_Target
@@ -131,7 +159,7 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     float texSize = width * height;
     float2 texelSize = float2(1.0 / width, 1.0 / height);
 
-    float4 historySample = generateHistoryColour(reprojectPos, currentPos, texelSize);
+    float4 historySample = generateHistoryColourfiveTap(reprojectPos, currentPos, texelSize);
     //float4 historySample = historyFrame.Sample(reprojectPos);
     float4 newDepth = newFrameDepth.Sample(currentPos);
     float4 newSample = newFrame.Sample(currentPos);
