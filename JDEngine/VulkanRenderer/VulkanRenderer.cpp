@@ -1117,6 +1117,53 @@ namespace JD
 	}
 
 
+	void VulkanRenderer::assignDefaultTexture(vk::Image& image, vk::ImageView& imageView, VmaAllocation& allocation) {
+		createImage(1, 1, 1, vk::Format::eR8G8B8A8Unorm, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst, vk::MemoryPropertyFlagBits::eDeviceLocal, image, allocation);
+		vk::CommandBuffer transitionBuffer = beginSingleTimeCommands();
+		transitionImageLayout(transitionBuffer,  //Keep default tex as a transfer src. Never use it directly. Blit it into something else to use it.
+			image,
+			vk::ImageLayout::eUndefined,
+			vk::ImageLayout::eTransferDstOptimal,
+			{},
+			vk::AccessFlagBits2::eTransferWrite,
+			vk::PipelineStageFlagBits2::eTopOfPipe,
+			vk::PipelineStageFlagBits2::eTransfer,
+			vk::ImageAspectFlagBits::eColor,
+			1
+		);
+		endSingleTimeCommands(transitionBuffer);
+		vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
+		std::array<vk::Offset3D, 2> srcOffsets = {
+		vk::Offset3D{0, 0, 0},
+		vk::Offset3D{static_cast<int32_t>(1), static_cast<int32_t>(1), 1}
+		};
+
+		std::array<vk::Offset3D, 2> dstOffsets = srcOffsets; // same size
+		vk::ImageBlit colourBlit{};
+		colourBlit.srcSubresource = vk::ImageSubresourceLayers(
+			vk::ImageAspectFlagBits::eColor, 0, 0, 1); // mip 0, eColor
+		colourBlit.srcOffsets = srcOffsets;
+		colourBlit.dstSubresource = vk::ImageSubresourceLayers(
+			vk::ImageAspectFlagBits::eColor, 0, 0, 1); // mip 0, eColor
+		colourBlit.dstOffsets = dstOffsets;
+		commandBuffer.blitImage(defaultTex, vk::ImageLayout::eTransferSrcOptimal, image, vk::ImageLayout::eTransferDstOptimal, 1, &colourBlit, vk::Filter::eNearest);
+
+		transitionImageLayout(commandBuffer,
+			image,
+			vk::ImageLayout::eTransferDstOptimal,
+			vk::ImageLayout::eShaderReadOnlyOptimal,
+			vk::AccessFlagBits2::eTransferWrite,
+			vk::AccessFlagBits2::eShaderRead,
+			vk::PipelineStageFlagBits2::eTransfer,
+			vk::PipelineStageFlagBits2::eFragmentShader,
+			vk::ImageAspectFlagBits::eColor,
+			1
+		);
+		endSingleTimeCommands(commandBuffer);
+		imageView = createImageView(image, vk::Format::eR8G8B8A8Unorm, vk::ImageAspectFlagBits::eColor, 1);
+
+	}
+
 
 	/// <summary>
 	/// Loads a gltf. Input a vector of mesh components to be filled with the loaded meshes, and the file path to the gltf file.
@@ -1210,6 +1257,10 @@ namespace JD
 
 				createVkImageFromGLTFImage(mat.baseColorTexture, mat.baseColorTextureView, mat.baseColorTextureAllocation, image, format);
 			}
+			else {
+				assignDefaultTexture(mat.baseColorTexture, mat.baseColorTextureView, mat.baseColorTextureAllocation);
+				std::cout << "Material " << mat.materialData.metallic << ", " << mat.materialData.roughness << " has no base color texture, using default white texture." << std::endl;
+			}
 
 			if (material.normalTexture.index >= 0) {
 				const auto& texture = model.textures[material.normalTexture.index];
@@ -1222,50 +1273,7 @@ namespace JD
 				createVkImageFromGLTFImage(mat.normalTexture, mat.normalTextureView, mat.normalTextureAllocation, image, format);
 			}
 			else {
-				createImage(1, 1, 1, vk::Format::eR8G8B8A8Unorm, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst, vk::MemoryPropertyFlagBits::eDeviceLocal, mat.normalTexture, mat.normalTextureAllocation);
-				vk::CommandBuffer transitionBuffer = beginSingleTimeCommands();
-				transitionImageLayout(transitionBuffer,  //Keep default tex as a transfer src. Never use it directly. Blit it into something else to use it.
-					mat.normalTexture,
-					vk::ImageLayout::eUndefined,
-					vk::ImageLayout::eTransferDstOptimal,
-					{},
-					vk::AccessFlagBits2::eTransferWrite,
-					vk::PipelineStageFlagBits2::eTopOfPipe,
-					vk::PipelineStageFlagBits2::eTransfer,
-					vk::ImageAspectFlagBits::eColor,
-					1
-				);
-				endSingleTimeCommands(transitionBuffer);
-				vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
-				std::array<vk::Offset3D, 2> srcOffsets = {
-				vk::Offset3D{0, 0, 0},
-				vk::Offset3D{static_cast<int32_t>(1), static_cast<int32_t>(1), 1}
-				};
-
-				std::array<vk::Offset3D, 2> dstOffsets = srcOffsets; // same size
-				vk::ImageBlit colourBlit{};
-				colourBlit.srcSubresource = vk::ImageSubresourceLayers(
-					vk::ImageAspectFlagBits::eColor, 0, 0, 1); // mip 0, eColor
-				colourBlit.srcOffsets = srcOffsets;
-				colourBlit.dstSubresource = vk::ImageSubresourceLayers(
-					vk::ImageAspectFlagBits::eColor, 0, 0, 1); // mip 0, eColor
-				colourBlit.dstOffsets = dstOffsets;
-				commandBuffer.blitImage(defaultTex, vk::ImageLayout::eTransferSrcOptimal, mat.normalTexture, vk::ImageLayout::eTransferDstOptimal, 1, &colourBlit, vk::Filter::eNearest);
-				
-				transitionImageLayout(commandBuffer,
-					mat.normalTexture,
-					vk::ImageLayout::eTransferDstOptimal,
-					vk::ImageLayout::eShaderReadOnlyOptimal,
-					vk::AccessFlagBits2::eTransferWrite,
-					vk::AccessFlagBits2::eShaderRead,
-					vk::PipelineStageFlagBits2::eTransfer,
-					vk::PipelineStageFlagBits2::eFragmentShader,
-					vk::ImageAspectFlagBits::eColor,
-					1
-				);
-				endSingleTimeCommands(commandBuffer);
-				mat.normalTextureView = createImageView(mat.normalTexture, vk::Format::eR8G8B8A8Unorm, vk::ImageAspectFlagBits::eColor, 1);
-
+				assignDefaultTexture(mat.normalTexture, mat.normalTextureView, mat.normalTextureAllocation);
 			}
 			std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, objectDescriptorSetLayout);
 			vk::DescriptorSetAllocateInfo allocInfo{
