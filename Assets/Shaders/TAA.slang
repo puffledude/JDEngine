@@ -147,8 +147,7 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     float jitterY = (cameraData.jitteredProjection[1][2] - cameraData.projection[1][2]);
     float2 jitterUV = float2(jitterX, jitterY) * float2(0.5, -0.5); // Convert jitter from clip space to UV space
     reprojectPos -= jitterUV; // Adjust the reprojected position by the jitter amount to account for camera jittering
-    //float2 velocityPos = reprojectPos - velocity;
-
+    
    // float2 adjustedReprojectPos = reprojectPos + velocityBuffer.Sample(vertIn.texCoord).xy; // Adjust the reprojected position using the velocity buffer
 
     uint width=0;
@@ -172,9 +171,7 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     float sampleCount = historySample.a;
     float alpha = max(0.1, 1 / sampleCount);
 
-    
     float4 historyDepthSample = historyDepth.Sample(reprojectPos);
-
 
     if (abs(newDepth.r - historyDepthSample.r) > depthRejectionvalue)
     {
@@ -182,9 +179,19 @@ float4 fragMain(VSOutput vertIn) : SV_Target
         sampleCount = 1;
     }
     float totalVelocity = length(velocity);
-    // alpha *= totalVelocity;
-    //alpha = 0.1;
-    float4 colour = alpha * newSample + (1 - alpha) * historySample;
-    colour.a = sampleCount + 1;
+    float4 colour = float4(0.0);
+    if (totalVelocity > 2) { //Attempt at motion blurring.
+        float decimal = 2 / totalVelocity;
+        // float lerpFactor = pow(decimal, 2); // Adjust the exponent to control the falloff
+        float lerpFactor = 1 - decimal;
+        colour = lerp(newSample, historySample, lerpFactor);
+        }
+        else {
+           // alpha = 0.1;
+            colour = alpha * newSample + (1 - alpha) * historySample;
+            colour.a = sampleCount + 1;
+    }
+
+   
     return colour;
 }
