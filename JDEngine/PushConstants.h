@@ -15,6 +15,9 @@ namespace JD {
 		uint32_t radius;
 	};
 
+	struct sharpeningPushConstants {
+		float sharpenStrength;
+	};
 
 
 }
