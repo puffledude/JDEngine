@@ -131,9 +131,8 @@ float4 generateHistoryColourfiveTap(float2 prevTexCoord, float2 currentTexCoord,
 [shader("fragment")]
 float4 fragMain(VSOutput vertIn) : SV_Target
 {
-    float alpha = 0.1;
+    //float alpha = 0.1;
     float depthRejectionvalue = 0.1;
-
    /// float3 worldSpacePos = generateWorldSpacePos(vertIn.texCoord, cameraData);
     //float4 oldPos = mul(prevCameraData.jitteredProjection, mul(prevCameraData.view, float4(worldSpacePos, 1.0)));
     //float2 reprojectPos = 0.5 * (oldPos.xy / oldPos.w) + 0.5;
@@ -165,10 +164,11 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     float4 newSample = newFrame.Sample(currentPos);
 
     //Local Clamping next. Need to clamp or clip the colour to between the colours of the surrounding pixels.
-    //[Sousa13] gives implementation idea. 
+    //[Sousa13] gives implementation idea.
 
-    //After local clamping, unjitter.
-
+    // After local clamping, unjitter.
+    float sampleCount = historySample.a;
+    float alpha = max(0.1, 1 / sampleCount);
 
     
     float4 historyDepthSample = historyDepth.Sample(reprojectPos);
@@ -176,12 +176,12 @@ float4 fragMain(VSOutput vertIn) : SV_Target
 
     if (abs(newDepth.r - historyDepthSample.r) > depthRejectionvalue)
     {
-        alpha = 1;
+        alpha = 0.5;
     }
     float totalVelocity = length(velocity);
     //alpha *= totalVelocity;
 
     float4 colour = alpha * newSample + (1 - alpha) * historySample;
-
+    colour.a+= 1;
     return colour;
 }
