@@ -152,7 +152,14 @@ namespace JD
 		void createTaaPipeline(vk::Format swapChainFormat, float width, float height);
 		void createTaaImages(vk::Format swapChainFormat, float width, float height);
 
+		void createLaplacianDescriptorSetLayout();
+		void createLaplacianDescriptorSets();
+		void createLaplacianPipeline(vk::Format swapChainFormat, float width, float height);
+		void createLaplacianImages(vk::Format swapChainFormat, float width, float height);
 
+		void createSharpenDescriptorSetLayout();
+		void createSharpenDescriptorSets();
+		void createSharpenPipeline(vk::Format swapChainFormat, float width, float height);
 
 		void createCommandPool();
 		void createCommandBuffers();
@@ -174,11 +181,11 @@ namespace JD
 		void drawSkyboxPass();
 		void drawGBufferPass(const std::vector<MeshInstanceBatch>& meshInstanceBatches);
 		void drawLightPass(std::vector<lightTransmition>* lightTransmitions);
-		void drawTAApass(uint32_t imageIndex);
-		void drawFinalOutputPass(uint32_t imageIndex);
+		void drawTAApass();
+		void drawFinalOutputPass();
 		void drawFinalOutputAliased(uint32_t imageIndex);
-
-
+		void drawLaplacian();
+		void sharpenOutput(uint32_t imageIndex);
 		//void recordCommandBuffer(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
 		void BuildInstanceBatches(
 			const std::vector<RenderTransmition>& renderables,
@@ -203,7 +210,7 @@ namespace JD
 		
 		bool framebufferResized = false;
 		float cooldown = 0.0f;
-
+		float sharpenStrength = 0.2f;
 
 		VulkanCore vulkanCore;
 		GLFWwindow* window;
@@ -242,6 +249,9 @@ namespace JD
 		GBuffer gBuffer{};
 		Lighting lighting{};
 		TAA temporal{};
+		Laplacian laplacian{};
+		FinalSharpend sharpen{};
+
 
 		FinalOutput finalOutput{};
 		std::vector<RenderTransmition>* currentRenderTransmition = nullptr;
