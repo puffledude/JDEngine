@@ -164,5 +164,26 @@ namespace JD
 		VmaAllocation historyDepthAllocation = nullptr;
 	};
 
+	struct Laplacian {
+	
+		vk::DescriptorSetLayout laplacianDescriptorSetLayout = nullptr;
+		std::vector<vk::DescriptorSet> laplacianDescriptorSets;
+		vk::Pipeline laplacianPipeline = nullptr;
+		vk::PipelineLayout laplacianPipelineLayout = nullptr;
+		vk::Image laplacianOutputImage = nullptr;
+		vk::ImageView laplacianOutputImageView = nullptr;
+		VmaAllocation laplacianOutputAllocation = nullptr;
+	};
+
+	struct FinalSharpend {
+		vk::DescriptorSetLayout finalSharpenDescriptorSetLayout = nullptr;
+		std::vector<vk::DescriptorSet> finalSharpenDescriptorSets;
+		vk::Pipeline finalSharpenPipeline = nullptr;
+		vk::PipelineLayout finalSharpenPipelineLayout = nullptr;
+		/*vk::Image finalSharpenOutputImage = nullptr;
+		vk::ImageView finalSharpenOutputImageView = nullptr;
+		VmaAllocation finalSharpenOutputAllocation = nullptr;*/
+	};
+
 
 }
