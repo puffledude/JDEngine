@@ -43,12 +43,7 @@ namespace JD
 
 		loadSkyboxImage();
 		loadDefaultTexture();
-		createShadowImages(swapChainFormat, depthImageFormat, width, height);
-		createGBufferImages(swapChainFormat, depthImageFormat, swapChainWidth, swapChainHeight);
-		createLightingImages(swapChainFormat, swapChainWidth, swapChainHeight);
-		createOutputImages(swapChainFormat, swapChainWidth, swapChainHeight);
-		createTaaImages(swapChainFormat, swapChainWidth, swapChainHeight);
-		createGraphicsPipelines(swapChainFormat, depthImageFormat, width, height);
+		createImages(swapChainFormat);
 		createDescriptorSets();
 
 	}
@@ -392,11 +387,7 @@ namespace JD
 			createSyncObjects();
 			loadSkyboxImage();
 			loadDefaultTexture();
-			createShadowImages(swapChainFormat, depthImageFormat, (float)vulkanCore.vkbInstances.swapChain.extent.width, (float)vulkanCore.vkbInstances.swapChain.extent.height);
-			createGBufferImages(swapChainFormat, depthImageFormat, (float)vulkanCore.vkbInstances.swapChain.extent.width, (float)vulkanCore.vkbInstances.swapChain.extent.height);
-			createLightingImages(swapChainFormat, (float)vulkanCore.vkbInstances.swapChain.extent.width, (float)vulkanCore.vkbInstances.swapChain.extent.height);
-			createOutputImages(swapChainFormat, (float)vulkanCore.vkbInstances.swapChain.extent.width, (float)vulkanCore.vkbInstances.swapChain.extent.height);
-			createTaaImages(swapChainFormat, (float)vulkanCore.vkbInstances.swapChain.extent.width, (float)vulkanCore.vkbInstances.swapChain.extent.height);
+			createImages(swapChainFormat);
 			
 			
 			createDescriptorSets();
@@ -407,6 +398,17 @@ namespace JD
 			std::cerr << "Failed to initialize Vulkan: " << e.what() << std::endl;
 			exit(EXIT_FAILURE);
 		}
+	}
+
+	void VulkanRenderer::createImages(vk::Format swapChainFormat) {
+		float swapChainWidth = static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width);
+		float swapChainHeight = static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height);
+		createShadowImages(swapChainFormat, depthImageFormat, swapChainWidth, swapChainHeight);
+		createGBufferImages(swapChainFormat, depthImageFormat, swapChainWidth, swapChainHeight);
+		createLightingImages(swapChainFormat, swapChainWidth, swapChainHeight);
+		createOutputImages(swapChainFormat, swapChainWidth, swapChainHeight);
+		createTaaImages(swapChainFormat, swapChainWidth, swapChainHeight);
+		createLaplacianImages(swapChainFormat, swapChainWidth, swapChainHeight);
 	}
 
 	void VulkanRenderer::createDescriptorSets() {

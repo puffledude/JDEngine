@@ -111,6 +111,8 @@ namespace JD
 		void copyBufferToImage(const vk::Buffer& buffer, vk::Image& image, uint32_t width, uint32_t height, uint32_t layerCount = 1);
 		void generateMipmaps(vk::Image& image, vk::Format imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels, uint32_t layerCount = 1);
 
+		void createImages(vk::Format swapChainFormat);
+
 		void createCameraBuffers();
 		void createSunBuffers();
 		void createLightingBuffers();
