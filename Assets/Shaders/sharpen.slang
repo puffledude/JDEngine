@@ -30,11 +30,18 @@ VSOutput vertMain(VSInput input) {
     return output;
 }
 
+struct PushConstants {
+    float strength;
+};
+
 [[vk::binding(1, 0)]]
 Sampler2D taaImage;
 
 [[vk::binding(2, 0)]]
 Sampler2D laplaceImage;
+
+[[vk::push_constant]]
+ConstantBuffer<PushConstants> pc;
 
 // Shader idea from https://youtu.be/VbJK0UyZMXU
 // Also use this https://www.youtube.com/watch?v=uNP6ZwQ3r6A
@@ -45,5 +52,8 @@ Sampler2D laplaceImage;
 [shader("fragment")]
 float4 fragMain(VSOutput vertIn) : SV_Target
 {
-    return taaImage.Sample(vertIn.texCoord);
+    float3 mask = laplaceImage.Sample(vertIn.texCoord).rgb;
+    float3 original = taaImage.Sample(vertIn.texCoord).rgb;
+    float3 sharpened = original + pc.strength * mask;
+    return float4(sharpened, 1.0);
 }

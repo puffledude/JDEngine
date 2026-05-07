@@ -39,10 +39,32 @@ Sampler2D taaImage;
 
 // Loop through each pixel, find the 8 surrounding pixels, and apply a sharpening kernel to them. This will be done in a compute shader, and the result will be written to a new texture which is then sampled in the fragment shader.
 
+// Laplace mask:
+// -1 -1 -1
+// -1  8 -1
+// -1 -1 -1
+
+
 [shader("fragment")]
 float4 fragMain(VSOutput vertIn) : SV_Target
 {
-    //Apply gausian first?
+    float width, height;
+    taaImage.GetDimensions(width, height);
+    float texSize = width * height;
+    float2 texelSize = float2(1.0 / width, 1.0 / height);
+    float4 centre = taaImage.Sample(vertIn.texCoord);
 
-    return taaImage.Sample(vertIn.texCoord);
+    for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+            float3 colour = taaImage.Sample(vertIn.texCoord + float2(x, y) * texelSize).rgb;
+            if (x == 0 && y == 0) {
+                centre.rgb += colour * 8.0;
+            } else {
+                centre.rgb -= colour;
+            }
+        }
+    }
+
+
+    return centre;
 }
