@@ -1116,12 +1116,21 @@ namespace JD
 		endSingleTimeCommands(commandBuffer);
 	}
 
-
-	void VulkanRenderer::assignDefaultTexture(vk::Image& image, vk::ImageView& imageView, VmaAllocation& allocation) {
-		createImage(1, 1, 1, vk::Format::eR8G8B8A8Unorm, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst, vk::MemoryPropertyFlagBits::eDeviceLocal, image, allocation);
+	void VulkanRenderer::copyImageToImage(vk::Image& srcImage, vk::Image& dstImage) {
 		vk::CommandBuffer transitionBuffer = beginSingleTimeCommands();
 		transitionImageLayout(transitionBuffer,  //Keep default tex as a transfer src. Never use it directly. Blit it into something else to use it.
-			image,
+			srcImage,
+			vk::ImageLayout::eUndefined,
+			vk::ImageLayout::eTransferSrcOptimal,
+			{},
+			vk::AccessFlagBits2::eTransferRead,
+			vk::PipelineStageFlagBits2::eTopOfPipe,
+			vk::PipelineStageFlagBits2::eTransfer,
+			vk::ImageAspectFlagBits::eColor,
+			1
+		);
+		transitionImageLayout(transitionBuffer,
+			dstImage,
 			vk::ImageLayout::eUndefined,
 			vk::ImageLayout::eTransferDstOptimal,
 			{},
@@ -1146,8 +1155,15 @@ namespace JD
 		colourBlit.dstSubresource = vk::ImageSubresourceLayers(
 			vk::ImageAspectFlagBits::eColor, 0, 0, 1); // mip 0, eColor
 		colourBlit.dstOffsets = dstOffsets;
-		commandBuffer.blitImage(defaultTex, vk::ImageLayout::eTransferSrcOptimal, image, vk::ImageLayout::eTransferDstOptimal, 1, &colourBlit, vk::Filter::eNearest);
+		commandBuffer.blitImage(srcImage, vk::ImageLayout::eTransferSrcOptimal, dstImage, vk::ImageLayout::eTransferDstOptimal, 1, &colourBlit, vk::Filter::eNearest);
+		endSingleTimeCommands(commandBuffer);
+	}
 
+
+	void VulkanRenderer::assignDefaultTexture(vk::Image& image, vk::ImageView& imageView, VmaAllocation& allocation) {
+		createImage(1, 1, 1, vk::Format::eR8G8B8A8Unorm, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst, vk::MemoryPropertyFlagBits::eDeviceLocal, image, allocation);
+		copyImageToImage(defaultTex, image);
+		vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
 		transitionImageLayout(commandBuffer,
 			image,
 			vk::ImageLayout::eTransferDstOptimal,

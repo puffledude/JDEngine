@@ -88,6 +88,7 @@ namespace JD
 		vk::CommandBuffer beginSingleTimeCommands();
 		void endSingleTimeCommands(vk::CommandBuffer& commandBuffer);
 		void copyBuffer(const vk::Buffer& srcBuffer, vk::Buffer& dstBuffer, vk::DeviceSize size);
+		void copyImageToImage(vk::Image& srcImage, vk::Image& dstImage);
 		uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
 
 
@@ -188,7 +189,7 @@ namespace JD
 		void JitterMatrix(glm::mat4& matrix);
 		uint32_t useTaa = true;
 		uint32_t jitterIndex = 0;
-		uint32_t jitterSequenceLength = 8;
+		uint32_t jitterSequenceLength = 16;
 
 
 
