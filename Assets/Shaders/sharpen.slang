@@ -31,7 +31,7 @@ VSOutput vertMain(VSInput input) {
 }
 
 struct PushConstants {
-    float strength;
+    float4 strength;
 };
 
 [[vk::binding(1, 0)]]
@@ -52,8 +52,9 @@ ConstantBuffer<PushConstants> pc;
 [shader("fragment")]
 float4 fragMain(VSOutput vertIn) : SV_Target
 {
-    float3 mask = laplaceImage.Sample(vertIn.texCoord).rgb;
-    float3 original = taaImage.Sample(vertIn.texCoord).rgb;
-    float3 sharpened = original + pc.strength * mask;
-    return float4(sharpened, 1.0);
+    float4 mask = laplaceImage.Sample(vertIn.texCoord);
+    float4 original = taaImage.Sample(vertIn.texCoord);
+    float strength = pc.strength.x; // Use the x component of the strength for sharpening
+    float4 sharpened = original + strength * mask;
+    return sharpened;
 }

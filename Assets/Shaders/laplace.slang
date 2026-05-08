@@ -54,17 +54,19 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     float2 texelSize = float2(1.0 / width, 1.0 / height);
     float4 centre = taaImage.Sample(vertIn.texCoord);
 
+    float4 mask = float4(0.0, 0.0, 0.0, 0.0);
+
     for (int x = -1; x <= 1; x++) {
         for (int y = -1; y <= 1; y++) {
             float3 colour = taaImage.Sample(vertIn.texCoord + float2(x, y) * texelSize).rgb;
             if (x == 0 && y == 0) {
-                centre.rgb += colour * 8.0;
+                mask.rgb += colour * 8.0;
             } else {
-                centre.rgb -= colour;
+                mask.rgb -= colour;
             }
         }
     }
 
 
-    return centre;
+    return mask;
 }
