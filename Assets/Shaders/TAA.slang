@@ -214,6 +214,7 @@ float4 fragMain(VSOutput vertIn) : SV_Target
         // float lerpFactor = pow(decimal, 2); // Adjust the exponent to control the falloff
         float lerpFactor = 1 - decimal;
         colour = lerp(newSample, historySample, lerpFactor);
+        colour.a += 1; // Set alpha to 1 to indicate a valid sample
         }
         else {
         // alpha = 0.1;
