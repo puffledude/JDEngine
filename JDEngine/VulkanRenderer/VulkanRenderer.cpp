@@ -2146,13 +2146,13 @@ namespace JD
 			useTaa = useTaa == 0 ? 1 : 0;
 			cooldown = 0.5f;
 		}
-		if (glfwGetKey(window, GLFW_KEY_COMMA) == GLFW_PRESS ) {
-			sharpenStrength = std::max(0.0f, sharpenStrength -=0.2f);
+		if (glfwGetKey(window, GLFW_KEY_COMMA) == GLFW_PRESS && cooldown <= 0.0f) {
+			sharpenStrength = std::max(0.0f, sharpenStrength -=0.1f);
 			std::cout << "Sharpen Strength: " << sharpenStrength << std::endl;
 			cooldown = 0.5f;
 		}
-		if (glfwGetKey(window, GLFW_KEY_SLASH) == GLFW_PRESS ) {
-			sharpenStrength = std::min(25.0f, sharpenStrength += 0.2f);
+		if (glfwGetKey(window, GLFW_KEY_SLASH) == GLFW_PRESS && cooldown <= 0.0f) {
+			sharpenStrength = std::min(1.0f, sharpenStrength += 0.1f);
 			std::cout << "Sharpen Strength: " << sharpenStrength << std::endl;
 
 			cooldown = 0.5f;
