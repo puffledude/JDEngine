@@ -142,6 +142,9 @@ float2 calculateVelocity(float2 currentTexCoord, float2 texelSize) {
     return velocity;
 }
 
+float lineariseDepth(float depth, float near, float far)
+{
+    return (near * far) / (far - depth * (far - near));
 }
 
 
@@ -189,9 +192,11 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     float sampleCount = historySample.a;
     float alpha = max(0.1, 1 / sampleCount);
 
+    float depthLinear = lineariseDepth(newDepth.r, near, far); // Assuming near plane at 0.1 and far plane at 100. Adjust as needed.
     float4 historyDepthSample = historyDepth.Sample(reprojectPos);
 
-    if (abs(newDepth.r - historyDepthSample.r) > depthRejectionvalue)
+
+    if (abs(depthLinear - lineariseDepth(historyDepthSample.r, near, far)) > depthRejectionvalue)
     {
         alpha = 1;
         sampleCount = 1;
