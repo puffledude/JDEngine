@@ -88,7 +88,7 @@ namespace JD
 		vk::CommandBuffer beginSingleTimeCommands();
 		void endSingleTimeCommands(vk::CommandBuffer& commandBuffer);
 		void copyBuffer(const vk::Buffer& srcBuffer, vk::Buffer& dstBuffer, vk::DeviceSize size);
-		void copyImageToImage(vk::Image& srcImage, vk::Image& dstImage);
+		void copyImageToImage(vk::CommandBuffer commandBuffer, vk::Image& srcImage, vk::Image& dstImage, uint32_t width, uint32_t height);
 		uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
 
 
@@ -210,7 +210,7 @@ namespace JD
 		
 		bool framebufferResized = false;
 		float cooldown = 0.0f;
-		float sharpenStrength = 0.2f;
+		float sharpenStrength = 0.0f;
 
 		VulkanCore vulkanCore;
 		GLFWwindow* window;

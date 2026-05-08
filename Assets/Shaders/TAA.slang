@@ -187,7 +187,7 @@ float4 fragMain(VSOutput vertIn) : SV_Target
         colour = lerp(newSample, historySample, lerpFactor);
         }
         else {
-           // alpha = 0.1;
+            alpha = 0.1;
             colour = alpha * newSample + (1 - alpha) * historySample;
             colour.a = sampleCount + 1;
     }

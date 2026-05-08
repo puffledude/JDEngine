@@ -155,6 +155,16 @@ namespace JD
 			defaultTexAllocation = nullptr;
 			defaultTexView = nullptr;
 		}
+
+		if (laplacian.laplacianOutputImage) {
+			vmaDestroyImage(vulkanCore.allocator, static_cast<VkImage>(laplacian.laplacianOutputImage), laplacian.laplacianOutputAllocation);
+			vulkanCore.device.destroyImageView(laplacian.laplacianOutputImageView);
+			laplacian.laplacianOutputImage = nullptr;
+			laplacian.laplacianOutputAllocation = nullptr;
+			laplacian.laplacianOutputImageView = nullptr;
+		}
+
+
 	}
 
 	void VulkanRenderer::destroyPipelines() {
@@ -175,6 +185,13 @@ namespace JD
 
 		if (temporal.taaPipeline) { vulkanCore.device.destroyPipeline(temporal.taaPipeline); temporal.taaPipeline = nullptr; }
 		if (temporal.taaPipelineLayout) { vulkanCore.device.destroyPipelineLayout(temporal.taaPipelineLayout); temporal.taaPipelineLayout = nullptr; }
+
+		if (laplacian.laplacianPipeline) { vulkanCore.device.destroyPipeline(laplacian.laplacianPipeline); laplacian.laplacianPipeline = nullptr; }
+		if (laplacian.laplacianPipelineLayout) { vulkanCore.device.destroyPipelineLayout(laplacian.laplacianPipelineLayout); laplacian.laplacianPipelineLayout = nullptr; }
+
+		if (sharpen.finalSharpenPipeline) { vulkanCore.device.destroyPipeline(sharpen.finalSharpenPipeline); sharpen.finalSharpenPipeline = nullptr; }
+		if (sharpen.finalSharpenPipelineLayout) { vulkanCore.device.destroyPipelineLayout(sharpen.finalSharpenPipelineLayout); sharpen.finalSharpenPipelineLayout = nullptr; }
+
 	}
 
 
@@ -202,8 +219,15 @@ namespace JD
 			vulkanCore.device.freeDescriptorSets(descriptorPool, temporal.taaDescriptorSets);
 			temporal.taaDescriptorSets.clear();
 		}
-		{
+		
+		if (laplacian.laplacianDescriptorSets.size() > 0) {
+			vulkanCore.device.freeDescriptorSets(descriptorPool, laplacian.laplacianDescriptorSets);
+			laplacian.laplacianDescriptorSets.clear();
+		}
 
+		if (sharpen.finalSharpenDescriptorSets.size() > 0) {
+			vulkanCore.device.freeDescriptorSets(descriptorPool, sharpen.finalSharpenDescriptorSets);
+			sharpen.finalSharpenDescriptorSets.clear();
 		}
 	
 	}
@@ -244,6 +268,9 @@ namespace JD
 		if (shadows.shadowDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(shadows.shadowDescriptorSetLayout); shadows.shadowDescriptorSetLayout = nullptr; }
 		if (lighting.lightingDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(lighting.lightingDescriptorSetLayout); lighting.lightingDescriptorSetLayout = nullptr; }
 		if (temporal.taaDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(temporal.taaDescriptorSetLayout); temporal.taaDescriptorSetLayout = nullptr; }
+		if (laplacian.laplacianDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(laplacian.laplacianDescriptorSetLayout); laplacian.laplacianDescriptorSetLayout = nullptr; }
+		if (sharpen.finalSharpenDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(sharpen.finalSharpenDescriptorSetLayout); sharpen.finalSharpenDescriptorSetLayout = nullptr; }
+
 		// 4) Sampler
 		if (vulkanCore.textureSampler) { vulkanCore.device.destroySampler(vulkanCore.textureSampler); vulkanCore.textureSampler = nullptr; }
 
@@ -415,6 +442,8 @@ namespace JD
 		createShadowDescriptorSets();
 		createLightingDescriptorSets();
 		createTaaDescriptorSets();
+		createLaplacianDescriptorSets();
+		createSharpenDescriptorSets();
 		createOutputDescriptorSets();
 		assignSkyboxDescriptors();
 	}
@@ -790,6 +819,8 @@ namespace JD
 		createShadowDescriptorSetLayout();
 		createLightingDescriptorSetLayout();
 		createTaaDescriptorSetLayout();
+		createLaplacianDescriptorSetLayout();
+		createSharpenDescriptorSetLayout();
 		createOutputDescriptorSetLayout();
 	}
 
@@ -861,6 +892,24 @@ namespace JD
 		temporal.taaDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
 	}
 
+	void VulkanRenderer::createLaplacianDescriptorSetLayout() {
+		std::array bindings = {
+			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  // Input texture
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Input texture depth
+		};
+		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
+		laplacian.laplacianDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
+	}
+	
+	void VulkanRenderer::createSharpenDescriptorSetLayout() {
+		std::array bindings = {
+			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr),  // Input texture
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Input texture
+			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Laplace mask
+		};
+		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
+		sharpen.finalSharpenDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
+	}
 
 	void VulkanRenderer::createOutputDescriptorSetLayout() 
 	{
@@ -924,6 +973,8 @@ namespace JD
 		createLightingPipeline(swapChainFormat, width, height);
 		createOutputPipeline(swapChainFormat, width, height);
 		createTaaPipeline(swapChainFormat, width, height);
+		createLaplacianPipeline(swapChainFormat, width, height);
+		createSharpenPipeline(swapChainFormat, width, height);
 	}
 	void VulkanRenderer::createSkyboxPipeline(vk::Format swapChainFormat, float width, float height) {
 		createSkyboxPipelinefunc(skybox.skyboxPipeline, skybox.skyboxPipelineLayout, vulkanCore.device, skybox.skyboxDescriptorSetLayout, width, height, swapChainFormat);
@@ -970,13 +1021,26 @@ namespace JD
 		createTaaPipelinefunc(temporal.taaPipeline, temporal.taaPipelineLayout, vulkanCore.device, temporal.taaDescriptorSetLayout, width, height, swapChainFormat);
 	}
 
+	void VulkanRenderer::createLaplacianPipeline(vk::Format swapChainFormat, float width, float height) {
+		createLaplacePipelinefunc(laplacian.laplacianPipeline, laplacian.laplacianPipelineLayout, vulkanCore.device, laplacian.laplacianDescriptorSetLayout, width, height, swapChainFormat);
+	}
+
+	void VulkanRenderer::createSharpenPipeline(vk::Format swapChainFormat, float width, float height) {
+		createSharpenPipelinefunc(sharpen.finalSharpenPipeline, sharpen.finalSharpenPipelineLayout, vulkanCore.device, sharpen.finalSharpenDescriptorSetLayout, width, height, swapChainFormat);
+	}
+
 	void VulkanRenderer::createTaaImages(vk::Format swapChainFormat, float width, float height) {
-		createImage(width, height, 1, swapChainFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, temporal.taaOutputImage, temporal.taaOutputAllocation);
+		createImage(width, height, 1, swapChainFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eDeviceLocal, temporal.taaOutputImage, temporal.taaOutputAllocation);
 		temporal.taaOutputImageView = createImageView(temporal.taaOutputImage, swapChainFormat, vk::ImageAspectFlagBits::eColor, 1);
 		createImage(width, height, 1, swapChainFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst, vk::MemoryPropertyFlagBits::eDeviceLocal, temporal.taaHistoryImage, temporal.taaHistoryAllocation);
 		temporal.taaHistoryImageView = createImageView(temporal.taaHistoryImage, swapChainFormat, vk::ImageAspectFlagBits::eColor, 1);
 		createImage(width, height, 1, depthImageFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst, vk::MemoryPropertyFlagBits::eDeviceLocal, temporal.historyDepthImage, temporal.historyDepthAllocation);
 		temporal.historyDepthImageView = createImageView(temporal.historyDepthImage, depthImageFormat, vk::ImageAspectFlagBits::eDepth, 1);
+	}
+
+	void VulkanRenderer::createLaplacianImages(vk::Format swapChainFormat, float width, float height) {
+		createImage(width, height, 1, swapChainFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, laplacian.laplacianOutputImage, laplacian.laplacianOutputAllocation);
+		laplacian.laplacianOutputImageView = createImageView(laplacian.laplacianOutputImage, swapChainFormat, vk::ImageAspectFlagBits::eColor, 1);
 	}
 
 	
@@ -1118,9 +1182,9 @@ namespace JD
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	void VulkanRenderer::copyImageToImage(vk::Image& srcImage, vk::Image& dstImage) {
-		vk::CommandBuffer transitionBuffer = beginSingleTimeCommands();
-		transitionImageLayout(transitionBuffer,  //Keep default tex as a transfer src. Never use it directly. Blit it into something else to use it.
+	void VulkanRenderer::copyImageToImage(vk::CommandBuffer commandBuffer, vk::Image& srcImage, vk::Image& dstImage, uint32_t width, uint32_t height) {
+		//vk::CommandBuffer transitionBuffer = beginSingleTimeCommands();
+		transitionImageLayout(commandBuffer,  //Keep default tex as a transfer src. Never use it directly. Blit it into something else to use it.
 			srcImage,
 			vk::ImageLayout::eUndefined,
 			vk::ImageLayout::eTransferSrcOptimal,
@@ -1131,7 +1195,7 @@ namespace JD
 			vk::ImageAspectFlagBits::eColor,
 			1
 		);
-		transitionImageLayout(transitionBuffer,
+		transitionImageLayout(commandBuffer,
 			dstImage,
 			vk::ImageLayout::eUndefined,
 			vk::ImageLayout::eTransferDstOptimal,
@@ -1142,11 +1206,11 @@ namespace JD
 			vk::ImageAspectFlagBits::eColor,
 			1
 		);
-		endSingleTimeCommands(transitionBuffer);
-		vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
+		//endSingleTimeCommands(commandBuffer);
+		//vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
 		std::array<vk::Offset3D, 2> srcOffsets = {
 		vk::Offset3D{0, 0, 0},
-		vk::Offset3D{static_cast<int32_t>(1), static_cast<int32_t>(1), 1}
+		vk::Offset3D{static_cast<int32_t>(width), static_cast<int32_t>(height), 1}
 		};
 
 		std::array<vk::Offset3D, 2> dstOffsets = srcOffsets; // same size
@@ -1158,14 +1222,14 @@ namespace JD
 			vk::ImageAspectFlagBits::eColor, 0, 0, 1); // mip 0, eColor
 		colourBlit.dstOffsets = dstOffsets;
 		commandBuffer.blitImage(srcImage, vk::ImageLayout::eTransferSrcOptimal, dstImage, vk::ImageLayout::eTransferDstOptimal, 1, &colourBlit, vk::Filter::eNearest);
-		endSingleTimeCommands(commandBuffer);
+		//endSingleTimeCommands(commandBuffer);
 	}
 
 
 	void VulkanRenderer::assignDefaultTexture(vk::Image& image, vk::ImageView& imageView, VmaAllocation& allocation) {
 		createImage(1, 1, 1, vk::Format::eR8G8B8A8Unorm, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst, vk::MemoryPropertyFlagBits::eDeviceLocal, image, allocation);
-		copyImageToImage(defaultTex, image);
 		vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
+		copyImageToImage(commandBuffer, defaultTex, image,1, 1);
 		transitionImageLayout(commandBuffer,
 			image,
 			vk::ImageLayout::eTransferDstOptimal,
@@ -1962,6 +2026,91 @@ namespace JD
 		}
 
 	}
+
+	void VulkanRenderer::createLaplacianDescriptorSets() {
+		std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, laplacian.laplacianDescriptorSetLayout);
+		vk::DescriptorSetAllocateInfo allocInfo{
+			.descriptorPool = descriptorPool,
+			.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
+			.pSetLayouts = layouts.data()
+		};
+		if (!laplacian.laplacianDescriptorSets.empty()) {
+			vulkanCore.device.freeDescriptorSets(descriptorPool, laplacian.laplacianDescriptorSets);
+		}
+		laplacian.laplacianDescriptorSets.clear();
+		laplacian.laplacianDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
+			vk::DescriptorImageInfo taaFrameInfo{ .sampler = vulkanCore.textureSampler, .imageView = temporal.taaOutputImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			std::array<vk::WriteDescriptorSet, 2> descriptorWrites = {
+				vk::WriteDescriptorSet{
+					.dstSet = laplacian.laplacianDescriptorSets[i],
+					.dstBinding = 0,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eUniformBuffer,
+					.pBufferInfo = &cameraBufferInfo
+				},
+				vk::WriteDescriptorSet{
+					.dstSet = laplacian.laplacianDescriptorSets[i],
+					.dstBinding = 1,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
+					.pImageInfo = &taaFrameInfo
+				}
+			};
+			vulkanCore.device.updateDescriptorSets(descriptorWrites, {});
+
+		}
+	}
+
+	void VulkanRenderer::createSharpenDescriptorSets() {
+		std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, sharpen.finalSharpenDescriptorSetLayout);
+		vk::DescriptorSetAllocateInfo allocInfo{
+			.descriptorPool = descriptorPool,
+			.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
+			.pSetLayouts = layouts.data()
+		};
+		if (!sharpen.finalSharpenDescriptorSets.empty()) {
+			vulkanCore.device.freeDescriptorSets(descriptorPool, sharpen.finalSharpenDescriptorSets);
+		}
+		sharpen.finalSharpenDescriptorSets.clear();
+		sharpen.finalSharpenDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
+			vk::DescriptorImageInfo taaFrameInfo{ .sampler = vulkanCore.textureSampler, .imageView = temporal.taaOutputImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo sharpenInputInfo{ .sampler = vulkanCore.textureSampler, .imageView = laplacian.laplacianOutputImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			std::array<vk::WriteDescriptorSet, 3> descriptorWrites = {
+				vk::WriteDescriptorSet{
+					.dstSet = sharpen.finalSharpenDescriptorSets[i],
+					.dstBinding = 0,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eUniformBuffer,
+					.pBufferInfo = &cameraBufferInfo
+				},
+				vk::WriteDescriptorSet{
+					.dstSet = sharpen.finalSharpenDescriptorSets[i],
+					.dstBinding = 1,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
+					.pImageInfo = &taaFrameInfo
+				},
+				vk::WriteDescriptorSet{
+					.dstSet = sharpen.finalSharpenDescriptorSets[i],
+					.dstBinding = 2,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
+					.pImageInfo = &sharpenInputInfo
+				}
+			};
+			vulkanCore.device.updateDescriptorSets(descriptorWrites, {});
+		}
+	}
+
 	
 	void VulkanRenderer::createCommandBuffers() {
 		vk::CommandBufferAllocateInfo allocInfo{
@@ -1997,6 +2146,18 @@ namespace JD
 			useTaa = useTaa == 0 ? 1 : 0;
 			cooldown = 0.5f;
 		}
+		if (glfwGetKey(window, GLFW_KEY_COMMA) == GLFW_PRESS ) {
+			sharpenStrength = std::max(0.0f, sharpenStrength -=0.2f);
+			std::cout << "Sharpen Strength: " << sharpenStrength << std::endl;
+			cooldown = 0.5f;
+		}
+		if (glfwGetKey(window, GLFW_KEY_SLASH) == GLFW_PRESS ) {
+			sharpenStrength = std::min(25.0f, sharpenStrength += 0.2f);
+			std::cout << "Sharpen Strength: " << sharpenStrength << std::endl;
+
+			cooldown = 0.5f;
+		}
+
 		cooldown -= dt;
 
 	}
@@ -2119,8 +2280,10 @@ namespace JD
 		drawGBufferPass(meshInstanceBatches);
 		drawLightPass(lightTransmissions);
 		if (useTaa){
-			drawFinalOutputPass(imageIndex);
-			drawTAApass(imageIndex);
+			drawFinalOutputPass();
+			drawTAApass();
+			drawLaplacian();
+			sharpenOutput(imageIndex);
 		}
 		else {
 			drawFinalOutputAliased(imageIndex);
@@ -2668,7 +2831,7 @@ namespace JD
 
 	}
 
-	void VulkanRenderer::drawFinalOutputPass(uint32_t imageIndex) 
+	void VulkanRenderer::drawFinalOutputPass() 
 	{
 		vk::CommandBuffer commandBuffer = vulkanCore.commandBuffers[currentFrame];
 		transitionImageLayout(commandBuffer,
@@ -2727,10 +2890,10 @@ namespace JD
 			1);
 	}
 
-	void VulkanRenderer::drawTAApass(uint32_t imageIndex) {
+	void VulkanRenderer::drawTAApass() {
 		vk::CommandBuffer commandBuffer = vulkanCore.commandBuffers[currentFrame];
 		transitionImageLayout(commandBuffer,
-			vulkanCore.swapChainImages[imageIndex],
+			temporal.taaOutputImage,
 			vk::ImageLayout::eUndefined,
 			vk::ImageLayout::eColorAttachmentOptimal,
 			{},
@@ -2753,8 +2916,6 @@ namespace JD
 			1
 		);
 
-
-
 		transitionImageLayout(commandBuffer,
 			temporal.historyDepthImage,
 			vk::ImageLayout::eUndefined,
@@ -2773,7 +2934,7 @@ namespace JD
 
 
 		vk::RenderingAttachmentInfo colorAttachment{
-		.imageView = vulkanCore.swapChainImageViews[imageIndex],
+		.imageView = temporal.taaOutputImageView,
 		.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
 		.loadOp = vk::AttachmentLoadOp::eClear,
 		.storeOp = vk::AttachmentStoreOp::eStore,
@@ -2844,16 +3005,8 @@ namespace JD
 
 		commandBuffer.blitImage(depthImage, vk::ImageLayout::eTransferSrcOptimal, temporal.historyDepthImage, vk::ImageLayout::eTransferDstOptimal, depthBlit, vk::Filter::eNearest);
 
-		vk::ImageBlit colourBlit{};
-		colourBlit.srcSubresource = vk::ImageSubresourceLayers(
-			vk::ImageAspectFlagBits::eColor, 0, 0, 1); // mip 0, eColor
-		colourBlit.srcOffsets = srcOffsets;
-		colourBlit.dstSubresource = vk::ImageSubresourceLayers(
-			vk::ImageAspectFlagBits::eColor, 0, 0, 1); // mip 0, eColor
-		colourBlit.dstOffsets = dstOffsets;
-
 		transitionImageLayout(commandBuffer,
-			vulkanCore.swapChainImages[imageIndex],
+			temporal.taaOutputImage,
 			vk::ImageLayout::eColorAttachmentOptimal,
 			vk::ImageLayout::eTransferSrcOptimal,
 			vk::AccessFlagBits2::eColorAttachmentWrite,
@@ -2872,21 +3025,36 @@ namespace JD
 			vk::PipelineStageFlagBits2::eTransfer,
 			vk::ImageAspectFlagBits::eColor, 1);
 	
+		vk::ImageBlit colorBlit{};
+		colorBlit.srcSubresource = vk::ImageSubresourceLayers(
+			vk::ImageAspectFlagBits::eColor, 0, 0, 1);
+		colorBlit.srcOffsets = srcOffsets;
+		colorBlit.dstSubresource = vk::ImageSubresourceLayers(
+			vk::ImageAspectFlagBits::eColor, 0, 0, 1);
+		colorBlit.dstOffsets = dstOffsets;
 
+		commandBuffer.blitImage(temporal.taaOutputImage, vk::ImageLayout::eTransferSrcOptimal, temporal.taaHistoryImage, vk::ImageLayout::eTransferDstOptimal, 1, &colorBlit, vk::Filter::eNearest);
 
-		commandBuffer.blitImage(vulkanCore.swapChainImages[imageIndex], vk::ImageLayout::eTransferSrcOptimal, temporal.taaHistoryImage, vk::ImageLayout::eTransferDstOptimal, colourBlit, vk::Filter::eNearest);
 		transitionImageLayout(commandBuffer,
-			vulkanCore.swapChainImages[imageIndex],
-			vk::ImageLayout::eTransferSrcOptimal,        // was eColorAttachmentOptimal
-			vk::ImageLayout::ePresentSrcKHR,
-			vk::AccessFlagBits2::eTransferRead,          // was eColorAttachmentWrite
-			{},
+			temporal.taaHistoryImage,
+			vk::ImageLayout::eTransferDstOptimal,
+			vk::ImageLayout::eShaderReadOnlyOptimal,
+			vk::AccessFlagBits2::eTransferWrite,         // was eColorAttachmentWrite
+			vk::AccessFlagBits2::eShaderRead,           // was eTransferRead
 			vk::PipelineStageFlagBits2::eTransfer,       // was eColorAttachmentOutput
-			vk::PipelineStageFlagBits2::eBottomOfPipe,
+			vk::PipelineStageFlagBits2::eFragmentShader, // was eTransfer
 			vk::ImageAspectFlagBits::eColor, 1);
 
+		transitionImageLayout(commandBuffer,
+			temporal.taaOutputImage,
+			vk::ImageLayout::eTransferSrcOptimal,
+			vk::ImageLayout::eShaderReadOnlyOptimal,
+			vk::AccessFlagBits2::eTransferRead,           // was eColorAttachmentWrite
+			vk::AccessFlagBits2::eShaderRead,           // was eTransferRead
+			vk::PipelineStageFlagBits2::eTransfer,       // was eColorAttachmentOutput
+			vk::PipelineStageFlagBits2::eFragmentShader, // was eTransfer
+			vk::ImageAspectFlagBits::eColor, 1);
 
-		commandBuffer.end();
 	}
 	void VulkanRenderer::drawFinalOutputAliased(uint32_t imageIndex)
 	{
@@ -2948,7 +3116,120 @@ namespace JD
 		commandBuffer.end();
 	}
 
+	void VulkanRenderer::drawLaplacian() {
+		vk::CommandBuffer commandBuffer = vulkanCore.commandBuffers[currentFrame];
+		transitionImageLayout(commandBuffer,
+			laplacian.laplacianOutputImage,
+			vk::ImageLayout::eUndefined,
+			vk::ImageLayout::eColorAttachmentOptimal,
+			{},
+			vk::AccessFlagBits2::eColorAttachmentWrite,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::ImageAspectFlagBits::eColor,
+			1
+		);
+		int width = vulkanCore.vkbInstances.swapChain.extent.width;
+		int height = vulkanCore.vkbInstances.swapChain.extent.height;
+		vk::Extent2D extent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
 
+		vk::RenderingAttachmentInfo colorAttachment{
+		.imageView = laplacian.laplacianOutputImageView,
+		.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+		.loadOp = vk::AttachmentLoadOp::eClear,
+		.storeOp = vk::AttachmentStoreOp::eStore,
+		.clearValue = { std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f} }
+		};
+
+		vk::RenderingInfo renderingInfo{
+			.renderArea = vk::Rect2D({ 0, 0 }, extent),
+			.layerCount = 1,
+			.viewMask = 0,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &colorAttachment,
+			.pDepthAttachment = nullptr,
+			.pStencilAttachment = nullptr
+		};
+		commandBuffer.beginRendering(renderingInfo);
+		commandBuffer.setViewport(0, vk::Viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width), static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f });
+		commandBuffer.setScissor(0, vk::Rect2D({ 0, 0 }, extent));
+		commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, laplacian.laplacianPipeline);
+		commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, laplacian.laplacianPipelineLayout, 0, laplacian.laplacianDescriptorSets[currentFrame], {});
+		commandBuffer.bindVertexBuffers(0, quad.vertexBuffer, { 0 });
+		commandBuffer.bindIndexBuffer(quad.indexBuffer, 0, vk::IndexType::eUint32);
+		commandBuffer.drawIndexed(static_cast<uint32_t>(quad.indices.size()), 1, 0, 0, 0);
+		commandBuffer.endRendering();
+
+		transitionImageLayout(commandBuffer,
+			laplacian.laplacianOutputImage,
+			vk::ImageLayout::eColorAttachmentOptimal,
+			vk::ImageLayout::eShaderReadOnlyOptimal,
+			vk::AccessFlagBits2::eColorAttachmentWrite,             // srcAccessMask
+			vk::AccessFlagBits2::eShaderRead,                       // dstAccessMask
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,     // srcStage
+			vk::PipelineStageFlagBits2::eFragmentShader,            // dstStage
+			vk::ImageAspectFlagBits::eColor,
+			1);
+	}
+
+	void VulkanRenderer::sharpenOutput(uint32_t imageIndex) {
+		vk::CommandBuffer commandBuffer = vulkanCore.commandBuffers[currentFrame];
+		transitionImageLayout(commandBuffer,
+			vulkanCore.swapChainImages[imageIndex],
+			vk::ImageLayout::eUndefined,
+			vk::ImageLayout::eColorAttachmentOptimal,
+			{},
+			vk::AccessFlagBits2::eColorAttachmentWrite,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::ImageAspectFlagBits::eColor,
+			1
+		);
+		int width = vulkanCore.vkbInstances.swapChain.extent.width;
+		int height = vulkanCore.vkbInstances.swapChain.extent.height;
+		vk::Extent2D extent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
+		vk::RenderingAttachmentInfo colorAttachment{
+		.imageView = vulkanCore.swapChainImageViews[imageIndex],
+		.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+		.loadOp = vk::AttachmentLoadOp::eClear,
+		.storeOp = vk::AttachmentStoreOp::eStore,
+		.clearValue = { std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f} }
+		};
+
+		vk::RenderingInfo renderingInfo{
+			.renderArea = vk::Rect2D({ 0, 0 }, extent),
+			.layerCount = 1,
+			.viewMask = 0,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &colorAttachment,
+			.pDepthAttachment = nullptr,
+			.pStencilAttachment = nullptr
+		};
+		sharpeningPushConstants pc{ .sharpenStrength = glm::vec4(0.2f) };
+
+		commandBuffer.beginRendering(renderingInfo);
+		commandBuffer.setViewport(0, vk::Viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width), static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f });
+		commandBuffer.setScissor(0, vk::Rect2D({ 0, 0 }, extent));
+		commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, sharpen.finalSharpenPipeline);
+		commandBuffer.pushConstants(sharpen.finalSharpenPipelineLayout, vk::ShaderStageFlagBits::eFragment, 0, sizeof(LightPushConstants), &pc);
+
+		commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, sharpen.finalSharpenPipelineLayout, 0, sharpen.finalSharpenDescriptorSets[currentFrame], {});
+		commandBuffer.bindVertexBuffers(0, quad.vertexBuffer, { 0 });
+		commandBuffer.bindIndexBuffer(quad.indexBuffer, 0, vk::IndexType::eUint32);
+		commandBuffer.drawIndexed(static_cast<uint32_t>(quad.indices.size()), 1, 0, 0, 0);
+		commandBuffer.endRendering();
+
+		transitionImageLayout(commandBuffer,
+			vulkanCore.swapChainImages[imageIndex],
+			vk::ImageLayout::eColorAttachmentOptimal,    // Fixed from eTransferSrcOptimal
+			vk::ImageLayout::ePresentSrcKHR,
+			vk::AccessFlagBits2::eColorAttachmentWrite,  // Fixed from eTransferRead
+			{},
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput, // Fixed from eTransfer
+			vk::PipelineStageFlagBits2::eBottomOfPipe,
+			vk::ImageAspectFlagBits::eColor, 1);
+		commandBuffer.end();
+	}
 
 	void VulkanRenderer::BuildInstanceBatches(
 		const std::vector<RenderTransmition>& renderables,

@@ -552,11 +552,7 @@ namespace JD {
 
 		std::vector<vk::DynamicState> dynamicStates = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
 
-		vk::PushConstantRange pushConstantRange{
-			.stageFlags = vk::ShaderStageFlagBits::eFragment,
-			.offset = 0,
-			.size = sizeof(glm::vec4)
-		};
+	
 
 		vk::PipelineDynamicStateCreateInfo dynamicState{ .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()), .pDynamicStates = dynamicStates.data() };
 
@@ -581,7 +577,7 @@ namespace JD {
 		};
 
 		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1,
-		.pSetLayouts = &descriptorSetLayout, .pushConstantRangeCount = 1, .pPushConstantRanges = &pushConstantRange};
+		.pSetLayouts = &descriptorSetLayout};
 		pipelineLayout = device.createPipelineLayout(pipelineLayoutInfo);
 		vk::Format colorAttachmentFormat = static_cast<vk::Format>(swapChainFormat);
 
@@ -625,6 +621,11 @@ namespace JD {
 		vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
 		.topology = vk::PrimitiveTopology::eTriangleList,
 		};
+		vk::PushConstantRange pushConstantRange{
+		.stageFlags = vk::ShaderStageFlagBits::eFragment,
+		.offset = 0,
+		.size = sizeof(glm::vec4)
+		};
 
 		vk::Viewport viewport{ 0.0f, 0.0f, width,
 		height, 0.0f, 1.0f };
@@ -654,7 +655,7 @@ namespace JD {
 		};
 
 		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 1,
-		.pSetLayouts = &descriptorSetLayout };
+		.pSetLayouts = &descriptorSetLayout, .pushConstantRangeCount = 1, .pPushConstantRanges = &pushConstantRange };
 		pipelineLayout = device.createPipelineLayout(pipelineLayoutInfo);
 		vk::Format colorAttachmentFormat = static_cast<vk::Format>(swapChainFormat);
 

@@ -16,7 +16,7 @@ namespace JD {
 	};
 
 	struct sharpeningPushConstants {
-		float sharpenStrength;
+		glm::vec4 sharpenStrength;
 	};
 
 
