@@ -207,7 +207,7 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     }
     float totalVelocity = length(velocity);
     float4 colour = float4(0.0);
-    if (totalVelocity > 2) { //Attempt at motion blurring.
+    if (totalVelocity > 5) { //Attempt at motion blurring.
         float decimal = 2 / totalVelocity;
         // float lerpFactor = pow(decimal, 2); // Adjust the exponent to control the falloff
         float lerpFactor = 1 - decimal;
