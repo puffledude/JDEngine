@@ -14,8 +14,8 @@
 #include "WorldContactListener.h"
 #include "KeyboardController.h"
 
-const uint32_t WIDTH = 1920;
-const uint32_t HEIGHT = 1080;
+const uint32_t WIDTH = 1280;
+const uint32_t HEIGHT = 720;
 using namespace JPH;
 
 //plan is make window here then pass surface to the renderer.
