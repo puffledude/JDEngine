@@ -81,7 +81,7 @@ float3 generateWorldSpacePos(float2 texCoord, CameraInfo data) {
     // distance between the near and far plane * depth + near plane distance
 }
 
-float4 generateHistoryColour(float2 prevTexCoord, float2 currentTexCoord, float2 texelSize) {
+float4 generateHistoryColour(float2 prevTexCoord, float2 currentTexCoord, float2 texelSize, inout float clampMultipler) {
     // Using min and max to clamp the colour to the surrounding pixels.
     // Taking inspiration from https://www.elopezr.com/temporal-aa-and-the-quest-for-the-holy-trail/
     float4 prevColour = historyFrame.Sample(prevTexCoord);
