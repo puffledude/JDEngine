@@ -193,6 +193,10 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     // After local clamping, unjitter.
     float sampleCount = historySample.a;
     float alpha = max(0.1, 1 / sampleCount);
+    float4 newDepth = newFrameDepth.Sample(currentPos);
+
+    float near = cameraData.projection[3][2] / (cameraData.projection[2][2] - 1.0);
+    float far = cameraData.projection[3][2] / (cameraData.projection[2][2] + 1.0);
 
     float depthLinear = lineariseDepth(newDepth.r, near, far); // Assuming near plane at 0.1 and far plane at 100. Adjust as needed.
     float4 historyDepthSample = historyDepth.Sample(reprojectPos);
