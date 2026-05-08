@@ -605,7 +605,7 @@ namespace JD {
 	}
 
 	void createSharpenPipelinefunc(vk::Pipeline& pipeline, vk::PipelineLayout& pipelineLayout, vk::Device device, vk::DescriptorSetLayout& descriptorSetLayout, float width, float height, vk::Format swapChainFormat) {
-		vk::ShaderModule shaderModule = createShaderModule(readFile(SHADERDIR"/laplace.slang.spv"), device);
+		vk::ShaderModule shaderModule = createShaderModule(readFile(SHADERDIR"/sharpen.slang.spv"), device);
 		vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule,  .pName = "vertMain" };
 		vk::PipelineShaderStageCreateInfo fragShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eFragment, .module = shaderModule, .pName = "fragMain" };
 		vk::PipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
