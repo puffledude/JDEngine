@@ -3205,13 +3205,13 @@ namespace JD
 			.pDepthAttachment = nullptr,
 			.pStencilAttachment = nullptr
 		};
-		sharpeningPushConstants pc{ .sharpenStrength = glm::vec4(0.2f) };
+		sharpeningPushConstants pc{ .sharpenStrength = glm::vec4(this->sharpenStrength) };
 
 		commandBuffer.beginRendering(renderingInfo);
 		commandBuffer.setViewport(0, vk::Viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width), static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f });
 		commandBuffer.setScissor(0, vk::Rect2D({ 0, 0 }, extent));
 		commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, sharpen.finalSharpenPipeline);
-		commandBuffer.pushConstants(sharpen.finalSharpenPipelineLayout, vk::ShaderStageFlagBits::eFragment, 0, sizeof(LightPushConstants), &pc);
+		commandBuffer.pushConstants(sharpen.finalSharpenPipelineLayout, vk::ShaderStageFlagBits::eFragment, 0, sizeof(sharpeningPushConstants), &pc);
 
 		commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, sharpen.finalSharpenPipelineLayout, 0, sharpen.finalSharpenDescriptorSets[currentFrame], {});
 		commandBuffer.bindVertexBuffers(0, quad.vertexBuffer, { 0 });
