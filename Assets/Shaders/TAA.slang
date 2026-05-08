@@ -168,12 +168,6 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     float2 velocity = calculateVelocity(currentPos, veltexelSize);
 
     float2 reprojectPos = currentPos - velocity; // Reproject the current position back to the previous frame using the velocity buffer
-    float jitterX = (cameraData.jitteredProjection[0][2] - cameraData.projection[0][2]);
-    float jitterY = (cameraData.jitteredProjection[1][2] - cameraData.projection[1][2]);
-    float2 jitterUV = float2(jitterX, jitterY) * float2(0.5, -0.5); // Convert jitter from clip space to UV space
-    reprojectPos -= jitterUV; // Adjust the reprojected position by the jitter amount to account for camera jittering
-    
-   // float2 adjustedReprojectPos = reprojectPos + velocityBuffer.Sample(vertIn.texCoord).xy; // Adjust the reprojected position using the velocity buffer
 
     uint width=0;
     uint height=0;
