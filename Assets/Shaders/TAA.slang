@@ -95,8 +95,8 @@ float4 generateHistoryColour(float2 prevTexCoord, float2 currentTexCoord, float2
             maxColour = max(maxColour, colour);
             if (colour.equals(minColour) || colour.equals(maxColour)) {
                 clampMultipler *= 0.5;
+            }
         }
-    }
     }
     float3 clampedColour = clamp(prevColour, minColour, maxColour).rgb;
     return float4(clampedColour, prevColour.a);
@@ -184,13 +184,11 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     float alphaClamMultiplier = 1.0;
     float4 historySample = generateHistoryColour(reprojectPos, currentPos, texelSize, alphaClamMultiplier);
     //float4 historySample = historyFrame.Sample(reprojectPos);
-    float4 newDepth = newFrameDepth.Sample(currentPos);
     float4 newSample = newFrame.Sample(currentPos);
 
     //Local Clamping next. Need to clamp or clip the colour to between the colours of the surrounding pixels.
     //[Sousa13] gives implementation idea.
 
-    // After local clamping, unjitter.
     float sampleCount = historySample.a;
     float alpha = max(0.1, 1 / sampleCount);
     float4 newDepth = newFrameDepth.Sample(currentPos);
@@ -200,7 +198,7 @@ float4 fragMain(VSOutput vertIn) : SV_Target
 
     float depthLinear = lineariseDepth(newDepth.r, near, far); // Assuming near plane at 0.1 and far plane at 100. Adjust as needed.
     float4 historyDepthSample = historyDepth.Sample(reprojectPos);
-
+    
 
     if (abs(depthLinear - lineariseDepth(historyDepthSample.r, near, far)) > depthRejectionvalue)
     {
@@ -216,13 +214,11 @@ float4 fragMain(VSOutput vertIn) : SV_Target
         colour = lerp(newSample, historySample, lerpFactor);
         colour.a += 1; // Set alpha to 1 to indicate a valid sample
         }
-        else {
+    else {
         // alpha = 0.1;
             alpha *= alphaClamMultiplier;
             colour = alpha * newSample + (1 - alpha) * historySample;
             colour.a = sampleCount + 1;
     }
-
-   
     return colour;
 }
