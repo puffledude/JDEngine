@@ -12,11 +12,13 @@ GameScene::GameScene(JD::Gameworld* gameWorld, JD::Renderer* renderer) : gameWor
 	loadEnvironment();
     addLights();
 	addTrees();
+	addTent(glm::vec3(0.111249, -4.6, 6.00218), glm::vec3(0.007));
 }
 
 GameScene::~GameScene() {
 	renderer->DestroyMesh(Environment);
     renderer->DestroyMesh(treeMesh);
+	renderer->DestroyMesh(tentMesh);
 }
 
 
@@ -87,6 +89,25 @@ void GameScene::addTrees() {
         treeEntities.push_back(treeEntity);
 	}
 
+}
+
+void GameScene::addTent(glm::vec3 position, glm::vec3 scale) {
+    if (tentMesh.empty()) {
+        renderer->loadGLTF(tentMesh, GLTFDIR "/Tent/Tent.gltf");
+	}
+	entt::entity* tentEntity = gameWorld->CreateEntity();
+    gameWorld->GetRegistry()->emplace<JD::RenderableComponent>(*tentEntity, &tentMesh);
+    scaleComponent scaleComp{};
+    scaleComp.scale = scale;
+    gameWorld->GetRegistry()->emplace<JD::scaleComponent>(*tentEntity, scaleComp);
+    
+    JPH::BoxShapeSettings test = JPH::BoxShapeSettings(JPH::Vec3(1.0f, 1.0f, 1.0f));
+    JPH::ShapeSettings::ShapeResult Result = test.Create();
+    JPH::ShapeRefC boxShape = Result.Get();
+    JPH::BodyCreationSettings bodySettings(boxShape, JPH::RVec3(position.x, position.y, position.z), JPH::Quat::sIdentity(), JPH::EMotionType::Static, 0);
+    JPH::Body* body = gameWorld->GetPhysicsSystem()->GetBodyInterface().CreateBody(bodySettings);
+    gameWorld->GetPhysicsSystem()->GetBodyInterface().AddBody(body->GetID(), JPH::EActivation::Activate);
+	gameWorld->GetRegistry()->emplace<JD::JoltComponent>(*tentEntity, body->GetID());
 }
 
 

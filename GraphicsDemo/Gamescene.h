@@ -18,6 +18,8 @@ private:
 	void loadEnvironment();
 	void addLights();
 	void addTrees();
+	void addTent(glm::vec3 position, glm::vec3 scale);
+	void addCamp(glm::vec3 position, glm::vec3 scale);
 	entt::entity* addLight(glm::vec3 position, glm::vec3 color, glm::vec3 direction, float range);
 
     JD::Gameworld* gameWorld;
