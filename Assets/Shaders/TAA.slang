@@ -121,8 +121,26 @@ float4 generateHistoryColourfiveTap(float2 prevTexCoord, float2 currentTexCoord,
         }
     }
     float3 clampedColour = clamp(blendedColour.rgb, minColour, maxColour);
-    return float4(clampedColour, 1.0);
+    return float4(clampedColour, colourcenter.a);
+}
 
+float2 calculateVelocity(float2 currentTexCoord, float2 texelSize) {
+    // Use nearnest depth fragment within 3x3 region.
+    float minDepth = 9999;
+    float2 closestTexCoord = currentTexCoord;
+    for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+            float depth = newFrameDepth.Sample(currentTexCoord + float2(x, y) * texelSize).r;
+            if (depth < minDepth) {
+                minDepth = depth;
+                closestTexCoord = currentTexCoord + float2(x, y) * texelSize;
+            }
+        }
+    }
+    float2 velocity = velocityBuffer.Sample(closestTexCoord).xy;
+
+    return velocity;
+}
 
 }
 
