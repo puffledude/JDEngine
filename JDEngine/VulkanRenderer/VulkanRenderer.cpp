@@ -497,7 +497,8 @@ namespace JD
 
 		auto swap_ret = swapchainBuilder.set_old_swapchain(vulkanCore.swapChain).set_desired_format(desiredFormat)
 			.add_fallback_format({ VK_FORMAT_R8G8B8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
-			.use_default_present_mode_selection()
+			.set_desired_present_mode(VK_PRESENT_MODE_FIFO_RELAXED_KHR)
+			//.use_default_present_mode_selection()
 			.set_image_usage_flags(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
 			.build();
 		if (!swap_ret) {
