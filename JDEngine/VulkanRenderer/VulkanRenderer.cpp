@@ -272,7 +272,8 @@ namespace JD
 		if (sharpen.finalSharpenDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(sharpen.finalSharpenDescriptorSetLayout); sharpen.finalSharpenDescriptorSetLayout = nullptr; }
 
 		// 4) Sampler
-		if (vulkanCore.textureSampler) { vulkanCore.device.destroySampler(vulkanCore.textureSampler); vulkanCore.textureSampler = nullptr; }
+		if (vulkanCore.repeatSampler) { vulkanCore.device.destroySampler(vulkanCore.repeatSampler); vulkanCore.repeatSampler = nullptr; }
+		if (vulkanCore.clampSampler) { vulkanCore.device.destroySampler(vulkanCore.clampSampler); vulkanCore.clampSampler = nullptr; }
 
 		// 5) VMA buffers (camera & storage)
 		for (size_t i = 0; i < cameraBuffers.size(); ++i) {
@@ -402,7 +403,7 @@ namespace JD
 			createDescriptorSetLayouts();
 			createDescriptorPool();
 			createDepthResources();
-			createTextureSampler();
+			createTextureSamplers();
 			vk::Format swapChainFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
 			createGraphicsPipelines(swapChainFormat, depthImageFormat, (float)vulkanCore.vkbInstances.swapChain.extent.width, (float)vulkanCore.vkbInstances.swapChain.extent.height);
 			createCameraBuffers();
@@ -430,6 +431,8 @@ namespace JD
 	void VulkanRenderer::createImages(vk::Format swapChainFormat) {
 		float swapChainWidth = static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width);
 		float swapChainHeight = static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height);
+		//vk::Format TAAFormat = vk::Format::eR16G16B16A16Unorm;		// Using a higher precision format for TAA history to reduce artifacts
+		//vk::Format laplacianFormat = vk::Format::eR16G16B16A16Sfloat;	// Using a high precision format for the Laplacian output to preserve details for sharpening
 		createShadowImages(swapChainFormat, depthImageFormat, swapChainWidth, swapChainHeight);
 		createGBufferImages(swapChainFormat, depthImageFormat, swapChainWidth, swapChainHeight);
 		createLightingImages(swapChainFormat, swapChainWidth, swapChainHeight);
@@ -497,8 +500,8 @@ namespace JD
 
 		auto swap_ret = swapchainBuilder.set_old_swapchain(vulkanCore.swapChain).set_desired_format(desiredFormat)
 			.add_fallback_format({ VK_FORMAT_R8G8B8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
-			.set_desired_present_mode(VK_PRESENT_MODE_FIFO_RELAXED_KHR)
-			//.use_default_present_mode_selection()
+			//.set_desired_present_mode(VK_PRESENT_MODE_FIFO_RELAXED_KHR)
+			.use_default_present_mode_selection()
 			.set_image_usage_flags(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
 			.build();
 		if (!swap_ret) {
@@ -539,11 +542,11 @@ namespace JD
 
 	}
 
-	void VulkanRenderer::createTextureSampler() {
+	void VulkanRenderer::createTextureSampler(vk::SamplerAddressMode addressMode, vk::Sampler& sampler) {
 		vk::PhysicalDevice physDevice = vulkanCore.vkbInstances.device.physical_device.physical_device;
 		vk::PhysicalDeviceProperties properties = physDevice.getProperties();
 		vk::SamplerCreateInfo samplerInfo{ .magFilter = vk::Filter::eLinear, .minFilter = vk::Filter::eLinear,  .mipmapMode = vk::SamplerMipmapMode::eLinear,
-			.addressModeU = vk::SamplerAddressMode::eRepeat, .addressModeV = vk::SamplerAddressMode::eRepeat, .addressModeW = vk::SamplerAddressMode::eRepeat,
+			.addressModeU = addressMode, .addressModeV = addressMode, .addressModeW = addressMode,
 			.anisotropyEnable = vk::True, .maxAnisotropy = properties.limits.maxSamplerAnisotropy,
 			.compareEnable = vk::False, .compareOp = vk::CompareOp::eAlways };
 		samplerInfo.borderColor = vk::BorderColor::eIntOpaqueBlack;
@@ -555,7 +558,12 @@ namespace JD
 		samplerInfo.mipLodBias = 0.0f;
 		samplerInfo.minLod = 0.0f;
 		samplerInfo.maxLod = vk::LodClampNone;
-		vulkanCore.textureSampler = vulkanCore.device.createSampler(samplerInfo);
+		sampler = vulkanCore.device.createSampler(samplerInfo);
+	}
+
+	void VulkanRenderer::createTextureSamplers() {
+		createTextureSampler(vk::SamplerAddressMode::eRepeat, vulkanCore.repeatSampler);
+		createTextureSampler(vk::SamplerAddressMode::eClampToEdge, vulkanCore.clampSampler);
 	}
 
 	void VulkanRenderer::copyBuffer(const vk::Buffer& srcBuffer, vk::Buffer& dstBuffer, vk::DeviceSize size) {
@@ -1374,8 +1382,8 @@ namespace JD
 				vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
 				vk::DescriptorBufferInfo prevCameraBufferInfo{ .buffer = cameraBuffers[prevFrame], .offset = 0, .range = sizeof(CameraInfo) };
 				vk::DescriptorBufferInfo materialBufferInfo{ .buffer = mat.materialBuffer, .offset = 0, .range = sizeof(MaterialData) };
-				vk::DescriptorImageInfo baseColorImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = mat.baseColorTextureView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
-				vk::DescriptorImageInfo normalImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = mat.normalTextureView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+				vk::DescriptorImageInfo baseColorImageInfo{ .sampler = vulkanCore.repeatSampler, .imageView = mat.baseColorTextureView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+				vk::DescriptorImageInfo normalImageInfo{ .sampler = vulkanCore.repeatSampler, .imageView = mat.normalTextureView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 				
 				std::array<vk::WriteDescriptorSet, 7> descriptorWrites = {
 						vk::WriteDescriptorSet {
@@ -1705,7 +1713,7 @@ namespace JD
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 			vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
 			vk::DescriptorBufferInfo prevCameraBufferInfo{ .buffer = cameraBuffers[(i + 1) % MAX_FRAMES_IN_FLIGHT], .offset = 0, .range = sizeof(CameraInfo) };
-			vk::DescriptorImageInfo imageInfo{ .sampler = vulkanCore.textureSampler, .imageView = skybox.skyboxImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo imageInfo{ .sampler = vulkanCore.repeatSampler, .imageView = skybox.skyboxImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 			std::array<vk::WriteDescriptorSet, 3> descriptorWrites = {
 				vk::WriteDescriptorSet {
 					.dstSet = skybox.skyboxDescriptorSets[i],
@@ -1773,8 +1781,8 @@ namespace JD
 		finalOutput.finalOutputDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
 		{
-			vk::DescriptorImageInfo deferredImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = lighting.lightingOutputImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
-			vk::DescriptorImageInfo skyboxImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = skybox.skyboxRenderOutputView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo deferredImageInfo{ .sampler = vulkanCore.clampSampler, .imageView = lighting.lightingOutputImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo skyboxImageInfo{ .sampler = vulkanCore.clampSampler, .imageView = skybox.skyboxRenderOutputView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 			std::array<vk::WriteDescriptorSet, 2> descriptorWrites = {
 				vk::WriteDescriptorSet{
 				.dstSet = finalOutput.finalOutputDescriptorSets[i],
@@ -1829,11 +1837,11 @@ namespace JD
 			vk::DescriptorBufferInfo lightBufferInfo{ .buffer = lighting.lightingStorageBuffers[i], .offset = 0, .range = sizeof(lightTransmition) * MAX_LIGHTS };
 			vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
 			vk::DescriptorBufferInfo lightPerspectiveBufferInfo{ .buffer = sunBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
-			vk::DescriptorImageInfo shadowMapInfo{ .sampler = vulkanCore.textureSampler, .imageView = shadows.shadowImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
-			vk::DescriptorImageInfo colourImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = gBuffer.gbufferColourImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
-			vk::DescriptorImageInfo normalImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = gBuffer.gbufferNormalImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
-			vk::DescriptorImageInfo materialImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = gBuffer.gbufferMaterialImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
-			vk::DescriptorImageInfo positionImageInfo{ .sampler = vulkanCore.textureSampler, .imageView = gBuffer.gbufferPositionImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo shadowMapInfo{ .sampler = vulkanCore.clampSampler, .imageView = shadows.shadowImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo colourImageInfo{ .sampler = vulkanCore.clampSampler, .imageView = gBuffer.gbufferColourImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo normalImageInfo{ .sampler = vulkanCore.clampSampler, .imageView = gBuffer.gbufferNormalImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo materialImageInfo{ .sampler = vulkanCore.clampSampler, .imageView = gBuffer.gbufferMaterialImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo positionImageInfo{ .sampler = vulkanCore.clampSampler, .imageView = gBuffer.gbufferPositionImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 			std::array<vk::WriteDescriptorSet, 8> descriptorWrites = {
 				vk::WriteDescriptorSet{
 					.dstSet = lighting.lightingDescriptorSets[i],
@@ -1960,11 +1968,11 @@ namespace JD
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 			vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
 			vk::DescriptorBufferInfo prevCameraBufferInfo{ .buffer = cameraBuffers[(i + 1) % MAX_FRAMES_IN_FLIGHT], .offset = 0, .range = sizeof(CameraInfo) };
-			vk::DescriptorImageInfo currentFrameInfo{ .sampler = vulkanCore.textureSampler, .imageView = finalOutput.finalOutputImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
-			vk::DescriptorImageInfo currentDepthBuffer{ .sampler = vulkanCore.textureSampler, .imageView = depthImageView, .imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal};
-			vk::DescriptorImageInfo velocityImageinfo{ .sampler = vulkanCore.textureSampler, .imageView = gBuffer.gbufferVelocityImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
-			vk::DescriptorImageInfo previousFrameInfo{ .sampler = vulkanCore.textureSampler, .imageView = temporal.taaHistoryImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
-			vk::DescriptorImageInfo previousDepthInfo{ .sampler = vulkanCore.textureSampler, .imageView = temporal.historyDepthImageView, .imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal };
+			vk::DescriptorImageInfo currentFrameInfo{ .sampler = vulkanCore.clampSampler, .imageView = finalOutput.finalOutputImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo currentDepthBuffer{ .sampler = vulkanCore.clampSampler, .imageView = depthImageView, .imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal};
+			vk::DescriptorImageInfo velocityImageinfo{ .sampler = vulkanCore.clampSampler, .imageView = gBuffer.gbufferVelocityImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo previousFrameInfo{ .sampler = vulkanCore.clampSampler, .imageView = temporal.taaHistoryImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo previousDepthInfo{ .sampler = vulkanCore.clampSampler, .imageView = temporal.historyDepthImageView, .imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal };
 			std::array<vk::WriteDescriptorSet, 7> descriptorWrites = {
 				vk::WriteDescriptorSet{
 					.dstSet = temporal.taaDescriptorSets[i],
@@ -2042,7 +2050,7 @@ namespace JD
 		laplacian.laplacianDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 			vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
-			vk::DescriptorImageInfo taaFrameInfo{ .sampler = vulkanCore.textureSampler, .imageView = temporal.taaOutputImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo taaFrameInfo{ .sampler = vulkanCore.clampSampler, .imageView = temporal.taaOutputImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 			std::array<vk::WriteDescriptorSet, 2> descriptorWrites = {
 				vk::WriteDescriptorSet{
 					.dstSet = laplacian.laplacianDescriptorSets[i],
@@ -2080,8 +2088,8 @@ namespace JD
 		sharpen.finalSharpenDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 			vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
-			vk::DescriptorImageInfo taaFrameInfo{ .sampler = vulkanCore.textureSampler, .imageView = temporal.taaOutputImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
-			vk::DescriptorImageInfo sharpenInputInfo{ .sampler = vulkanCore.textureSampler, .imageView = laplacian.laplacianOutputImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo taaFrameInfo{ .sampler = vulkanCore.clampSampler, .imageView = temporal.taaOutputImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo sharpenInputInfo{ .sampler = vulkanCore.clampSampler, .imageView = laplacian.laplacianOutputImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 			std::array<vk::WriteDescriptorSet, 3> descriptorWrites = {
 				vk::WriteDescriptorSet{
 					.dstSet = sharpen.finalSharpenDescriptorSets[i],

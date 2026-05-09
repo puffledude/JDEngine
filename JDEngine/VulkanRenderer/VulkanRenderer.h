@@ -96,7 +96,8 @@ namespace JD
 		void createVkImageFromGLTFImage(vk::Image& image, vk::ImageView& imageView ,VmaAllocation& allocation, tinygltf::Image& gltfImage, vk::Format format);
 		void createVertexBuffer(std::vector<Vertex>& verticies, vk::Buffer& buffer, VmaAllocation& allocation);
 		void createIndexBuffer(std::vector<uint32_t>& indicies, vk::Buffer& buffer, VmaAllocation& allocation);
-		void createTextureSampler();
+		void createTextureSampler(vk::SamplerAddressMode addressMode, vk::Sampler& sampler);
+		void createTextureSamplers();
 		void createQuad();
 		void createDescriptorSetLayouts();
 		void createDescriptorPool();

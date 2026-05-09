@@ -174,10 +174,9 @@ float4 fragMain(VSOutput vertIn) : SV_Target
 
     uint width=0;
     uint height=0;
-    uint mipLevel=0;
-    uint levelNum = 0;
+    
 
-    historyFrame.GetDimensions(mipLevel, width, height, levelNum);
+    historyFrame.GetDimensions(width, height);
     float texSize = width * height;
     float2 texelSize = float2(1.0 / width, 1.0 / height);
 

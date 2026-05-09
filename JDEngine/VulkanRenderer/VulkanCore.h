@@ -39,7 +39,8 @@ namespace JD
 		std::vector<vk::ImageView> swapChainImageViews;
 		std::vector<vk::Semaphore> renderSemaphores;
 
-		vk::Sampler textureSampler;
+		vk::Sampler repeatSampler;
+		vk::Sampler clampSampler;
 		VkbStuff vkbInstances;
 		Queues queues;
 
