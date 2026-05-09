@@ -2309,7 +2309,7 @@ namespace JD
 			.pImageIndices = &imageIndex,
 			.pResults = nullptr
 		};
-		
+
 		result = static_cast<vk::Result>(
 			VULKAN_HPP_DEFAULT_DISPATCHER.vkQueuePresentKHR(
 				static_cast<VkQueue>(vulkanCore.queues.graphicsQueue),
