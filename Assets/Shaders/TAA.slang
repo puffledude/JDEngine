@@ -190,7 +190,7 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     //[Sousa13] gives implementation idea.
 
     float sampleCount = historySample.a;
-    //sampleCount = min(sampleCount + 1, 16.0);
+    sampleCount = min(sampleCount + 1, 16.0);
     float alpha = clamp(1.0 / sampleCount, 0.1, 1.0);
     float4 newDepth = newFrameDepth.Sample(currentPos);
 
