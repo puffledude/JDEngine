@@ -190,7 +190,8 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     //[Sousa13] gives implementation idea.
 
     float sampleCount = historySample.a;
-    float alpha = max(0.1, 1 / sampleCount);
+    //sampleCount = min(sampleCount + 1, 16.0);
+    float alpha = clamp(1.0 / sampleCount, 0.1, 1.0);
     float4 newDepth = newFrameDepth.Sample(currentPos);
 
     float near = cameraData.projection[3][2] / (cameraData.projection[2][2] - 1.0);
@@ -212,10 +213,10 @@ float4 fragMain(VSOutput vertIn) : SV_Target
         // float lerpFactor = pow(decimal, 2); // Adjust the exponent to control the falloff
         float lerpFactor = 1 - decimal;
         colour = lerp(newSample, historySample, lerpFactor);
-        colour.a += 1; // Set alpha to 1 to indicate a valid sample
+        colour.a = sampleCount + 1; // Set alpha to 1 to indicate a valid sample
         }
     else {
-        // alpha = 0.1;
+        // alpha = 0.1; 
             alpha *= alphaClamMultiplier;
             colour = alpha * newSample + (1 - alpha) * historySample;
             colour.a = sampleCount + 1;
