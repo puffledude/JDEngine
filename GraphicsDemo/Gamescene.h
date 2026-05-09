@@ -20,6 +20,9 @@ private:
 	void addTrees();
 	void addTent(glm::vec3 position, glm::vec3 scale);
 	void addCamp(glm::vec3 position, glm::vec3 scale);
+	void addBoxes();
+	void addBox(glm::vec3 position, glm::vec3 scale, glm::vec3 velocity, float travelDistance);
+	void UpdateBoxes();
 	entt::entity* addLight(glm::vec3 position, glm::vec3 color, glm::vec3 direction, float range);
 
     JD::Gameworld* gameWorld;
@@ -31,5 +34,6 @@ private:
 	std::vector<JD::MeshComponent> treeMesh;
 	std::vector<entt::entity*> treeEntities;
 	std::vector<JD::MeshComponent> tentMesh;
+	std::vector<JD::MeshComponent> boxMesh;
 	entt::entity* tentEntity;
 };

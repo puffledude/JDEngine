@@ -162,5 +162,22 @@ namespace JD {
 	};
 	struct sunComponent { }; //Empty. Just a tag to indentify our main sun 
 
+	struct movingboxComponent {
+		glm::vec3 velocity = glm::vec3(0.0f);
+		glm::vec3 startingPosition = glm::vec3(0.0f);
+		float travelDistance = 0.0f;
+
+		void Update(const JPH::Body& body) {
+			JPH::RVec3 currentPosition = body.GetPosition();
+			glm::vec3 currentPos(currentPosition.GetX(), currentPosition.GetY(), currentPosition.GetZ());
+			if (glm::distance(currentPos, startingPosition) >= travelDistance) {
+				velocity = -velocity; // Reverse direction
+				startingPosition = currentPos; // Update starting position for the next leg of the journey
+				const_cast<JPH::Body&>(body).SetLinearVelocity(JPH::RVec3(velocity.x, velocity.y, velocity.z));
+			}
+		
+		}
+	};
+
 }
 
