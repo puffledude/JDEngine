@@ -79,7 +79,11 @@ Sampler2D gPosition;
 float shadowCalculation(float4 fragposLightSpace, float bias)
 {
     float3 projCoords = fragposLightSpace.xyz / fragposLightSpace.w;
-    projCoords = projCoords * 0.5 + 0.5;                    // Transform to [0,1] range
+    //projCoords = projCoords * 0.5 + 0.5;
+
+    projCoords.xy = projCoords.xy * 0.5 + 0.5;
+
+    // Transform to [0,1] range
     float closestDepth = shadowMap.Sample(projCoords.xy).r; // Depth from shadow map
     float currentDepth = projCoords.z;                      // Current fragment depth
 
@@ -132,13 +136,14 @@ float4 fragMain(VSOutput vertIn) : SV_Target
         float3 halfwayDir = normalize(lightDir + viewDir);
         float spec = pow(max(dot(normal, halfwayDir), 0.0), 16.0);
         float3 specular = spec * light.colour.rgb * (1.0 - roughness);
+        float3 ambient = 0.15 * light.colour.rgb;
 
         float shadow = 0.0;
         if (i == 0) { // Shadow only cast for the first light.
-            float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
+            float bias = max(0.005 * (1.0 - dot(normal, lightDir)), 0.005);
             shadow = shadowCalculation(fragPosLightSpace, bias);
         }
-        totalLighting += (1.0 - shadow) * (diffuse + specular) * falloff;
+        totalLighting += (ambient + (1.0 - shadow)) * (diffuse + specular) * falloff;
     }
     return float4(totalLighting, 1.0);
 }
