@@ -25,6 +25,14 @@ namespace JD
 		return camera->GetPosition();
 	}
 
+	float Gameworld::getCameraPitch() {
+		return camera->GetPitch();
+	}
+
+	float Gameworld::getCameraYaw() {
+		return camera->GetYaw();
+	}
+
 	glm::vec3 Gameworld::getSunPosition() {
 		lightTransmition* sun = getSun();
 		if (sun) {

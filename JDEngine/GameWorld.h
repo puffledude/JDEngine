@@ -41,6 +41,8 @@ namespace JD {
 			return renderableComponents;
 		}
 		glm::vec3 getCameraPosition();
+		float getCameraPitch();
+		float getCameraYaw();
 		glm::mat4 getCameraView();
 		glm::mat4 getSunView();
 		glm::vec3 getSunPosition();

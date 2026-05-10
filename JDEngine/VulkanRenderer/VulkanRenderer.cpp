@@ -2224,6 +2224,9 @@ namespace JD
 		if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS && cooldown <= 0.0f) {
 			glm::vec3 pos = gameworld.getCameraPosition();
 			std::cout << "Camera Position: (" << pos.x << ", " << pos.y << ", " << pos.z << ")" << std::endl;
+			float pitch = gameworld.getCameraPitch();
+			float yaw = gameworld.getCameraYaw();
+			std::cout << "Camera Rotation: (Pitch: " << pitch << ", Yaw: " << yaw << ")" << std::endl;
 			cooldown = 0.5f;
 		}
 		if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS && cooldown <= 0.0f) {

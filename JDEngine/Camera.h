@@ -27,6 +27,11 @@ namespace JD
 			void updateCameraVectors();
 			float speed = 5.0f;
 			float sensitivity =6.0f;
+	private:
+		std::vector<glm::vec3>positionRail;  //Rail of positons for camera to move along
+		std::vector<std::pair<float, float>>lookAtRail;  // Rail of directions to look at
+		bool onRails = true;  // Whether the camera should be on rails or not
+		uint32_t currentRailIndex = 0;  // Current index in the rails
 
 	};
 }
