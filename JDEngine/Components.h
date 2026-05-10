@@ -8,6 +8,7 @@
 #include <Jolt/Physics/Body/Body.h>
 #include <tiny_gltf_v3.h>
 #include "vma/vk_mem_alloc.h"
+#include <entt/entt.hpp>
 
 namespace JD {
 	
@@ -178,6 +179,40 @@ namespace JD {
 		
 		}
 	};
+	
+	struct ParticleComponent {
+		float lifetime = 0.0f;
+		float startLifetime = 0.0f;
+		uint32_t id = 0;
+		glm::vec3 startColour = glm::vec3(1.0f, 0.0f, 0.0f);
+		glm::vec3 endColour = glm::vec3(0.1f);
+		void Update(float dt) {
+			lifetime -= dt;
+		}
+	};
 
+	struct ParticleEmitterComponent {
+		ParticleEmitterComponent(
+			uint32_t emissionRate,
+			glm::vec3 up,
+			glm::vec3 angleRange,
+			std::pair<float, float> speedRange
+		) : emitionsPerFrame(emissionRate),
+			up(up),
+			angleRange(angleRange),
+			speedRange(speedRange)
+		{
+		}
+		uint32_t emitionsPerFrame = 0;
+		glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+		glm::vec3 angleRange = glm::vec3(0.0f);
+		std::pair<float, float> speedRange = { 0.0f, 0.0f };
+
+	};
+
+	struct ParticleTransmition {
+		glm::mat4 modelMatrix;
+		float particleID;
+	};
 }
 

@@ -141,17 +141,6 @@ void GameScene::addBox(glm::vec3 position, glm::vec3 scale, glm::vec3 velocity, 
 }
 
 void GameScene::addBoxes() {
-    /*std::vector<glm::vec3> positions = {
-        glm::vec3(-1.0f, 0.0f, 0.0f),
-        glm::vec3(1.0f, 1.0f, 0.0f),
-	};
-    for (glm::vec3 pos : positions) {
-        addBox(position + pos, scale, 0.0f);
-	}*/
-    // Camera Position: (-2.65375, -2.35872, 12.5342)
-    //Camera Position : (-0.51256, -2.35872, 12.6626)
-    //(-3.53448, -1.92767, 13.4512)
-    //(-3.40779, -1.92767, 14.2655)
     addBox(glm::vec3(-2.65375, -2.35872, 12.5342), glm::vec3(0.5), glm::vec3(5, 0, 0), 3.0f);
     addBox(glm::vec3(-0.51256, -2.35872, 12.6626), glm::vec3(0.5), glm::vec3(0, 5, 0), 3.0f);
     addBox(glm::vec3(-3.40779, -1.92767, 14.2655), glm::vec3(0.1), glm::vec3(10, 0, 0), 2);
@@ -160,11 +149,6 @@ void GameScene::addBoxes() {
     addBox(glm::vec3(1.42639, 2.66094, 0.274786), glm::vec3(0.1), glm::vec3(0, 0, -7), 10);
     addBox(glm::vec3(1.42639, 2.66094, 0.374786), glm::vec3(0.1), glm::vec3(0, -0, -4), 10);
     addBox(glm::vec3(1.42639, 2.66094, 0.474786), glm::vec3(0.1), glm::vec3(0, 0, -1), 10);
-
-
-
-
-    
 }
 
 
@@ -197,3 +181,26 @@ void GameScene::UpdateBoxes() {
         }
     }
 }
+
+void GameScene::UpdateEmitters(float dt) {
+	auto view = gameWorld->GetRegistry()->view<JD::ParticleEmitterComponent, JD::JoltComponent>();
+	for (auto [entity, emitterComp, jolt] : view.each()) {
+		const JPH::BodyLockInterface& lock_interface = gameWorld->GetPhysicsSystem()->GetBodyLockInterface();
+		JPH::BodyLockRead lock(lock_interface, jolt.bodyID);
+		if (lock.Succeeded()) { // body_id may no longer be valid
+			const JPH::Body& body = lock.GetBody();
+			
+		}
+	}
+}
+
+/*for (entt::entity* particle : emitterComp.particles) {
+                JD::ParticleComponent* partComp = gameWorld->GetRegistry()->try_get<JD::ParticleComponent>(*particle);
+                if(partComp) {
+                    if (partComp->lifetime <= 0) {
+                        gameWorld->GetRegistry()->destroy(*particle);
+                        particle = nullptr;
+                    }
+                    partComp->Update(dt);
+                }
+            }*/

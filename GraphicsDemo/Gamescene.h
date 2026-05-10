@@ -23,6 +23,7 @@ private:
 	void addBoxes();
 	void addBox(glm::vec3 position, glm::vec3 scale, glm::vec3 velocity, float travelDistance);
 	void UpdateBoxes();
+	void UpdateEmitters(float dt);
 	entt::entity* addLight(glm::vec3 position, glm::vec3 color, glm::vec3 direction, float range);
 
     JD::Gameworld* gameWorld;
