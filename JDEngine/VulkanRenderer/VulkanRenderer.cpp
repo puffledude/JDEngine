@@ -1837,7 +1837,7 @@ namespace JD
 			vk::DescriptorBufferInfo lightBufferInfo{ .buffer = lighting.lightingStorageBuffers[i], .offset = 0, .range = sizeof(lightTransmition) * MAX_LIGHTS };
 			vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
 			vk::DescriptorBufferInfo lightPerspectiveBufferInfo{ .buffer = sunBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
-			vk::DescriptorImageInfo shadowMapInfo{ .sampler = vulkanCore.clampSampler, .imageView = shadows.shadowImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			vk::DescriptorImageInfo shadowMapInfo{ .sampler = vulkanCore.clampSampler, .imageView = shadows.shadowDepthImageView, .imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal };
 			vk::DescriptorImageInfo colourImageInfo{ .sampler = vulkanCore.clampSampler, .imageView = gBuffer.gbufferColourImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 			vk::DescriptorImageInfo normalImageInfo{ .sampler = vulkanCore.clampSampler, .imageView = gBuffer.gbufferNormalImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
 			vk::DescriptorImageInfo materialImageInfo{ .sampler = vulkanCore.clampSampler, .imageView = gBuffer.gbufferMaterialImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
