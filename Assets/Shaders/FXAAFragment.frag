@@ -49,6 +49,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 This shader was adapted from the above
 */
+layout(location =0) in vertexOut{
+    vec2 texCoord;
+}outVert;
+
 
 layout(binding =0) uniform cameraBuffer{
     vec4 position;
@@ -59,18 +63,25 @@ layout(binding =0) uniform cameraBuffer{
     mat4 inverseProjection;
     } cameraData;
 
-layout(binding = 1) uniform sampler2D sceneTex;
+layout(binding = 1) uniform ScreenData{
+    uniform int width;
+    uniform int height;
+}screenData;
 
+
+layout(binding = 2) uniform sampler2D sceneTex;
 
 //uniform sampler2D sceneTex;
-layout(binding = 2)uniform sampler2D depthTex;
-uniform int width;
-uniform int height;
 
-in Vertex{
-    vec2 texCoord;
-} IN;
-out vec4 fragColour;
+
+
+
+
+
+//in Vertex{
+  //  vec2 texCoord;
+//} IN;
+layout (location =0) out vec4 fragColour;
 
 
 #define FXAA_REDUCE_MIN   (1.0/ 128.0)
@@ -80,7 +91,7 @@ out vec4 fragColour;
 vec4 applyFXAA(vec2 fragCoord, sampler2D tex)
 {
     vec4 color;
-    vec2 inverseVP = vec2(1.0 / width, 1.0 / height);
+    vec2 inverseVP = vec2(1.0 / screenData.width, 1.0 / screenData.height);
     vec3 rgbNW = texture(tex, (fragCoord + vec2(-1.0, -1.0)) * inverseVP).xyz;
     vec3 rgbNE = texture(tex, (fragCoord + vec2(1.0, -1.0)) * inverseVP).xyz;
     vec3 rgbSW = texture(tex, (fragCoord + vec2(-1.0, 1.0)) * inverseVP).xyz;
@@ -125,7 +136,7 @@ vec4 applyFXAA(vec2 fragCoord, sampler2D tex)
 void main(void)
 {
 
-   vec2 fragCoord = IN.texCoord * vec2(width, height);
+   vec2 fragCoord = outVert.texCoord; //* vec2(screenData.width, screenData.height);
     fragColour = applyFXAA(fragCoord, sceneTex);
 }
 
