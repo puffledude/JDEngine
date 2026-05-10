@@ -71,7 +71,7 @@ function (add_glsl_shader_target TARGET)
     set(OUTPUT_SPV "${SHADERDIR}/${SHADER_NAME}.spv")
     add_custom_command(
         OUTPUT ${OUTPUT_SPV}
-        COMMAND ${GLSLC_EXECUTABLE} ${SHADER_SOURCE} -o ${OUTPUT_SPV} -target spirv -profile spirv_1_4 -emit-spirv-directly
+        COMMAND ${GLSLC_EXECUTABLE} ${SHADER_SOURCE} -o ${OUTPUT_SPV} 
         WORKING_DIRECTORY ${SHADERDIR}
         DEPENDS ${SHADER_SOURCE}
         COMMENT "Compiling GLSL Shader: ${SHADER_NAME}"

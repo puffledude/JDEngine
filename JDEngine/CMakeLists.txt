@@ -64,7 +64,7 @@ include(../CMake/Jolt.cmake)
 
 find_package(Vulkan REQUIRED)
 find_program(SLANGC_EXECUTABLE slangc HINTS $ENV{VULKAN_SDK}/bin REQUIRED)
-
+find_program(GLSLC_EXECUTABLE glslc HINTS $ENV{VULKAN_SDK}/bin REQUIRED)
 
 target_compile_definitions(vk-bootstrap INTERFACE
     VK_BOOTSTRAP_VULKAN_HEADER_DIR="${Vulkan_INCLUDE_DIRS}"
