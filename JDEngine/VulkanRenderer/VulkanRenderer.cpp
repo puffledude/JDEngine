@@ -192,6 +192,9 @@ namespace JD
 		if (sharpen.finalSharpenPipeline) { vulkanCore.device.destroyPipeline(sharpen.finalSharpenPipeline); sharpen.finalSharpenPipeline = nullptr; }
 		if (sharpen.finalSharpenPipelineLayout) { vulkanCore.device.destroyPipelineLayout(sharpen.finalSharpenPipelineLayout); sharpen.finalSharpenPipelineLayout = nullptr; }
 
+		if (fxaa.fxaaPipeline) { vulkanCore.device.destroyPipeline(fxaa.fxaaPipeline); fxaa.fxaaPipeline = nullptr; }
+		if (fxaa.fxaaPipelineLayout) { vulkanCore.device.destroyPipelineLayout(fxaa.fxaaPipelineLayout); fxaa.fxaaPipelineLayout = nullptr; }
+
 	}
 
 
@@ -270,7 +273,7 @@ namespace JD
 		if (temporal.taaDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(temporal.taaDescriptorSetLayout); temporal.taaDescriptorSetLayout = nullptr; }
 		if (laplacian.laplacianDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(laplacian.laplacianDescriptorSetLayout); laplacian.laplacianDescriptorSetLayout = nullptr; }
 		if (sharpen.finalSharpenDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(sharpen.finalSharpenDescriptorSetLayout); sharpen.finalSharpenDescriptorSetLayout = nullptr; }
-
+		if (fxaa.fxaaDescriptorSetLayout) { vulkanCore.device.destroyDescriptorSetLayout(fxaa.fxaaDescriptorSetLayout); fxaa.fxaaDescriptorSetLayout = nullptr; }
 		// 4) Sampler
 		if (vulkanCore.repeatSampler) { vulkanCore.device.destroySampler(vulkanCore.repeatSampler); vulkanCore.repeatSampler = nullptr; }
 		if (vulkanCore.clampSampler) { vulkanCore.device.destroySampler(vulkanCore.clampSampler); vulkanCore.clampSampler = nullptr; }
@@ -831,6 +834,7 @@ namespace JD
 		createLaplacianDescriptorSetLayout();
 		createSharpenDescriptorSetLayout();
 		createOutputDescriptorSetLayout();
+		createFXAADescriptorSetLayout();
 	}
 
 	void VulkanRenderer::createSkyboxDescriptorSetLayout() {
@@ -930,6 +934,16 @@ namespace JD
 		finalOutput.finalOutputDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
 	}
 
+	void VulkanRenderer::createFXAADescriptorSetLayout() 
+	{
+		std::array bindings = {
+			vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment, nullptr),  // Camera Data
+			vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Screen Data
+			vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr),  // Input texture
+		};
+		vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data() };
+		fxaa.fxaaDescriptorSetLayout = vulkanCore.device.createDescriptorSetLayout(layoutInfo);
+	}
 
 	void VulkanRenderer::createDescriptorPool() {
 			std::array poolSizes = {
@@ -984,6 +998,7 @@ namespace JD
 		createTaaPipeline(swapChainFormat, width, height);
 		createLaplacianPipeline(swapChainFormat, width, height);
 		createSharpenPipeline(swapChainFormat, width, height);
+		createFXAAPipeline(swapChainFormat, width, height);
 	}
 	void VulkanRenderer::createSkyboxPipeline(vk::Format swapChainFormat, float width, float height) {
 		createSkyboxPipelinefunc(skybox.skyboxPipeline, skybox.skyboxPipelineLayout, vulkanCore.device, skybox.skyboxDescriptorSetLayout, width, height, swapChainFormat);
@@ -1036,6 +1051,10 @@ namespace JD
 
 	void VulkanRenderer::createSharpenPipeline(vk::Format swapChainFormat, float width, float height) {
 		createSharpenPipelinefunc(sharpen.finalSharpenPipeline, sharpen.finalSharpenPipelineLayout, vulkanCore.device, sharpen.finalSharpenDescriptorSetLayout, width, height, swapChainFormat);
+	}
+
+	void VulkanRenderer::createFXAAPipeline(vk::Format swapChainFormat, float width, float height) {
+		createFXAAPipelinefunc(fxaa.fxaaPipeline, fxaa.fxaaPipelineLayout, vulkanCore.device, fxaa.fxaaDescriptorSetLayout, width, height, swapChainFormat);
 	}
 
 	void VulkanRenderer::createTaaImages(vk::Format swapChainFormat, float width, float height) {

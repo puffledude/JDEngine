@@ -162,6 +162,12 @@ namespace JD
 		void createSharpenDescriptorSets();
 		void createSharpenPipeline(vk::Format swapChainFormat, float width, float height);
 
+		void createFXAADescriptorSetLayout();
+		void createFXAADescriptorSets();
+		void createFXAAPipeline(vk::Format swapChainFormat, float width, float height);
+
+
+
 		void createCommandPool();
 		void createCommandBuffers();
 		void createSyncObjects();
@@ -227,8 +233,6 @@ namespace JD
 		std::vector<vk::Buffer> cameraBuffers;
 		std::vector<VmaAllocation> cameraBufferAllocations;
 
-		/*std::vector<vk::Buffer> prevCameraBuffers;
-		std::vector<VmaAllocation> prevCameraBufferAllocations;*/
 
 		std::vector<vk::Buffer> sunBuffers;
 		std::vector<VmaAllocation> sunBufferAllocations;
@@ -252,7 +256,7 @@ namespace JD
 		TAA temporal{};
 		Laplacian laplacian{};
 		FinalSharpend sharpen{};
-
+		FXAA fxaa{};
 
 		FinalOutput finalOutput{};
 		std::vector<RenderTransmition>* currentRenderTransmition = nullptr;

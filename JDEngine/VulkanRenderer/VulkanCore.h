@@ -186,5 +186,15 @@ namespace JD
 		VmaAllocation finalSharpenOutputAllocation = nullptr;*/
 	};
 
+	struct FXAA {
+		vk::DescriptorSetLayout fxaaDescriptorSetLayout = nullptr;
+		std::vector<vk::DescriptorSet> fxaaDescriptorSets;
+		vk::Pipeline fxaaPipeline = nullptr;
+		vk::PipelineLayout fxaaPipelineLayout = nullptr;
+		vk::Image fxaaOutputImage = nullptr;
+		vk::ImageView fxaaOutputImageView = nullptr;
+		VmaAllocation fxaaOutputAllocation = nullptr;
+	};
+
 
 }
