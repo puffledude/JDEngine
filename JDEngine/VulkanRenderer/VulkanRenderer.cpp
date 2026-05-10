@@ -35,7 +35,7 @@ namespace JD
 		createSwapChain();
 		createImageViews();
 		createDepthResources();
-		
+		updateScreenDataBuffer();
 
 		vk::Format swapChainFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
 		float swapChainWidth = static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width);
@@ -300,6 +300,7 @@ namespace JD
 		}
 		storageBuffers.clear();
 		storageBufferAllocations.clear();
+		if (screenDataBuffer) { vmaDestroyBuffer(vulkanCore.allocator, static_cast<VkBuffer>(screenDataBuffer), screenDataBufferAllocation); screenDataBuffer = nullptr; screenDataBufferAllocation = nullptr; }
 
 		// 6) Depth image view, then depth image
 		if (depthImageView) { vulkanCore.device.destroyImageView(depthImageView); depthImageView = nullptr; }
@@ -410,6 +411,8 @@ namespace JD
 			vk::Format swapChainFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
 			createGraphicsPipelines(swapChainFormat, depthImageFormat, (float)vulkanCore.vkbInstances.swapChain.extent.width, (float)vulkanCore.vkbInstances.swapChain.extent.height);
 			createCameraBuffers();
+			createScreenDataBuffer();
+			updateScreenDataBuffer();
 			createSunBuffers();
 			createLightingBuffers();
 			createCommandPool();
@@ -452,6 +455,7 @@ namespace JD
 		createSharpenDescriptorSets();
 		createOutputDescriptorSets();
 		assignSkyboxDescriptors();
+		createFXAADescriptorSets();
 	}
 
 
@@ -724,21 +728,27 @@ namespace JD
 			createBuffer(sizeof(CameraInfo), vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer, allocation);
 			cameraBuffers.push_back(buffer);
 			cameraBufferAllocations.push_back(allocation);
-
-			//vk::Buffer prevBuffer;
-			//VmaAllocation prevAllocation;
-			//createBuffer(sizeof(CameraInfo), vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferDst, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, prevBuffer, prevAllocation);
-			//prevCameraBuffers.push_back(prevBuffer);
-			//prevCameraBufferAllocations.push_back(prevAllocation);
-			//void* mapped = nullptr;
-			//vmaMapMemory(vulkanCore.allocator, prevAllocation, &mapped);
-			//memcpy(mapped, &initialCameraData, sizeof(CameraInfo));
-			//vmaUnmapMemory(vulkanCore.allocator, prevAllocation);
 		}
-
-
-
 	}
+
+	void VulkanRenderer::createScreenDataBuffer() {
+		//vk::Buffer buffer;
+		//VmaAllocation allocation;
+		createBuffer(sizeof(ScreenData), vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, screenDataBuffer, screenDataBufferAllocation);
+		
+	}
+
+	void VulkanRenderer::updateScreenDataBuffer() {
+		ScreenData screenData{
+			.width = vulkanCore.vkbInstances.swapChain.extent.width,
+			.height = vulkanCore.vkbInstances.swapChain.extent.height
+		};
+		void* mapped = nullptr;
+		vmaMapMemory(vulkanCore.allocator, screenDataBufferAllocation, &mapped);
+		std::memcpy(mapped, &screenData, sizeof(ScreenData));
+		vmaUnmapMemory(vulkanCore.allocator, screenDataBufferAllocation);
+	}
+
 
 	void VulkanRenderer::createSunBuffers() {
 		sunBuffers.clear();
@@ -2055,6 +2065,52 @@ namespace JD
 
 	}
 
+	void VulkanRenderer::createFXAADescriptorSets() {
+		std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, fxaa.fxaaDescriptorSetLayout);
+		vk::DescriptorSetAllocateInfo allocInfo{
+			.descriptorPool = descriptorPool,
+			.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
+			.pSetLayouts = layouts.data()
+		};
+		if (!fxaa.fxaaDescriptorSets.empty()) {
+			vulkanCore.device.freeDescriptorSets(descriptorPool, fxaa.fxaaDescriptorSets);
+		}
+		fxaa.fxaaDescriptorSets.clear();
+		fxaa.fxaaDescriptorSets = vulkanCore.device.allocateDescriptorSets(allocInfo);
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			vk::DescriptorBufferInfo cameraBufferInfo{ .buffer = cameraBuffers[i], .offset = 0, .range = sizeof(CameraInfo) };
+			vk::DescriptorBufferInfo screenDataBufferInfo{ .buffer = screenDataBuffer, .offset = 0, .range = sizeof(ScreenData) };
+			vk::DescriptorImageInfo outputImageInfo{ .sampler = vulkanCore.clampSampler, .imageView = finalOutput.finalOutputImageView, .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal };
+			std::array<vk::WriteDescriptorSet, 3> descriptorWrites = {
+				vk::WriteDescriptorSet{
+					.dstSet = fxaa.fxaaDescriptorSets[i],
+					.dstBinding = 0,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eUniformBuffer,
+					.pBufferInfo = &cameraBufferInfo
+				},
+				vk::WriteDescriptorSet{
+					.dstSet = fxaa.fxaaDescriptorSets[i],
+					.dstBinding = 1,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eUniformBuffer,
+					.pBufferInfo = &screenDataBufferInfo
+				},
+				vk::WriteDescriptorSet{
+					.dstSet = fxaa.fxaaDescriptorSets[i],
+					.dstBinding = 2,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
+					.pImageInfo = &outputImageInfo
+				}
+			};
+			vulkanCore.device.updateDescriptorSets(descriptorWrites, {});
+		}
+	}
+
 	void VulkanRenderer::createLaplacianDescriptorSets() {
 		std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, laplacian.laplacianDescriptorSetLayout);
 		vk::DescriptorSetAllocateInfo allocInfo{
@@ -2172,6 +2228,12 @@ namespace JD
 		}
 		if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS && cooldown <= 0.0f) {
 			useTaa = useTaa == 0 ? 1 : 0;
+			useFXAA = 0;
+			cooldown = 0.5f;
+		}
+		if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS && cooldown <= 0.0f) {
+			useFXAA = useFXAA == 0 ? 1 : 0;
+			useTaa = 0;
 			cooldown = 0.5f;
 		}
 		if (glfwGetKey(window, GLFW_KEY_COMMA) == GLFW_PRESS && cooldown <= 0.0f) {
@@ -2312,6 +2374,10 @@ namespace JD
 			drawTAApass();
 			drawLaplacian();
 			sharpenOutput(imageIndex);
+		}
+		else if (useFXAA) {
+			drawFinalOutputPass();
+			drawFXAApass(imageIndex);
 		}
 		else {
 			drawFinalOutputAliased(imageIndex);
@@ -3258,6 +3324,65 @@ namespace JD
 			vk::ImageAspectFlagBits::eColor, 1);
 		commandBuffer.end();
 	}
+
+	void VulkanRenderer::drawFXAApass(uint32_t imageIndex) {
+		vk::CommandBuffer commandBuffer = vulkanCore.commandBuffers[currentFrame];
+		transitionImageLayout(commandBuffer,
+			vulkanCore.swapChainImages[imageIndex],
+			vk::ImageLayout::eUndefined,
+			vk::ImageLayout::eColorAttachmentOptimal,
+			{},
+			vk::AccessFlagBits2::eColorAttachmentWrite,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+			vk::ImageAspectFlagBits::eColor,
+			1
+		);
+		int width = vulkanCore.vkbInstances.swapChain.extent.width;
+		int height = vulkanCore.vkbInstances.swapChain.extent.height;
+		vk::Extent2D extent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
+		vk::RenderingAttachmentInfo colorAttachment{
+		.imageView = vulkanCore.swapChainImageViews[imageIndex],
+		.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+		.loadOp = vk::AttachmentLoadOp::eClear,
+		.storeOp = vk::AttachmentStoreOp::eStore,
+		.clearValue = { std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f} }
+		};
+
+		vk::RenderingInfo renderingInfo{
+			.renderArea = vk::Rect2D({ 0, 0 }, extent),
+			.layerCount = 1,
+			.viewMask = 0,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &colorAttachment,
+			.pDepthAttachment = nullptr,
+			.pStencilAttachment = nullptr
+		};
+		sharpeningPushConstants pc{ .sharpenStrength = glm::vec4(this->sharpenStrength) };
+
+		commandBuffer.beginRendering(renderingInfo);
+		commandBuffer.setViewport(0, vk::Viewport{ 0.0f, 0.0f, static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width), static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height), 0.0f, 1.0f });
+		commandBuffer.setScissor(0, vk::Rect2D({ 0, 0 }, extent));
+		commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, fxaa.fxaaPipeline);
+		commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, fxaa.fxaaPipelineLayout, 0, fxaa.fxaaDescriptorSets[currentFrame], {});
+		commandBuffer.bindVertexBuffers(0, quad.vertexBuffer, { 0 });
+		commandBuffer.bindIndexBuffer(quad.indexBuffer, 0, vk::IndexType::eUint32);
+		commandBuffer.drawIndexed(static_cast<uint32_t>(quad.indices.size()), 1, 0, 0, 0);
+		commandBuffer.endRendering();
+
+		transitionImageLayout(commandBuffer,
+			vulkanCore.swapChainImages[imageIndex],
+			vk::ImageLayout::eColorAttachmentOptimal,    // Fixed from eTransferSrcOptimal
+			vk::ImageLayout::ePresentSrcKHR,
+			vk::AccessFlagBits2::eColorAttachmentWrite,  // Fixed from eTransferRead
+			{},
+			vk::PipelineStageFlagBits2::eColorAttachmentOutput, // Fixed from eTransfer
+			vk::PipelineStageFlagBits2::eBottomOfPipe,
+			vk::ImageAspectFlagBits::eColor, 1);
+		commandBuffer.end();
+	}
+
+
 
 	void VulkanRenderer::BuildInstanceBatches(
 		const std::vector<RenderTransmition>& renderables,

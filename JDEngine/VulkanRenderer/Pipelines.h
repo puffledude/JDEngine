@@ -755,6 +755,11 @@ namespace JD {
 		 .renderPass = nullptr},
 		{.colorAttachmentCount = 1, .pColorAttachmentFormats = &colorAttachmentFormat} };
 
+		auto pipelineResult = device.createGraphicsPipeline(nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
+		if (pipelineResult.result != vk::Result::eSuccess) {
+			throw std::runtime_error("Failed to create final output pipeline!");
+		}
+		pipeline = pipelineResult.value;
 		device.destroyShaderModule(vertexShaderModule);
 		device.destroyShaderModule(fragmentShaderModule);
 

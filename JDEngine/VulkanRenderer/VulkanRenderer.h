@@ -115,6 +115,8 @@ namespace JD
 		void createImages(vk::Format swapChainFormat);
 
 		void createCameraBuffers();
+		void createScreenDataBuffer();
+		void updateScreenDataBuffer();
 		void createSunBuffers();
 		void createLightingBuffers();
 		
@@ -167,7 +169,6 @@ namespace JD
 		void createFXAAPipeline(vk::Format swapChainFormat, float width, float height);
 
 
-
 		void createCommandPool();
 		void createCommandBuffers();
 		void createSyncObjects();
@@ -193,6 +194,9 @@ namespace JD
 		void drawFinalOutputAliased(uint32_t imageIndex);
 		void drawLaplacian();
 		void sharpenOutput(uint32_t imageIndex);
+		void drawFXAApass(uint32_t imageIndex);
+
+
 		//void recordCommandBuffer(uint32_t imageIndex, const std::vector<MeshInstanceBatch>& meshInstanceBatches);
 		void BuildInstanceBatches(
 			const std::vector<RenderTransmition>& renderables,
@@ -204,6 +208,7 @@ namespace JD
 		float HaltonSequence(int index, int base);
 		void JitterMatrix(glm::mat4& matrix);
 		uint32_t useTaa = true;
+		bool useFXAA = false;
 		uint32_t jitterIndex = 0;
 		uint32_t jitterSequenceLength = 16;
 
@@ -257,6 +262,10 @@ namespace JD
 		Laplacian laplacian{};
 		FinalSharpend sharpen{};
 		FXAA fxaa{};
+
+		ScreenData screenData{};
+		vk::Buffer screenDataBuffer;
+		VmaAllocation screenDataBufferAllocation;
 
 		FinalOutput finalOutput{};
 		std::vector<RenderTransmition>* currentRenderTransmition = nullptr;

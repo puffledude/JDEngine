@@ -136,7 +136,7 @@ vec4 applyFXAA(vec2 fragCoord, sampler2D tex)
 void main(void)
 {
 
-   vec2 fragCoord = outVert.texCoord; //* vec2(screenData.width, screenData.height);
+   vec2 fragCoord = outVert.texCoord * vec2(screenData.width, screenData.height);
     fragColour = applyFXAA(fragCoord, sceneTex);
 }
 
