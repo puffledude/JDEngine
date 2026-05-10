@@ -87,6 +87,9 @@ target_link_libraries(${PROJECT_NAME}
 
 file(GLOB SHADER_SLANG_SOURCES "${SHADERDIR}/*.slang")
 
+file(GLOB GLSL_SOURCES "${SHADERDIR}/*.vert" "${SHADERDIR}/*.frag" "${SHADERDIR}/*.glsl")
+message(STATUS "GLSL files found: ${GLSL_SOURCES}")
+
 message(STATUS "Shader directory: ${SHADERDIR}")
 message(STATUS "Shader files: ${SHADER_SLANG_SOURCES}")
 
@@ -95,4 +98,6 @@ if(NOT SHADER_SLANG_SOURCES)
 endif()
 
 add_slang_shader_target(Shader_files SOURCES ${SHADER_SLANG_SOURCES})
+add_glsl_shader_target(GLSL_files SOURCES ${GLSL_SOURCES})
 add_dependencies(${PROJECT_NAME} Shader_files)
+add_dependencies(${PROJECT_NAME} GLSL_files)

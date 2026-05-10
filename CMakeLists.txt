@@ -61,6 +61,29 @@ function (add_slang_shader_target TARGET)
     message(STATUS "Shader sources: ${SHADER_SOURCES}")
 endfunction()
 
+function (add_glsl_shader_target TARGET)
+    cmake_parse_arguments("SHADER" "" "" "SOURCES" ${ARGN})
+    set(SPV_OUTPUTS "")
+
+    #set(ENTRY_POINTS -entry vertMain -entry fragMain)
+    foreach(SHADER_SOURCE IN LISTS SHADER_SOURCES)
+    get_filename_component(SHADER_NAME "${SHADER_SOURCE}" NAME)
+    set(OUTPUT_SPV "${SHADERDIR}/${SHADER_NAME}.spv")
+    add_custom_command(
+        OUTPUT ${OUTPUT_SPV}
+        COMMAND ${GLSLC_EXECUTABLE} ${SHADER_SOURCE} -o ${OUTPUT_SPV} -target spirv -profile spirv_1_4 -emit-spirv-directly
+        WORKING_DIRECTORY ${SHADERDIR}
+        DEPENDS ${SHADER_SOURCE}
+        COMMENT "Compiling GLSL Shader: ${SHADER_NAME}"
+        VERBATIM
+    )
+    list (APPEND SPV_OUTPUTS ${OUTPUT_SPV})
+    endforeach()
+        add_custom_target(${TARGET} DEPENDS ${SPV_OUTPUTS})
+
+endfunction()
+
+
 # Include sub-projects.
 add_subdirectory ("JDEngine")
 add_subdirectory ("GraphicsDemo")
