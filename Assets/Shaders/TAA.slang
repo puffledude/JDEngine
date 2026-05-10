@@ -102,7 +102,7 @@ float4 generateHistoryColour(float2 prevTexCoord, float2 currentTexCoord, float2
     return float4(clampedColour, prevColour.a);
 }
 
-float4 generateHistoryColourfiveTap(float2 prevTexCoord, float2 currentTexCoord, float2 texelSize)
+float4 generateHistoryColourfiveTap(float2 prevTexCoord, float2 currentTexCoord, float2 texelSize, inout float clampMultipler)
 {
     float2 xyone = float2(-1, 0) * texelSize;
     float4 colourone = historyFrame.Sample(prevTexCoord + xyone);
@@ -114,16 +114,19 @@ float4 generateHistoryColourfiveTap(float2 prevTexCoord, float2 currentTexCoord,
     float4 colourfour = historyFrame.Sample(prevTexCoord + xyfour);
     float4 colourcenter = historyFrame.Sample(prevTexCoord);
     float4 blendedColour = (colourone + colourtwo + colourthree + colourfour + colourcenter) / 5.0;
-    float3 minColour = float3(9999);
-    float3 maxColour = float3(-9999);
+    float4 minColour = blendedColour;
+    float4 maxColour = blendedColour;
     for (int x = -1; x <= 1; x++) {
         for (int y = -1; y <= 1; y++) {
-            float3 colour = newFrame.Sample(currentTexCoord + float2(x, y) * texelSize).rgb;
+            float4 colour = newFrame.Sample(currentTexCoord + float2(x, y) * texelSize);
             minColour = min(minColour, colour);
             maxColour = max(maxColour, colour);
+            if (colour.equals(minColour) || colour.equals(maxColour)) {
+                clampMultipler *= 0.5;
+            }
         }
     }
-    float3 clampedColour = clamp(blendedColour.rgb, minColour, maxColour);
+    float3 clampedColour = clamp(blendedColour, minColour, maxColour).rgb;
     return float4(clampedColour, colourcenter.a);
 }
 
