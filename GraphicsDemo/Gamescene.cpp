@@ -41,10 +41,11 @@ void GameScene::loadEnvironment() {
 }
 
 void GameScene::addLights() {
-	glm::vec3 lightPos = glm::vec3(9.14697, -2.32016, 5.49866);
+	glm::vec3 lightPos = glm::vec3(-0.200569, -1.72289, -7.14662);
     glm::vec3 centre = glm::vec3(-0.301827, -7.13367, 5.66023);
+	float radus = glm::length(lightPos - centre);
     glm::vec3 viewDir = glm::normalize(glm::vec3(-2.16188, -5.90516, 4.87608) - lightPos);
-    sun = addLight(lightPos, glm::vec3(1.0f), viewDir, 30.0f);
+    sun = addLight(lightPos, glm::vec3(1.0f), viewDir, radus+10);
     gameWorld->GetRegistry()->emplace<JD::sunComponent>(*sun);
 	//entt::entity* pointLight = addLight(glm::vec3(0.0f, -5.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f), 6.0f);
 }
