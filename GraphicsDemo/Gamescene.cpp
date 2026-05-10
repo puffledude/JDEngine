@@ -41,7 +41,7 @@ void GameScene::loadEnvironment() {
 }
 
 void GameScene::addLights() {
-	glm::vec3 lightPos = glm::vec3(-0.200569, -1.72289, -7.14662);
+	glm::vec3 lightPos = glm::vec3(-0.200569, 1.5, -7.14662);
     glm::vec3 centre = glm::vec3(-0.301827, -7.13367, 5.66023);
 	float radus = glm::length(lightPos - centre);
     glm::vec3 viewDir = glm::normalize(glm::vec3(-2.16188, -5.90516, 4.87608) - lightPos);
