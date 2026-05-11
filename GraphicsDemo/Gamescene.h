@@ -22,6 +22,8 @@ private:
 	void addCamp(glm::vec3 position, glm::vec3 scale);
 	void addBoxes();
 	void addBox(glm::vec3 position, glm::vec3 scale, glm::vec3 velocity, float travelDistance);
+	void addBushes();
+	void addBush(glm::vec3 position, glm::vec3 scale);
 	void UpdateBoxes();
 	void UpdateEmitters(float dt);
 	entt::entity* addLight(glm::vec3 position, glm::vec3 color, glm::vec3 direction, float range);
@@ -36,5 +38,6 @@ private:
 	std::vector<entt::entity*> treeEntities;
 	std::vector<JD::MeshComponent> tentMesh;
 	std::vector<JD::MeshComponent> boxMesh;
+	std::vector<JD::MeshComponent> bushMesh;
 	entt::entity* tentEntity;
 };

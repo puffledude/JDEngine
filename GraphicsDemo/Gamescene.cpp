@@ -14,6 +14,7 @@ GameScene::GameScene(JD::Gameworld* gameWorld, JD::Renderer* renderer) : gameWor
 	addTrees();
 	addTent(glm::vec3(0.111249, -4.6, 6.00218), glm::vec3(0.007));
     addBoxes();
+    addBushes();
 }
 
 GameScene::~GameScene() {
@@ -21,6 +22,7 @@ GameScene::~GameScene() {
     renderer->DestroyMesh(treeMesh);
 	renderer->DestroyMesh(tentMesh);
 	renderer->DestroyMesh(boxMesh);
+    renderer->DestroyMesh(bushMesh);
 }
 
 
@@ -65,19 +67,27 @@ entt::entity* GameScene::addLight(glm::vec3 position, glm::vec3 color, glm::vec3
 
 }
 
+//Bush pos:
+/*
+Camera Position: (-1.4376, -4.84619, 5.43061)
+Camera Rotation: (Pitch: -25.9067, Yaw: 61.3352)
+Camera Position: (1.53413, -5.04256, 6.25111)
+Camera Rotation: (Pitch: 3.75875, Yaw: 176.412)
+*/
+
 void GameScene::addTrees() {
     std::vector<glm::vec3> positions = {
-        glm::vec3(1.70068, -5.89332, 4.95399),
-        glm::vec3(-1.77826, -5.89148, 3.73665),
-        glm::vec3(-1.94088, -5.86022, 5.71867),
-        glm::vec3(1.77775, -6.03859, 3.06386)
+        glm::vec3(1.70068f, -5.2f, 4.95399f),
+        glm::vec3(-1.77826f, -5.2f, 3.73665f),
+       // glm::vec3(-1.94088f, -5.1f, 5.71867f),
+        glm::vec3(1.77775f, -5.2f, 3.06386f)
     };
 	renderer->loadGLTF(treeMesh,GLTFDIR"/Tree/Tree.gltf");
     for(glm::vec3 pos : positions) {
         entt::entity* treeEntity = gameWorld->CreateEntity();
         gameWorld->GetRegistry()->emplace<JD::RenderableComponent>(*treeEntity, &treeMesh);
         scaleComponent scale{};
-        scale.scale = glm::vec3(0.05f);
+        scale.scale = glm::vec3(0.03f);
         gameWorld->GetRegistry()->emplace<JD::scaleComponent>(*treeEntity, scale);
         
         JPH::BoxShapeSettings test = JPH::BoxShapeSettings(JPH::Vec3(10.0f, 10.0f, 10.0f));
@@ -192,6 +202,30 @@ void GameScene::UpdateEmitters(float dt) {
 			
 		}
 	}
+}
+
+void GameScene::addBushes() {
+    addBush(glm::vec3(-1.4376, -5.0f, 5.43061), glm::vec3(1.5f));
+    addBush(glm::vec3(1.53413, -5.04256, 6.25111), glm::vec3(1.0f));
+}
+
+
+void GameScene::addBush(glm::vec3 position, glm::vec3 scale) {
+    if (bushMesh.empty()) {
+        renderer->loadGLTF(bushMesh, GLTFDIR "/Bush/small_bush.gltf");
+    }
+    entt::entity* bushEntity = gameWorld->CreateEntity();
+    gameWorld->GetRegistry()->emplace<JD::RenderableComponent>(*bushEntity, &bushMesh);
+    scaleComponent scaleComp{};
+    scaleComp.scale = scale;
+    gameWorld->GetRegistry()->emplace<JD::scaleComponent>(*bushEntity, scaleComp);
+    JPH::BoxShapeSettings test = JPH::BoxShapeSettings(JPH::Vec3(1.0f, 1.0f, 1.0f));
+    JPH::ShapeSettings::ShapeResult Result = test.Create();
+    JPH::ShapeRefC boxShape = Result.Get();
+    JPH::BodyCreationSettings bodySettings(boxShape, JPH::RVec3(position.x, position.y, position.z), JPH::Quat::sIdentity(), JPH::EMotionType::Static, 0);
+    JPH::Body* body = gameWorld->GetPhysicsSystem()->GetBodyInterface().CreateBody(bodySettings);
+    gameWorld->GetPhysicsSystem()->GetBodyInterface().AddBody(body->GetID(), JPH::EActivation::Activate);
+    gameWorld->GetRegistry()->emplace<JD::JoltComponent>(*bushEntity, body->GetID());
 }
 
 /*for (entt::entity* particle : emitterComp.particles) {
