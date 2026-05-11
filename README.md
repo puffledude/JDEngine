@@ -12,3 +12,16 @@ Libaries used:
 - TinyGLTF
 - Jolt
 - STB Image
+
+
+Assets Used:
+Environment: Made by me using Gaea.
+
+Tree model taken from https://sketchfab.com/3d-models/trees-low-poly-1d2dcca2ccb1496c85b7cc5789a2a261
+Trees Low Poly by Igor_k (uploaded 17.01.21) used under creative commons Attribution licence.
+
+Tent model taken from https://sketchfab.com/3d-models/stylized-tent-e5a32b9c07a941f78411bd1145f85fdf
+Stylized Tent by csabat3D (uploaded 14.02.21) used under creative commons Attribution licence.
+
+FXAA shader implementation from https://github.com/mitsuhiko/webgl-meincraft
+webgl-meincraft by mitsuhiko (Armin Ronacher) (last updated 11.01.2012)
