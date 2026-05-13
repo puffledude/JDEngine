@@ -2790,7 +2790,7 @@ namespace JD
 				commandBuffer.drawIndexed(static_cast<uint32_t>(piece->indices.size()), batch.instanceCount, 0, 0, 0);
 			}
 		}
-		jitterIndex = (jitterIndex + 1) % 8;
+		jitterIndex = (jitterIndex + 1) % jitterSequenceLength;
 
 		commandBuffer.endRendering();
 		transitionImageLayout(commandBuffer,
