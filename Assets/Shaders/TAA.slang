@@ -93,12 +93,15 @@ float4 generateHistoryColour(float2 prevTexCoord, float2 currentTexCoord, float2
             float4 colour = newFrame.Sample(currentTexCoord + float2(x, y) * texelSize);
             minColour = min(minColour, colour);
             maxColour = max(maxColour, colour);
-            if (colour.equals(minColour) || colour.equals(maxColour)) {
-                clampMultipler *= 0.5;
-            }
+            //if (colour.equals(minColour) || colour.equals(maxColour)) {
+              //  clampMultipler *= 0.5;
+            //}
         }
     }
     float3 clampedColour = clamp(prevColour, minColour, maxColour).rgb;
+    if (clampedColour.equals(minColour.rgb) || clampedColour.equals(maxColour.rgb)) {
+        clampMultipler *= 0.25;
+    }
     return float4(clampedColour, prevColour.a);
 }
 
@@ -203,11 +206,11 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     float4 historyDepthSample = historyDepth.Sample(reprojectPos);
     
 
-    if (abs(depthLinear - lineariseDepth(historyDepthSample.r, near, far)) > depthRejectionvalue)
-    {
-        alpha = 1;
-        sampleCount = 1;
-    }
+    //if (abs(depthLinear - lineariseDepth(historyDepthSample.r, near, far)) > depthRejectionvalue)
+    //{
+     //   alpha = 1;
+       // sampleCount = 1;
+    //}
     float totalVelocity = length(velocity);
     float4 colour = float4(0.0);
     if (totalVelocity > 5) { //Attempt at motion blurring.
@@ -216,9 +219,9 @@ float4 fragMain(VSOutput vertIn) : SV_Target
         float lerpFactor = 1 - decimal;
         colour = lerp(newSample, historySample, lerpFactor);
         colour.a = sampleCount + 1; // Set alpha to 1 to indicate a valid sample
-        }
+            }
     else {
-        // alpha = 0.1; 
+            //alpha = 0.1; 
             alpha *= alphaClamMultiplier;
             colour = alpha * newSample + (1 - alpha) * historySample;
             colour.a = sampleCount + 1;
