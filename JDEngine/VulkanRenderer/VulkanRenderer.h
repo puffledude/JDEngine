@@ -210,7 +210,7 @@ namespace JD
 		uint32_t useTaa = true;
 		bool useFXAA = false;
 		uint32_t jitterIndex = 0;
-		uint32_t jitterSequenceLength = 16;
+		uint32_t jitterSequenceLength = 8;
 
 
 

@@ -40,10 +40,12 @@ namespace JD
 		vk::Format swapChainFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
 		float swapChainWidth = static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width);
 		float swapChainHeight = static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height);
+		createGraphicsPipelines(swapChainFormat, depthImageFormat, (float)vulkanCore.vkbInstances.swapChain.extent.width, (float)vulkanCore.vkbInstances.swapChain.extent.height);
 
 		loadSkyboxImage();
 		loadDefaultTexture();
 		createImages(swapChainFormat);
+		
 		createDescriptorSets();
 
 	}
@@ -385,7 +387,9 @@ namespace JD
 	void VulkanRenderer::initVulkan() {
 		try {
 			vkb::InstanceBuilder builder;
-			auto inst_ret = builder.set_app_name("JDEngine").request_validation_layers().require_api_version(1, 3)
+			auto inst_ret = builder.set_app_name("JDEngine")
+				.request_validation_layers()
+				.require_api_version(1, 3)
 				.use_default_debug_messenger().build();
 			if (!inst_ret) {
 				throw std::runtime_error("Failed to create Vulkan instance: " + inst_ret.error().message());
@@ -2788,7 +2792,7 @@ namespace JD
 				commandBuffer.drawIndexed(static_cast<uint32_t>(piece->indices.size()), batch.instanceCount, 0, 0, 0);
 			}
 		}
-		jitterIndex = (jitterIndex + 1) % 8;
+		jitterIndex = (jitterIndex + 1) % jitterSequenceLength;
 
 		commandBuffer.endRendering();
 		transitionImageLayout(commandBuffer,
