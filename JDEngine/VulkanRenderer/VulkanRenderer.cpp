@@ -40,10 +40,12 @@ namespace JD
 		vk::Format swapChainFormat = static_cast<vk::Format>(vulkanCore.vkbInstances.swapChain.image_format);
 		float swapChainWidth = static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width);
 		float swapChainHeight = static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height);
+		createGraphicsPipelines(swapChainFormat, depthImageFormat, (float)vulkanCore.vkbInstances.swapChain.extent.width, (float)vulkanCore.vkbInstances.swapChain.extent.height);
 
 		loadSkyboxImage();
 		loadDefaultTexture();
 		createImages(swapChainFormat);
+		
 		createDescriptorSets();
 
 	}
