@@ -441,13 +441,13 @@ namespace JD
 	void VulkanRenderer::createImages(vk::Format swapChainFormat) {
 		float swapChainWidth = static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.width);
 		float swapChainHeight = static_cast<float>(vulkanCore.vkbInstances.swapChain.extent.height);
-		//vk::Format TAAFormat = vk::Format::eR16G16B16A16Unorm;		// Using a higher precision format for TAA history to reduce artifacts
+		vk::Format TAAFormat = vk::Format::eR16G16B16A16Sfloat;		// Using a higher precision format for TAA history to reduce artifacts
 		//vk::Format laplacianFormat = vk::Format::eR16G16B16A16Sfloat;	// Using a high precision format for the Laplacian output to preserve details for sharpening
 		createShadowImages(swapChainFormat, depthImageFormat, swapChainWidth, swapChainHeight);
 		createGBufferImages(swapChainFormat, depthImageFormat, swapChainWidth, swapChainHeight);
 		createLightingImages(swapChainFormat, swapChainWidth, swapChainHeight);
 		createOutputImages(swapChainFormat, swapChainWidth, swapChainHeight);
-		createTaaImages(swapChainFormat, swapChainWidth, swapChainHeight);
+		createTaaImages(TAAFormat, swapChainWidth, swapChainHeight);
 		createLaplacianImages(swapChainFormat, swapChainWidth, swapChainHeight);
 	}
 
@@ -1009,7 +1009,9 @@ namespace JD
 		createShadowPipeline(swapChainFormat, depthFormat, width, height);
 		createLightingPipeline(swapChainFormat, width, height);
 		createOutputPipeline(swapChainFormat, width, height);
-		createTaaPipeline(swapChainFormat, width, height);
+		vk::Format TAAFormat = vk::Format::eR16G16B16A16Sfloat;		// Using a higher precision format for TAA history to reduce artifacts
+
+		createTaaPipeline(TAAFormat, width, height);
 		createLaplacianPipeline(swapChainFormat, width, height);
 		createSharpenPipeline(swapChainFormat, width, height);
 		createFXAAPipeline(swapChainFormat, width, height);
