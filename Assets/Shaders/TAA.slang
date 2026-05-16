@@ -221,10 +221,11 @@ float4 fragMain(VSOutput vertIn) : SV_Target
         colour.a = sampleCount + 1; // Set alpha to 1 to indicate a valid sample
             }
     else {
-            //alpha = 0.1; 
+            alpha = 0.1; 
             alpha *= alphaClamMultiplier;
             colour = alpha * newSample + (1 - alpha) * historySample;
-            colour.a = sampleCount + 1;
+            colour.a = (1 /(1/alpha)) +1;
+            //colour.a = sampleCount + 1;
     }
     return colour;
 }
