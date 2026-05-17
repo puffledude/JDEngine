@@ -213,19 +213,19 @@ float4 fragMain(VSOutput vertIn) : SV_Target
     //}
     float totalVelocity = length(velocity);
     float4 colour = float4(0.0);
-    if (totalVelocity > 5) { //Attempt at motion blurring.
-        float decimal = 2 / totalVelocity;
+   // if (totalVelocity > 5) { //Attempt at motion blurring.
+      //  float decimal = 2 / totalVelocity;
         // float lerpFactor = pow(decimal, 2); // Adjust the exponent to control the falloff
-        float lerpFactor = 1 - decimal;
-        colour = lerp(newSample, historySample, lerpFactor);
-        colour.a = sampleCount + 1; // Set alpha to 1 to indicate a valid sample
-            }
-    else {
+       // float lerpFactor = 1 - decimal;
+       // colour = lerp(newSample, historySample, lerpFactor);
+       // colour.a = sampleCount + 1; // Set alpha to 1 to indicate a valid sample
+           // }
+    //else {
             alpha = 0.1; 
             alpha *= alphaClamMultiplier;
             colour = alpha * newSample + (1 - alpha) * historySample;
             colour.a = (1 /(1/alpha)) +1;
             //colour.a = sampleCount + 1;
-    }
+   // }
     return colour;
 }
